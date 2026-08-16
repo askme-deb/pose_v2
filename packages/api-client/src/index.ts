@@ -17,6 +17,7 @@ export class ApiClient {
       },
     });
     if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text()}`);
+    if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   }
 
@@ -26,5 +27,13 @@ export class ApiClient {
 
   post<T>(path: string, body: unknown) {
     return this.request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  put<T>(path: string, body: unknown) {
+    return this.request<T>(path, { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  delete<T>(path: string) {
+    return this.request<T>(path, { method: 'DELETE' });
   }
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Search,
@@ -12,6 +12,7 @@ import {
   Slash,
   Pencil,
   Barcode as BarcodeIcon,
+  Trash2,
 } from 'lucide-react';
 import {
   Badge,
@@ -24,9 +25,16 @@ import {
   Select,
   useToast,
 } from '@pospe/ui-library';
-import { products as seedProducts, Product, stockStatus } from '../../services/mockData/products';
-import { categories, categoryOptions } from '../../services/mockData/categories';
-import { brands } from '../../services/mockData/brands';
+import {
+  listProducts,
+  listCategories,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  stockStatus,
+  LiveProduct,
+  LiveCategory,
+} from '../../services/api/products';
 import { formatINR } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 
@@ -53,15 +61,11 @@ const gstOptions = [
   { value: '0', label: 'GST Exempt (0%)' },
 ];
 
-const categoryFilterOptions = [{ value: 'all', label: 'All Categories' }, ...categoryOptions];
-
-const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
-
 const emptyForm = {
   name: '',
   sku: '',
   barcode: '',
-  categoryId: categoryOptions[0]?.value ?? '',
+  categoryId: '',
   gstRate: '18',
   sellingPrice: '',
   costPrice: '',
@@ -83,7 +87,11 @@ function barcodeBars(code: string): string[] {
 
 export default function ProductsPage() {
   const { showToast } = useToast();
-  const [productList, setProductList] = useState<Product[]>(() => seedProducts.map((p) => ({ ...p })));
+  const [productList, setProductList] = useState<LiveProduct[]>([]);
+  const [categories, setCategories] = useState<LiveCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
@@ -93,7 +101,28 @@ export default function ProductsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
 
-  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null);
+  const [barcodeProduct, setBarcodeProduct] = useState<LiveProduct | null>(null);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [products, cats] = await Promise.all([listProducts(), listCategories()]);
+      setProductList(products);
+      setCategories(cats);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load inventory from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const categoryOptions = useMemo(() => categories.map((c) => ({ value: c.id, label: c.name })), [categories]);
+  const categoryFilterOptions = useMemo(() => [{ value: 'all', label: 'All Categories' }, ...categoryOptions], [categoryOptions]);
 
   const totalSkus = productList.length;
   const inventoryValuation = productList.reduce((sum, p) => sum + p.sellingPrice * p.stockQty, 0);
@@ -113,11 +142,11 @@ export default function ProductsPage() {
 
   function openAddDrawer() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, categoryId: categoryOptions[0]?.value ?? '' });
     setDrawerOpen(true);
   }
 
-  function openEditDrawer(p: Product) {
+  function openEditDrawer(p: LiveProduct) {
     setEditingId(p.id);
     setForm({
       name: p.name,
@@ -134,35 +163,46 @@ export default function ProductsPage() {
     setDrawerOpen(true);
   }
 
-  function inferBrandId(categoryId: string, fallback?: string): string {
-    if (fallback) return fallback;
-    return brands.find((b) => b.categoryIds.includes(categoryId))?.id ?? brands[0]?.id ?? '';
-  }
-
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const editing = editingId ? productList.find((p) => p.id === editingId) : undefined;
-    const nextProduct: Product = {
-      id: editing?.id ?? `prd-${Date.now()}`,
+    setSaving(true);
+    const input = {
       name: form.name.trim(),
       sku: form.sku.trim(),
-      barcode: form.barcode.trim(),
-      categoryId: form.categoryId,
-      brandId: inferBrandId(form.categoryId, editing?.brandId),
+      barcode: form.barcode.trim() || undefined,
+      categoryId: form.categoryId || undefined,
       gstRate: Number(form.gstRate) || 0,
-      sellingPrice: Number(form.sellingPrice) || 0,
+      price: Number(form.sellingPrice) || 0,
       costPrice: Number(form.costPrice) || 0,
       stockQty: Number(form.stockQty) || 0,
       minThreshold: Number(form.minThreshold) || 0,
       imageUrl: form.imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
     };
 
-    setProductList((prev) => {
-      if (editing) return prev.map((p) => (p.id === editing.id ? nextProduct : p));
-      return [nextProduct, ...prev];
-    });
-    setDrawerOpen(false);
-    showToast('Product saved', 'success');
+    try {
+      if (editingId) {
+        await updateProduct(editingId, input);
+      } else {
+        await createProduct(input);
+      }
+      await reload();
+      setDrawerOpen(false);
+      showToast('Product saved', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save product', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(p: LiveProduct) {
+    try {
+      await deleteProduct(p.id);
+      setProductList((prev) => prev.filter((x) => x.id !== p.id));
+      showToast(`${p.name} removed from catalog`, 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete product', 'danger');
+    }
   }
 
   function handleExportCSV() {
@@ -173,7 +213,7 @@ export default function ProductsPage() {
         p.name,
         p.sku,
         p.barcode,
-        categoryNameById.get(p.categoryId) ?? p.categoryId,
+        p.categoryName,
         `${p.gstRate}%`,
         p.sellingPrice,
         p.costPrice,
@@ -185,7 +225,7 @@ export default function ProductsPage() {
     showToast('Inventory exported to CSV', 'success');
   }
 
-  const columns: ColumnDef<Product, any>[] = [
+  const columns: ColumnDef<LiveProduct, any>[] = [
     {
       header: 'Name',
       accessorKey: 'name',
@@ -197,11 +237,7 @@ export default function ProductsPage() {
       ),
     },
     { header: 'SKU', accessorKey: 'sku', cell: ({ getValue }) => <span className="font-mono text-slate-500 dark:text-slate-400">{getValue() as string}</span> },
-    {
-      header: 'Category',
-      accessorFn: (p) => categoryNameById.get(p.categoryId) ?? p.categoryId,
-      id: 'category',
-    },
+    { header: 'Category', accessorKey: 'categoryName' },
     {
       header: 'Price',
       accessorKey: 'sellingPrice',
@@ -237,6 +273,12 @@ export default function ProductsPage() {
           >
             <BarcodeIcon className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => handleDelete(row.original)}
+            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-red-600 transition"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       ),
     },
@@ -256,7 +298,8 @@ export default function ProductsPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Master product catalog, stock valuation, price margin control, and barcode label generator.
+            Master product catalog, stock valuation, price margin control, and barcode label generator. Live data
+            from the inventory service.
           </p>
         </div>
 
@@ -348,13 +391,14 @@ export default function ProductsPage() {
           <DataTable
             columns={columns}
             data={filtered}
+            loading={loading}
             emptyTitle="No products found"
             emptyDescription="Try adjusting your search or filters."
             pageSize={8}
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <p className="col-span-full text-center text-xs text-slate-400 py-10">No products found. Try adjusting your search or filters.</p>
             )}
             {filtered.map((p) => {
@@ -416,9 +460,10 @@ export default function ProductsPage() {
             <button
               form="product-form"
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-500/25"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-500/25 disabled:opacity-50"
             >
-              Save Product SKU
+              {saving ? 'Saving…' : 'Save Product SKU'}
             </button>
           </>
         }

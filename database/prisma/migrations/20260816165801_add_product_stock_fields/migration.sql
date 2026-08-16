@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "products" ADD COLUMN     "costPrice" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "imageUrl" TEXT,
+ADD COLUMN     "minThreshold" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "stockQty" INTEGER NOT NULL DEFAULT 0;

@@ -116,7 +116,14 @@ model Product {
   unit       String   @default("PCS")
   mrp        Decimal  @default(0) @db.Decimal(12, 2)
   price      Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice  Decimal  @default(0) @db.Decimal(12, 2)
   gstRate    Decimal  @default(0) @db.Decimal(5, 2)
+  imageUrl   String?
+  // Single-location stock for now (matches the current UI, which has no multi-branch
+  // stock breakdown yet). The StockItem model below already supports per-store
+  // allocation for when that UI is built; it's just not wired up to this field yet.
+  stockQty     Int      @default(0)
+  minThreshold Int      @default(0)
   createdAt  DateTime @default(now())
 
   stockItems  StockItem[]
