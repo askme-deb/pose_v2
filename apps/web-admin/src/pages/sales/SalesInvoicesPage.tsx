@@ -1,27 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Search, Receipt, FileCheck, ShoppingCart, BarChart2, Download, Zap, Printer, RotateCcw } from 'lucide-react';
 import { Badge, Button, DataTable, GlassCard, KpiCard, Modal, useToast } from '@pospe/ui-library';
 
 import { formatINR, formatDateTime } from '../../utils/format';
-import {
-  salesInvoices as seedInvoices,
-  type SalesInvoice,
-  type PaymentMethod,
-} from '../../services/mockData/salesInvoices';
+import { listInvoices, refundInvoice, LiveInvoice, PaymentMethod } from '../../services/api/salesInvoices';
 
 const POS_URL = `${(import.meta.env.VITE_POS_URL as string | undefined) ?? 'http://localhost:5174'}/pos`;
 
 const paymentBadgeColor: Record<PaymentMethod, 'purple' | 'blue' | 'amber'> = {
-  upi: 'purple',
-  card: 'blue',
-  cash: 'amber',
+  UPI: 'purple',
+  CARD: 'blue',
+  CASH: 'amber',
 };
 
 const paymentBadgeLabel: Record<PaymentMethod, string> = {
-  upi: 'UPI / QR',
-  card: 'Card',
-  cash: 'Cash',
+  UPI: 'UPI / QR',
+  CARD: 'Card',
+  CASH: 'Cash',
 };
 
 function downloadCsv(filename: string, rows: string[][]) {
@@ -40,10 +36,27 @@ function downloadCsv(filename: string, rows: string[][]) {
 export default function SalesInvoicesPage() {
   const { showToast } = useToast();
 
-  const [invoices, setInvoices] = useState<SalesInvoice[]>(seedInvoices);
+  const [invoices, setInvoices] = useState<LiveInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | PaymentMethod>('all');
-  const [receiptInvoice, setReceiptInvoice] = useState<SalesInvoice | null>(null);
+  const [receiptInvoice, setReceiptInvoice] = useState<LiveInvoice | null>(null);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      setInvoices(await listInvoices());
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load invoices from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalBilled = useMemo(() => invoices.reduce((sum, i) => sum + i.totalAmount, 0), [invoices]);
   const totalGst = useMemo(() => invoices.reduce((sum, i) => sum + i.gstAmount, 0), [invoices]);
@@ -54,27 +67,32 @@ export default function SalesInvoicesPage() {
     return invoices.filter((inv) => {
       const matchesSearch =
         !q ||
-        inv.id.toLowerCase().includes(q) ||
+        inv.invoiceNumber.toLowerCase().includes(q) ||
         inv.customerName.toLowerCase().includes(q) ||
-        inv.items.toLowerCase().includes(q);
+        inv.itemsSummary.toLowerCase().includes(q);
       const matchesPayment = paymentFilter === 'all' || inv.paymentMethod === paymentFilter;
       return matchesSearch && matchesPayment;
     });
   }, [invoices, search, paymentFilter]);
 
-  const handleRefund = (invoice: SalesInvoice) => {
-    if (!window.confirm(`Process refund for Invoice ${invoice.id} (${formatINR(invoice.totalAmount)})?`)) return;
-    setInvoices((prev) => prev.map((inv) => (inv.id === invoice.id ? { ...inv, status: 'refunded' } : inv)));
-    showToast('Invoice refunded', 'warning');
+  const handleRefund = async (invoice: LiveInvoice) => {
+    if (!window.confirm(`Process refund for Invoice ${invoice.invoiceNumber} (${formatINR(invoice.totalAmount)})?`)) return;
+    try {
+      await refundInvoice(invoice.id);
+      setInvoices((prev) => prev.map((inv) => (inv.id === invoice.id ? { ...inv, status: 'REFUNDED' } : inv)));
+      showToast('Invoice refunded — items restocked', 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not process refund', 'danger');
+    }
   };
 
   const handleExportCsv = () => {
     const header = ['Invoice ID', 'Date', 'Customer', 'Items', 'GST Tax', 'Total Amount', 'Payment Method', 'Status'];
     const rows = filteredInvoices.map((inv) => [
-      inv.id,
+      inv.invoiceNumber,
       formatDateTime(inv.createdAt),
       inv.customerName,
-      inv.items,
+      inv.itemsSummary,
       inv.gstAmount.toFixed(2),
       inv.totalAmount.toFixed(2),
       paymentBadgeLabel[inv.paymentMethod],
@@ -84,14 +102,14 @@ export default function SalesInvoicesPage() {
     showToast('Exported sales billing ledger to CSV file.', 'info');
   };
 
-  const columns: ColumnDef<SalesInvoice>[] = useMemo(
+  const columns: ColumnDef<LiveInvoice>[] = useMemo(
     () => [
       {
         header: 'Invoice ID & Date',
-        accessorKey: 'id',
+        accessorKey: 'invoiceNumber',
         cell: ({ row }) => (
           <div>
-            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.id}</div>
+            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.invoiceNumber}</div>
             <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
           </div>
         ),
@@ -103,8 +121,8 @@ export default function SalesInvoicesPage() {
       },
       {
         header: 'Billed Items',
-        accessorKey: 'items',
-        cell: ({ row }) => <span className="text-slate-600 dark:text-slate-300 line-clamp-1 max-w-xs block">{row.original.items}</span>,
+        accessorKey: 'itemsSummary',
+        cell: ({ row }) => <span className="text-slate-600 dark:text-slate-300 line-clamp-1 max-w-xs block">{row.original.itemsSummary}</span>,
       },
       {
         header: 'GST Tax',
@@ -134,8 +152,8 @@ export default function SalesInvoicesPage() {
         accessorKey: 'status',
         cell: ({ row }) => (
           <div className="flex justify-center">
-            <Badge color={row.original.status === 'completed' ? 'emerald' : 'red'} pill>
-              {row.original.status === 'completed' ? 'Completed' : 'Refunded'}
+            <Badge color={row.original.status === 'REFUNDED' ? 'red' : 'emerald'} pill>
+              {row.original.status === 'REFUNDED' ? 'Refunded' : 'Completed'}
             </Badge>
           </div>
         ),
@@ -152,7 +170,7 @@ export default function SalesInvoicesPage() {
             >
               <Printer className="w-3.5 h-3.5" />
             </button>
-            {row.original.status === 'completed' && (
+            {row.original.status !== 'REFUNDED' && (
               <button
                 onClick={() => handleRefund(row.original)}
                 title="Process Refund"
@@ -181,7 +199,8 @@ export default function SalesInvoicesPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Audit sales transactions, reprint thermal receipts, inspect GST breakdown, and process refunds.
+            Audit sales transactions, reprint thermal receipts, inspect GST breakdown, and process refunds. Live data
+            from the sales service.
           </p>
         </div>
 
@@ -203,9 +222,9 @@ export default function SalesInvoicesPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="all">All Payment Methods</option>
-            <option value="upi">UPI / QR Code</option>
-            <option value="card">Credit Card</option>
-            <option value="cash">Cash</option>
+            <option value="UPI">UPI / QR Code</option>
+            <option value="CARD">Credit Card</option>
+            <option value="CASH">Cash</option>
           </select>
 
           <div className="flex items-center gap-2">
@@ -237,6 +256,7 @@ export default function SalesInvoicesPage() {
         <DataTable
           columns={columns}
           data={filteredInvoices}
+          loading={loading}
           emptyTitle="No Sales Invoices Found"
           emptyDescription="No invoice numbers or customer names match your search filter."
         />
@@ -266,7 +286,7 @@ export default function SalesInvoicesPage() {
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-bold">
-              <span>INVOICE: {receiptInvoice.id}</span>
+              <span>INVOICE: {receiptInvoice.invoiceNumber}</span>
               <span>{formatDateTime(receiptInvoice.createdAt)}</span>
             </div>
 
@@ -276,12 +296,12 @@ export default function SalesInvoicesPage() {
             </div>
 
             <div className="py-2 border-y border-dashed border-slate-300 dark:border-slate-700 space-y-1 text-[11px]">
-              <div className="font-bold line-clamp-2">{receiptInvoice.items}</div>
+              <div className="font-bold line-clamp-2">{receiptInvoice.itemsSummary}</div>
             </div>
 
             <div className="space-y-1 text-right text-[11px] pt-1">
               <div className="flex justify-between">
-                <span>Subtotal Excl Tax:</span> <span>{formatINR(receiptInvoice.totalAmount - receiptInvoice.gstAmount)}</span>
+                <span>Subtotal Excl Tax:</span> <span>{formatINR(receiptInvoice.subtotal)}</span>
               </div>
               <div className="flex justify-between text-slate-400">
                 <span>CGST (9%):</span> <span>{formatINR(receiptInvoice.gstAmount / 2)}</span>
@@ -296,7 +316,7 @@ export default function SalesInvoicesPage() {
 
             <div className="text-center pt-3 text-[10px] text-slate-400 border-t border-dashed border-slate-300 dark:border-slate-700">
               <div>
-                Payment via {paymentBadgeLabel[receiptInvoice.paymentMethod]} &bull; Status: {receiptInvoice.status.toUpperCase()}
+                Payment via {paymentBadgeLabel[receiptInvoice.paymentMethod]} &bull; Status: {receiptInvoice.status}
               </div>
               <div className="mt-1 font-bold">Thank you for shopping at ApexPOS Supermarket!</div>
             </div>

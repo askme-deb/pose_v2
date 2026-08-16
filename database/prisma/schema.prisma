@@ -236,14 +236,25 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum PaymentMethod {
+  UPI
+  CARD
+  CASH
+}
+
 model Invoice {
   id            String        @id @default(cuid())
   storeId       String
   store         Store         @relation(fields: [storeId], references: [id])
   customerId    String?
   customer      Customer?     @relation(fields: [customerId], references: [id])
+  // Snapshot of the billed name at sale time — real receipts print this even for
+  // walk-in customers with no CRM record, and it shouldn't retroactively change
+  // if the linked Customer is later renamed.
+  customerName  String        @default("Walk-in Customer")
   invoiceNumber String
   status        InvoiceStatus @default(DRAFT)
+  paymentMethod PaymentMethod @default(CASH)
   subtotal      Decimal       @default(0) @db.Decimal(12, 2)
   taxTotal      Decimal       @default(0) @db.Decimal(12, 2)
   total         Decimal       @default(0) @db.Decimal(12, 2)

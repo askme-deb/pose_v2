@@ -138,8 +138,99 @@ async function main() {
     }
   }
 
+  const existingStore = await prisma.store.findFirst({ where: { tenantId: tenant.id, name: 'Downtown Flagship' } });
+  const store =
+    existingStore ??
+    (await prisma.store.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'Downtown Flagship',
+        address: '142 MG Road, Bengaluru, Karnataka 560001',
+        gstin: '27AAACA1234F1Z9',
+      },
+    }));
+
+  const customerDefs = [
+    { name: 'Aarav Kapoor', phone: '+91 98450 11221' },
+    { name: 'Meera Iyer', phone: '+91 98450 22332' },
+    { name: 'Rohan Malhotra', phone: '+91 98450 33443' },
+    { name: 'Simran Kaur', phone: '+91 98450 44554' },
+    { name: 'Devansh Rao', phone: '+91 98450 55665' },
+    { name: 'Ananya Bose', phone: '+91 98450 66776' },
+    { name: 'Kabir Singh', phone: '+91 98450 77887' },
+    { name: 'Neha Kulkarni', phone: '+91 98450 88998' },
+  ];
+
+  const customerIdByName: Record<string, string> = {};
+  for (const c of customerDefs) {
+    const existing = await prisma.customer.findFirst({ where: { tenantId: tenant.id, name: c.name } });
+    const customer = existing ?? (await prisma.customer.create({ data: { tenantId: tenant.id, name: c.name, phone: c.phone } }));
+    customerIdByName[c.name] = customer.id;
+  }
+
+  // Invoice totals are computed from real seeded product prices/GST rates rather
+  // than hand-typed round numbers, so subtotal + tax actually equals total.
+  function buildInvoiceItems(lines: { sku: string; qty: number }[]) {
+    return lines.map(({ sku, qty }) => {
+      const product = products.find((p) => p.sku === sku)!;
+      const lineSubtotal = product.price * qty;
+      const lineTax = Math.round(lineSubtotal * (product.gstRate / 100) * 100) / 100;
+      return { productId: productIdBySku[sku], quantity: qty, price: product.price, gstRate: product.gstRate, total: lineSubtotal + lineTax, lineSubtotal, lineTax };
+    });
+  }
+
+  const invoiceDefs = [
+    { seq: 9821, customerName: 'Aarav Kapoor', paymentMethod: 'UPI' as const, status: 'PAID' as const, createdAt: '2026-08-16T09:12:00+05:30', lines: [{ sku: 'AML-GLD-1L', qty: 2 }, { sku: 'NSC-CLC-100', qty: 1 }] },
+    { seq: 9822, customerName: 'Walk-in Customer', paymentMethod: 'CASH' as const, status: 'PAID' as const, createdAt: '2026-08-16T08:40:00+05:30', lines: [{ sku: 'COC-750-BTL', qty: 6 }, { sku: 'CDB-DMS-60', qty: 3 }] },
+    { seq: 9823, customerName: 'Meera Iyer', paymentMethod: 'CARD' as const, status: 'PAID' as const, createdAt: '2026-08-15T19:05:00+05:30', lines: [{ sku: 'BRT-BRB-400', qty: 2 }, { sku: 'AML-PNR-200', qty: 1 }] },
+    { seq: 9824, customerName: 'Rohan Malhotra', paymentMethod: 'UPI' as const, status: 'PAID' as const, createdAt: '2026-08-15T17:52:00+05:30', lines: [{ sku: 'HLD-ALB-200', qty: 4 }, { sku: 'NSC-MNC-4PK', qty: 2 }] },
+    { seq: 9825, customerName: 'Walk-in Customer', paymentMethod: 'CASH' as const, status: 'PAID' as const, createdAt: '2026-08-15T16:20:00+05:30', lines: [{ sku: 'FRS-MNG-1KG', qty: 2 }] },
+    { seq: 9826, customerName: 'Simran Kaur', paymentMethod: 'CARD' as const, status: 'REFUNDED' as const, createdAt: '2026-08-15T12:10:00+05:30', lines: [{ sku: 'COC-ZR-300', qty: 10 }] },
+    { seq: 9827, customerName: 'Devansh Rao', paymentMethod: 'UPI' as const, status: 'PAID' as const, createdAt: '2026-08-14T20:33:00+05:30', lines: [{ sku: 'AML-GLD-1L', qty: 3 }, { sku: 'AML-CHZ-200', qty: 2 }] },
+    { seq: 9828, customerName: 'Walk-in Customer', paymentMethod: 'CASH' as const, status: 'PAID' as const, createdAt: '2026-08-14T18:15:00+05:30', lines: [{ sku: 'BRT-GDC-200', qty: 5 }] },
+    { seq: 9829, customerName: 'Ananya Bose', paymentMethod: 'CARD' as const, status: 'PAID' as const, createdAt: '2026-08-14T14:02:00+05:30', lines: [{ sku: 'CDB-DMS-60', qty: 6 }, { sku: 'NSC-CLC-100', qty: 1 }] },
+    { seq: 9830, customerName: 'Kabir Singh', paymentMethod: 'UPI' as const, status: 'PAID' as const, createdAt: '2026-08-14T11:47:00+05:30', lines: [{ sku: 'COC-750-BTL', qty: 12 }] },
+    { seq: 9831, customerName: 'Walk-in Customer', paymentMethod: 'CASH' as const, status: 'REFUNDED' as const, createdAt: '2026-08-13T19:58:00+05:30', lines: [{ sku: 'HLD-ALB-200', qty: 2 }, { sku: 'FRS-MNG-1KG', qty: 1 }] },
+    { seq: 9832, customerName: 'Neha Kulkarni', paymentMethod: 'UPI' as const, status: 'PAID' as const, createdAt: '2026-08-13T10:24:00+05:30', lines: [{ sku: 'AML-PNR-200', qty: 3 }, { sku: 'BRT-BRB-400', qty: 2 }] },
+  ];
+
+  for (const inv of invoiceDefs) {
+    const invoiceNumber = `INV-${inv.seq}`;
+    const existing = await prisma.invoice.findFirst({ where: { storeId: store.id, invoiceNumber } });
+    if (existing) continue;
+
+    const items = buildInvoiceItems(inv.lines);
+    const subtotal = items.reduce((sum, i) => sum + i.lineSubtotal, 0);
+    const taxTotal = items.reduce((sum, i) => sum + i.lineTax, 0);
+    const total = subtotal + taxTotal;
+
+    await prisma.invoice.create({
+      data: {
+        storeId: store.id,
+        customerId: customerIdByName[inv.customerName] ?? null,
+        customerName: inv.customerName,
+        invoiceNumber,
+        status: inv.status,
+        paymentMethod: inv.paymentMethod,
+        subtotal,
+        taxTotal,
+        total,
+        createdAt: new Date(inv.createdAt),
+        items: {
+          create: items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            price: i.price,
+            gstRate: i.gstRate,
+            total: i.total,
+          })),
+        },
+      },
+    });
+  }
+
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, and ${adjustmentDefs.length} stock adjustments.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, and ${invoiceDefs.length} invoices.`,
   );
 }
 
