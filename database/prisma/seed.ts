@@ -150,21 +150,32 @@ async function main() {
       },
     }));
 
+  // Same people who appear on the invoices below (tenantId+name is how they're
+  // linked at seed time) — one customer list shared between CRM and the sales
+  // ledger, rather than two disconnected mock datasets like the original prototype
+  // had. Plus two loyalty-program-only members with no purchase history yet, to
+  // show the empty-LTV case.
   const customerDefs = [
-    { name: 'Aarav Kapoor', phone: '+91 98450 11221' },
-    { name: 'Meera Iyer', phone: '+91 98450 22332' },
-    { name: 'Rohan Malhotra', phone: '+91 98450 33443' },
-    { name: 'Simran Kaur', phone: '+91 98450 44554' },
-    { name: 'Devansh Rao', phone: '+91 98450 55665' },
-    { name: 'Ananya Bose', phone: '+91 98450 66776' },
-    { name: 'Kabir Singh', phone: '+91 98450 77887' },
-    { name: 'Neha Kulkarni', phone: '+91 98450 88998' },
+    { name: 'Aarav Kapoor', phone: '+91 98450 11221', email: 'aarav.kapoor@gmail.com', tier: 'STANDARD' as const, loyaltyPoints: 420 },
+    { name: 'Meera Iyer', phone: '+91 98450 22332', email: 'meera.iyer@yahoo.in', tier: 'STANDARD' as const, loyaltyPoints: 200 },
+    { name: 'Rohan Malhotra', phone: '+91 98450 33443', email: 'rohan.malhotra@gmail.com', tier: 'STANDARD' as const, loyaltyPoints: 460 },
+    { name: 'Simran Kaur', phone: '+91 98450 44554', email: 'simran.kaur@outlook.com', tier: 'STANDARD' as const, loyaltyPoints: 100 },
+    { name: 'Devansh Rao', phone: '+91 98450 55665', email: 'devansh.rao@gmail.com', tier: 'SILVER' as const, loyaltyPoints: 1450 },
+    { name: 'Ananya Bose', phone: '+91 98450 66776', email: 'ananya.bose@rediffmail.com', tier: 'GOLD' as const, loyaltyPoints: 3820 },
+    { name: 'Kabir Singh', phone: '+91 98450 77887', email: 'kabir.singh@hotmail.com', tier: 'STANDARD' as const, loyaltyPoints: 480 },
+    { name: 'Neha Kulkarni', phone: '+91 98450 88998', email: 'neha.kulkarni@gmail.com', tier: 'SILVER' as const, loyaltyPoints: 1120 },
+    { name: 'Vikram Sethi', phone: '+91 98300 44556', email: 'vikram.sethi@techcorp.in', tier: 'VIP_DIAMOND' as const, loyaltyPoints: 5240 },
+    { name: 'Priya Sharma', phone: '+91 98765 43210', email: 'priya.sharma@gmail.com', tier: 'GOLD' as const, loyaltyPoints: 2100 },
   ];
 
   const customerIdByName: Record<string, string> = {};
   for (const c of customerDefs) {
     const existing = await prisma.customer.findFirst({ where: { tenantId: tenant.id, name: c.name } });
-    const customer = existing ?? (await prisma.customer.create({ data: { tenantId: tenant.id, name: c.name, phone: c.phone } }));
+    const customer =
+      existing ??
+      (await prisma.customer.create({
+        data: { tenantId: tenant.id, name: c.name, phone: c.phone, email: c.email, tier: c.tier, loyaltyPoints: c.loyaltyPoints },
+      }));
     customerIdByName[c.name] = customer.id;
   }
 

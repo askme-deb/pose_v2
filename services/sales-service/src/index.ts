@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import healthRouter from './routes/health';
 import invoicesRouter from './routes/invoices';
+import customersRouter from './routes/customers';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'sales-service';
 
@@ -18,6 +19,7 @@ app.use(pinoHttp());
 
 app.use('/', healthRouter);
 app.use('/', invoicesRouter);
+app.use('/', customersRouter);
 
 app.listen(PORT, () => {
   console.log(`[sales-service] listening on port ${PORT}`);

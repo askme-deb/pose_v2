@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Users,
@@ -27,32 +27,51 @@ import {
 } from '@pospe/ui-library';
 import { formatINR, formatDate } from '../../utils/format';
 import {
-  Customer,
+  listCustomers,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  creditBonusPoints,
+  LiveCustomer,
   CustomerTier,
-  customers as initialCustomers,
-  loyaltyTiers,
-  tierOptions,
-} from '../../services/mockData/customers';
+} from '../../services/api/customers';
+
+interface LoyaltyTier {
+  tier: CustomerTier;
+  name: string;
+  minSpend: number;
+  pointsMultiplier: number;
+  perks: string;
+}
+
+const loyaltyTiers: LoyaltyTier[] = [
+  { tier: 'VIP_DIAMOND', name: 'VIP Diamond', minSpend: 40000, pointsMultiplier: 2, perks: 'Free express shipping, double weekend points, dedicated account manager' },
+  { tier: 'GOLD', name: 'Gold Member', minSpend: 20000, pointsMultiplier: 1.5, perks: 'Priority checkout desk, birthday surprise gift, exclusive event invites' },
+  { tier: 'SILVER', name: 'Silver Member', minSpend: 10000, pointsMultiplier: 1.2, perks: '1.2x point multiplier on new product launches, free tote bags' },
+  { tier: 'STANDARD', name: 'Standard Member', minSpend: 0, pointsMultiplier: 1, perks: 'Earn 1 point for every ₹100 spent, thermal receipt rewards' },
+];
+
+const tierOptions = loyaltyTiers.map((t) => ({ value: t.tier, label: t.name }));
 
 const tierBadgeColor: Record<CustomerTier, BadgeColor> = {
-  vip_diamond: 'purple',
-  gold: 'amber',
-  silver: 'blue',
-  standard: 'slate',
+  VIP_DIAMOND: 'purple',
+  GOLD: 'amber',
+  SILVER: 'blue',
+  STANDARD: 'slate',
 };
 
 const tierLabel: Record<CustomerTier, string> = {
-  vip_diamond: 'VIP Diamond',
-  gold: 'Gold Member',
-  silver: 'Silver Member',
-  standard: 'Standard Member',
+  VIP_DIAMOND: 'VIP Diamond',
+  GOLD: 'Gold Member',
+  SILVER: 'Silver Member',
+  STANDARD: 'Standard Member',
 };
 
 const tierIcon: Record<CustomerTier, string> = {
-  vip_diamond: '\u{1F48E}',
-  gold: '\u{1F451}',
-  silver: '\u{1F948}',
-  standard: '',
+  VIP_DIAMOND: '\u{1F48E}',
+  GOLD: '\u{1F451}',
+  SILVER: '\u{1F948}',
+  STANDARD: '',
 };
 
 type CustomerFormState = {
@@ -67,7 +86,7 @@ const emptyForm: CustomerFormState = {
   fullName: '',
   phone: '',
   email: '',
-  tier: 'standard',
+  tier: 'STANDARD',
   loyaltyPoints: '100',
 };
 
@@ -81,10 +100,10 @@ function initialsOf(name: string) {
   return name.substring(0, 2).toUpperCase();
 }
 
-function toCSV(rows: Customer[]): string {
+function toCSV(rows: LiveCustomer[]): string {
   const header = ['Customer ID', 'Full Name', 'Phone', 'Email', 'Tier', 'Orders', 'Lifetime Spend', 'Loyalty Points', 'Last Visit', 'Joined'];
   const lines = rows.map((c) =>
-    [c.id, c.fullName, c.phone, c.email, tierLabel[c.tier], c.ordersCount, c.lifetimeSpend, c.loyaltyPoints, c.lastVisit, c.joinedAt]
+    [c.id, c.fullName, c.phone, c.email, tierLabel[c.tier], c.ordersCount, c.lifetimeSpend, c.loyaltyPoints, c.lastVisit ?? 'Never', c.joinedAt]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(','),
   );
@@ -105,7 +124,9 @@ function downloadBlob(content: string, filename: string, type: string) {
 
 export default function CustomersPage() {
   const { showToast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [customers, setCustomers] = useState<LiveCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'directory' | 'tiers'>('directory');
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | CustomerTier>('all');
@@ -118,6 +139,22 @@ export default function CustomersPage() {
   const [bonusTargetId, setBonusTargetId] = useState<string | null>(null);
   const [bonusAmount, setBonusAmount] = useState('500');
   const [bonusReason, setBonusReason] = useState(bonusReasons[0].value);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      setCustomers(await listCustomers());
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load customers from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -136,7 +173,7 @@ export default function CustomersPage() {
   const totalPoints = customers.reduce((s, c) => s + c.loyaltyPoints, 0);
   const totalLTV = customers.reduce((s, c) => s + c.lifetimeSpend, 0);
   const avgLTV = customers.length ? totalLTV / customers.length : 0;
-  const vipGoldCount = customers.filter((c) => c.tier === 'vip_diamond' || c.tier === 'gold').length;
+  const vipGoldCount = customers.filter((c) => c.tier === 'VIP_DIAMOND' || c.tier === 'GOLD').length;
 
   function openRegisterDrawer() {
     setEditId(null);
@@ -144,7 +181,7 @@ export default function CustomersPage() {
     setDrawerOpen(true);
   }
 
-  function openEditDrawer(c: Customer) {
+  function openEditDrawer(c: LiveCustomer) {
     setEditId(c.id);
     setForm({
       fullName: c.fullName,
@@ -160,49 +197,47 @@ export default function CustomersPage() {
     setDrawerOpen(false);
   }
 
-  function saveCustomer() {
+  async function saveCustomer() {
     if (!form.fullName.trim() || !form.phone.trim()) {
       showToast('Full name and phone are required', 'danger');
       return;
     }
-    const points = parseInt(form.loyaltyPoints, 10) || 0;
-
-    if (editId) {
-      setCustomers((prev) =>
-        prev.map((c) =>
-          c.id === editId
-            ? { ...c, fullName: form.fullName, phone: form.phone, email: form.email || c.email, tier: form.tier, loyaltyPoints: points }
-            : c,
-        ),
-      );
-      showToast(`Updated customer account "${form.fullName}"!`, 'success');
-    } else {
-      const newId = `cust-${Math.floor(900 + Math.random() * 100)}`;
-      const now = new Date().toISOString().slice(0, 10);
-      const newCustomer: Customer = {
-        id: newId,
-        fullName: form.fullName,
-        phone: form.phone,
-        email: form.email || 'customer@domain.com',
-        tier: form.tier,
-        loyaltyPoints: points,
-        lifetimeSpend: 0,
-        ordersCount: 0,
-        lastVisit: now,
-        joinedAt: now,
-      };
-      setCustomers((prev) => [newCustomer, ...prev]);
-      showToast(`Registered new customer account "${form.fullName}" (${newId})!`, 'success');
+    setSaving(true);
+    const input = {
+      name: form.fullName.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim() || undefined,
+      tier: form.tier,
+      loyaltyPoints: parseInt(form.loyaltyPoints, 10) || 0,
+    };
+    try {
+      if (editId) {
+        await updateCustomer(editId, input);
+        showToast(`Updated customer account "${form.fullName}"!`, 'success');
+      } else {
+        await createCustomer(input);
+        showToast(`Registered new customer account "${form.fullName}"!`, 'success');
+      }
+      await reload();
+      closeDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save customer', 'danger');
+    } finally {
+      setSaving(false);
     }
-    closeDrawer();
   }
 
-  function deleteCustomer(c: Customer) {
-    setCustomers((prev) => prev.filter((x) => x.id !== c.id));
-    showToast(`Deleted customer account "${c.fullName}".`, 'warning');
+  async function handleDeleteCustomer(c: LiveCustomer) {
+    try {
+      await deleteCustomer(c.id);
+      setCustomers((prev) => prev.filter((x) => x.id !== c.id));
+      showToast(`Deleted customer account "${c.fullName}".`, 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete customer', 'danger');
+    }
   }
 
-  function openBonusDrawer(c: Customer) {
+  function openBonusDrawer(c: LiveCustomer) {
     setBonusTargetId(c.id);
     setBonusAmount('500');
     setBonusReason(bonusReasons[0].value);
@@ -213,17 +248,25 @@ export default function CustomersPage() {
     setBonusOpen(false);
   }
 
-  function saveBonusPoints() {
+  async function saveBonusPoints() {
     const amount = parseInt(bonusAmount, 10) || 0;
     if (amount < 10) {
       showToast('Bonus points amount must be at least 10', 'danger');
       return;
     }
     const target = customers.find((c) => c.id === bonusTargetId);
-    if (!target) return;
-    setCustomers((prev) => prev.map((c) => (c.id === bonusTargetId ? { ...c, loyaltyPoints: c.loyaltyPoints + amount } : c)));
-    showToast(`Credited ${amount} bonus points to ${target.fullName} (${bonusReason})!`, 'success');
-    closeBonusDrawer();
+    if (!target || !bonusTargetId) return;
+    setSaving(true);
+    try {
+      await creditBonusPoints(bonusTargetId, amount, bonusReason);
+      await reload();
+      showToast(`Credited ${amount} bonus points to ${target.fullName} (${bonusReason})!`, 'success');
+      closeBonusDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not credit bonus points', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function exportCSV() {
@@ -233,7 +276,7 @@ export default function CustomersPage() {
 
   const bonusTarget = customers.find((c) => c.id === bonusTargetId);
 
-  const columns: ColumnDef<Customer, any>[] = [
+  const columns: ColumnDef<LiveCustomer, any>[] = [
     {
       id: 'customer',
       header: 'Customer Account',
@@ -247,7 +290,7 @@ export default function CustomersPage() {
             </div>
             <div>
               <div className="font-bold text-xs text-slate-900 dark:text-white">{c.fullName}</div>
-              <div className="text-[10px] text-slate-400 font-mono">{c.id}</div>
+              <div className="text-[10px] text-slate-400 font-mono">{c.id.slice(0, 10)}</div>
             </div>
           </div>
         );
@@ -306,7 +349,9 @@ export default function CustomersPage() {
       id: 'lastVisit',
       header: 'Last Visit',
       accessorFn: (c) => c.lastVisit,
-      cell: ({ row }) => <div className="font-mono text-slate-500">{formatDate(row.original.lastVisit)}</div>,
+      cell: ({ row }) => (
+        <div className="font-mono text-slate-500">{row.original.lastVisit ? formatDate(row.original.lastVisit) : 'No orders yet'}</div>
+      ),
     },
     {
       id: 'actions',
@@ -328,7 +373,7 @@ export default function CustomersPage() {
             <Edit3 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => deleteCustomer(row.original)}
+            onClick={() => handleDeleteCustomer(row.original)}
             title="Delete Customer"
             className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-600 dark:text-slate-300 transition"
           >
@@ -353,7 +398,8 @@ export default function CustomersPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Manage customer relationships, track lifetime value (LTV), credit loyalty points, and configure tier benefits.
+            Manage customer relationships, track lifetime value (LTV), credit loyalty points, and configure tier
+            benefits. Lifetime spend and orders are computed live from the sales ledger.
           </p>
         </div>
 
@@ -417,6 +463,7 @@ export default function CustomersPage() {
             <DataTable
               columns={columns}
               data={filtered}
+              loading={loading}
               emptyTitle="No Customers Found"
               emptyDescription="No customer names or phone numbers match your search filter."
             />
@@ -463,14 +510,16 @@ export default function CustomersPage() {
       <Drawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editId ? `Edit Customer (${editId})` : 'Register New Customer'}
+        title={editId ? 'Edit Customer' : 'Register New Customer'}
         subtitle="Add profile details, phone, and loyalty tier."
         footer={
           <>
             <Button variant="secondary" onClick={closeDrawer}>
               Cancel
             </Button>
-            <Button onClick={saveCustomer}>Save Customer Account</Button>
+            <Button onClick={saveCustomer} disabled={saving}>
+              {saving ? 'Saving…' : 'Save Customer Account'}
+            </Button>
           </>
         }
       >
@@ -523,7 +572,9 @@ export default function CustomersPage() {
             <Button variant="secondary" onClick={closeBonusDrawer}>
               Cancel
             </Button>
-            <Button onClick={saveBonusPoints}>Credit Loyalty Points</Button>
+            <Button onClick={saveBonusPoints} disabled={saving}>
+              {saving ? 'Crediting…' : 'Credit Loyalty Points'}
+            </Button>
           </>
         }
       >

@@ -198,15 +198,23 @@ model StockItem {
 
 // ---------- Customers / Suppliers ----------
 
+enum CustomerTier {
+  STANDARD
+  SILVER
+  GOLD
+  VIP_DIAMOND
+}
+
 model Customer {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  name      String
-  phone     String?
-  email     String?
-  loyaltyPoints Int  @default(0)
-  createdAt DateTime @default(now())
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id])
+  name          String
+  phone         String?
+  email         String?
+  tier          CustomerTier @default(STANDARD)
+  loyaltyPoints Int          @default(0)
+  createdAt     DateTime     @default(now())
 
   invoices Invoice[]
 
