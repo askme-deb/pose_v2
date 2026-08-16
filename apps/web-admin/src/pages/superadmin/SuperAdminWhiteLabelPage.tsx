@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Palette, ShieldCheck, Mail, Cpu, Search, Save, Globe } from 'lucide-react';
 import {
@@ -14,8 +14,16 @@ import {
   Textarea,
   useToast,
 } from '@pospe/ui-library';
-import { cnameDomains as initialDomains, type CnameDomain } from '../../services/mockData/cnameDomains';
-import { tenantOptions } from '../../services/mockData/tenants';
+import {
+  LiveTenant,
+  LiveCnameDomain,
+  listTenants,
+  listCnameDomains,
+  createCnameDomain,
+  getTenantBranding,
+  updateTenantBranding,
+  tenantDomain,
+} from '../../services/api/tenants';
 
 const FONT_OPTIONS = [
   { value: 'Plus Jakarta Sans', label: 'Plus Jakarta Sans (Default)' },
@@ -35,23 +43,74 @@ export default function SuperAdminWhiteLabelPage() {
   const { showToast } = useToast();
   const [tab, setTab] = useState('theme');
   const [search, setSearch] = useState('');
-  const [domains, setDomains] = useState<CnameDomain[]>(initialDomains);
+  const [tenants, setTenants] = useState<LiveTenant[]>([]);
+  const [domains, setDomains] = useState<LiveCnameDomain[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
-  const [targetTenant, setTargetTenant] = useState(tenantOptions[0]?.value ?? '');
-  const [appTitle, setAppTitle] = useState('Apex Supermarket Chain POS');
+  const [targetTenant, setTargetTenant] = useState('');
+  const [appTitle, setAppTitle] = useState('');
   const [faviconUrl, setFaviconUrl] = useState('images/logo.svg');
   const [logoUrl, setLogoUrl] = useState('/src/assets/logo.svg');
   const [accentColor, setAccentColor] = useState('#2563eb');
   const [fontFamily, setFontFamily] = useState('Plus Jakarta Sans');
-  const [customCss, setCustomCss] = useState(
-    '.brand-header-custom { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }',
-  );
-  const [smtpFrom, setSmtpFrom] = useState('Apex Supermarket Receipts <billing@apexsupermarket.com>');
-  const [smtpHost, setSmtpHost] = useState('smtp.sendgrid.net (Port 587 TLS)');
+  const [customCss, setCustomCss] = useState('');
+  const [smtpFrom, setSmtpFrom] = useState('');
+  const [smtpHost, setSmtpHost] = useState('');
 
-  const [newDomainTenant, setNewDomainTenant] = useState(tenantOptions[0]?.label ?? '');
+  const [newDomainTenantId, setNewDomainTenantId] = useState('');
   const [newDomainHost, setNewDomainHost] = useState('');
+
+  const tenantOptions = useMemo(
+    () => tenants.map((t) => ({ value: t.id, label: `${t.organizationName} (${tenantDomain(t)})` })),
+    [tenants],
+  );
+
+  async function loadBrandingFor(tenantId: string) {
+    try {
+      const branding = await getTenantBranding(tenantId);
+      const tenant = tenants.find((t) => t.id === tenantId);
+      setAppTitle(branding.appTitle || `${tenant?.organizationName ?? ''} POS`);
+      setFaviconUrl(branding.faviconUrl || 'images/logo.svg');
+      setLogoUrl(branding.logoUrl || '/src/assets/logo.svg');
+      setAccentColor(branding.accentColor);
+      setFontFamily(branding.fontFamily);
+      setCustomCss(branding.customCss || '.brand-header-custom { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }');
+      setSmtpFrom(branding.smtpFromLabel || `${tenant?.organizationName ?? ''} Receipts <billing@${tenant?.subdomain ?? 'tenant'}.com>`);
+      setSmtpHost(branding.smtpHost || 'smtp.sendgrid.net (Port 587 TLS)');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load branding config for this tenant', 'danger');
+    }
+  }
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [t, d] = await Promise.all([listTenants(), listCnameDomains()]);
+        setTenants(t);
+        setDomains(d);
+        if (t[0]) {
+          setTargetTenant(t[0].id);
+          setNewDomainTenantId(t[0].id);
+        }
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed to load white-label data from the server', 'danger');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (targetTenant) loadBrandingFor(targetTenant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetTenant, tenants.length]);
+
+  const enterpriseTenantCount = tenants.filter((t) => t.plan === 'ENTERPRISE').length;
 
   const filteredDomains = useMemo(() => {
     const q = search.toLowerCase();
@@ -59,7 +118,7 @@ export default function SuperAdminWhiteLabelPage() {
     return domains.filter((d) => d.tenantOrg.toLowerCase().includes(q) || d.cnameDomain.toLowerCase().includes(q));
   }, [domains, search]);
 
-  const columns: ColumnDef<CnameDomain, any>[] = [
+  const columns: ColumnDef<LiveCnameDomain, any>[] = [
     { header: 'Tenant Organization', accessorKey: 'tenantOrg', cell: ({ row }) => <span className="font-bold text-slate-900 dark:text-white">{row.original.tenantOrg}</span> },
     { header: 'Custom CNAME Domain', accessorKey: 'cnameDomain', cell: ({ row }) => <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{row.original.cnameDomain}</span> },
     { header: 'Cloud Edge Ingress Target', accessorKey: 'edgeIngressTarget', cell: ({ row }) => <span className="font-mono text-slate-500 dark:text-slate-400">{row.original.edgeIngressTarget}</span> },
@@ -75,8 +134,17 @@ export default function SuperAdminWhiteLabelPage() {
     },
   ];
 
-  const handleSaveBranding = () => {
-    showToast('White-Label Branding config saved and deployed to tenant edge CDN!', 'success');
+  const handleSaveBranding = async () => {
+    if (!targetTenant) return;
+    setSaving(true);
+    try {
+      await updateTenantBranding(targetTenant, { appTitle, faviconUrl, logoUrl, accentColor, fontFamily, customCss, smtpFromLabel: smtpFrom, smtpHost });
+      showToast('White-Label Branding config saved and deployed to tenant edge CDN!', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save branding config', 'danger');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLoadTenantConfig = (value: string) => {
@@ -84,21 +152,18 @@ export default function SuperAdminWhiteLabelPage() {
     showToast('Loaded White-Label branding configuration for selected tenant', 'info');
   };
 
-  const handleAddDomain = (e: React.FormEvent) => {
+  const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDomainHost.trim()) return;
-    const domain: CnameDomain = {
-      id: `dom-${Date.now()}`,
-      tenantOrg: newDomainTenant,
-      cnameDomain: newDomainHost.trim(),
-      edgeIngressTarget: 'ingress-mumbai-01.apexpos.com',
-      sslSlaStatus: "Let's Encrypt TLS 1.3",
-      dnsPropagationStatus: 'Propagated (5ms)',
-    };
-    setDomains((prev) => [domain, ...prev]);
-    setAddOpen(false);
-    setNewDomainHost('');
-    showToast(`Custom CNAME domain '${domain.cnameDomain}' bound with Let's Encrypt SSL!`, 'success');
+    if (!newDomainHost.trim() || !newDomainTenantId) return;
+    try {
+      const domain = await createCnameDomain(newDomainTenantId, newDomainHost.trim());
+      setDomains((prev) => [domain, ...prev]);
+      setAddOpen(false);
+      setNewDomainHost('');
+      showToast(`Custom CNAME domain '${domain.cnameDomain}' bound with Let's Encrypt SSL!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not bind CNAME domain', 'danger');
+    }
   };
 
   return (
@@ -110,7 +175,7 @@ export default function SuperAdminWhiteLabelPage() {
               Enterprise White-Label Branding Engine
             </h1>
             <Badge color="red" pill dot>
-              38 White-Label Tenants Active &middot; 38 Custom CNAME SSL Secured
+              {enterpriseTenantCount} White-Label Tenants Active &middot; {domains.length} Custom CNAME SSL Secured
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -137,16 +202,20 @@ export default function SuperAdminWhiteLabelPage() {
               <Globe className="w-3.5 h-3.5 text-rose-600" />
               + Add CNAME Domain
             </Button>
-            <Button onClick={handleSaveBranding} className="!bg-gradient-to-r !from-rose-600 !to-pink-600 hover:!from-rose-700 hover:!to-pink-700 !shadow-rose-500/25">
+            <Button
+              onClick={handleSaveBranding}
+              disabled={saving}
+              className="!bg-gradient-to-r !from-rose-600 !to-pink-600 hover:!from-rose-700 hover:!to-pink-700 !shadow-rose-500/25"
+            >
               <Save className="w-4 h-4" />
-              Save Branding Config
+              {saving ? 'Saving…' : 'Save Branding Config'}
             </Button>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard icon={Palette} label="White-Label Enterprise Tenants" value="38 Tenants" delta="100% Brand Isolated" color="red" />
+        <KpiCard icon={Palette} label="White-Label Enterprise Tenants" value={`${enterpriseTenantCount} Tenants`} delta="100% Brand Isolated" color="red" />
         <KpiCard icon={ShieldCheck} label="Custom CNAME Mappings" value={`${domains.length} Domains`} delta="SSL TLS 1.3 Auto-Renewed" color="blue" />
         <KpiCard icon={Mail} label="Transactional Emails (30d)" value="1.42M Sent" delta="99.8% Inbox Delivery Rate" color="emerald" />
         <KpiCard icon={Cpu} label="Custom DNS Ingress SLA" value="100% Propagated" delta="6ms Cloud Edge Latency" color="amber" />
@@ -267,7 +336,7 @@ export default function SuperAdminWhiteLabelPage() {
             </div>
             <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>+ Add CNAME Mapping</Button>
           </div>
-          <DataTable columns={columns} data={filteredDomains} emptyTitle="No domains found" emptyDescription="Try a different search term." />
+          <DataTable columns={columns} data={filteredDomains} loading={loading} emptyTitle="No domains found" emptyDescription="Try a different search term." />
         </GlassCard>
       )}
 
@@ -316,9 +385,9 @@ export default function SuperAdminWhiteLabelPage() {
         <form onSubmit={handleAddDomain} className="space-y-4">
           <Select
             label="Target Business Tenant"
-            options={tenantOptions.map((t) => ({ value: t.label, label: t.label }))}
-            value={newDomainTenant}
-            onChange={(e) => setNewDomainTenant(e.target.value)}
+            options={tenantOptions}
+            value={newDomainTenantId}
+            onChange={(e) => setNewDomainTenantId(e.target.value)}
           />
           <Input
             label="Custom CNAME Domain Host"

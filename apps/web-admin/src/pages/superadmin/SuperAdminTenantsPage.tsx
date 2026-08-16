@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Building, Building2, CreditCard, Database, Download, ExternalLink, Power, Search, Store } from 'lucide-react';
 import {
@@ -16,39 +16,22 @@ import {
   useToast,
 } from '@pospe/ui-library';
 import {
-  Tenant,
+  LiveTenant,
+  LivePlatformAuditLog,
   TenantPlan,
   TenantRegion,
   TenantStatus,
-  planLabels,
-  planMonthlyPrice,
-  regionLabels,
-  statusLabels,
+  listTenants,
+  createTenant,
+  updateTenant,
+  toggleTenantStatus,
+  listPlatformAuditLogs,
   tenantDomain,
-  tenants as initialTenants,
-} from '../../services/mockData/tenants';
+} from '../../services/api/tenants';
 import { formatCompactINR, formatDateTime, formatINR } from '../../utils/format';
 
 type TcTab = 'cards' | 'table' | 'db' | 'logs';
 type DbStrategy = 'dedicated' | 'shared';
-
-interface AuditLogEntry {
-  id: string;
-  time: string;
-  tenant: string;
-  event: string;
-  detail: string;
-}
-
-const auditLogs: AuditLogEntry[] = [
-  { id: 'log-1', time: '5 mins ago', tenant: 'Organic Pantry Co', event: 'TRIAL_STARTED', detail: 'Initialized 14-day trial on Starter POS Single plan.' },
-  { id: 'log-2', time: '35 mins ago', tenant: 'Metro Hypermarket Ltd', event: 'STORAGE_SCALE_UP', detail: 'Increased database storage allocation from 750GB to 1TB.' },
-  { id: 'log-3', time: '2 hours ago', tenant: 'Apex Supermarket Chain', event: 'ADMIN_LOGIN', detail: 'Super Admin impersonated login for Alexander Wright.' },
-  { id: 'log-4', time: '1 day ago', tenant: 'Zenith Pharma Labs', event: 'SSL_RENEWED', detail: "Wildcard SSL certificate auto-renewed for zenithpharma.apexpos.com." },
-  { id: 'log-5', time: '2 days ago', tenant: 'QuickBite Restaurant Group', event: 'PLAN_UPGRADE', detail: 'Upgraded from Starter POS Single to Pro Business Retail.' },
-  { id: 'log-6', time: '3 days ago', tenant: 'Bharat Electronics Retail', event: 'BILLING_FAILED', detail: 'Auto-debit declined by issuing bank; tenant marked past due.' },
-  { id: 'log-7', time: '4 days ago', tenant: 'Sundar Departmental Stores', event: 'STORAGE_ALERT', detail: 'Cloud storage usage crossed 80% of allocated quota.' },
-];
 
 const tabOptions = [
   { value: 'cards', label: 'Tenant Cards' },
@@ -57,17 +40,44 @@ const tabOptions = [
   { value: 'logs', label: 'Audit Stream' },
 ];
 
+const planLabels: Record<TenantPlan, string> = {
+  ENTERPRISE: 'Enterprise Ultimate',
+  PROFESSIONAL: 'Pro Business Retail',
+  STARTER: 'Starter POS Single',
+};
+
+const planMonthlyPrice: Record<TenantPlan, number> = {
+  STARTER: 14999,
+  PROFESSIONAL: 49999,
+  ENTERPRISE: 149999,
+};
+
+const statusLabels: Record<TenantStatus, string> = {
+  ACTIVE: 'Active',
+  TRIAL: 'Trialing',
+  PAST_DUE: 'Past Due',
+  SUSPENDED: 'Suspended',
+  CANCELLED: 'Cancelled',
+};
+
+const regionLabels: Record<TenantRegion, string> = {
+  MUMBAI: 'ap-south-1 (Mumbai)',
+  VIRGINIA: 'us-east-1 (Virginia)',
+  FRANKFURT: 'eu-central-1 (Frankfurt)',
+};
+
 const planColor: Record<TenantPlan, 'purple' | 'blue' | 'emerald'> = {
-  enterprise: 'purple',
-  professional: 'blue',
-  starter: 'emerald',
+  ENTERPRISE: 'purple',
+  PROFESSIONAL: 'blue',
+  STARTER: 'emerald',
 };
 
 const statusColor: Record<TenantStatus, 'emerald' | 'amber' | 'red'> = {
-  active: 'emerald',
-  trialing: 'amber',
-  past_due: 'amber',
-  suspended: 'red',
+  ACTIVE: 'emerald',
+  TRIAL: 'amber',
+  PAST_DUE: 'amber',
+  SUSPENDED: 'red',
+  CANCELLED: 'red',
 };
 
 function formatStorage(gb: number): string {
@@ -81,21 +91,42 @@ export default function SuperAdminTenantsPage() {
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<'all' | TenantPlan>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | TenantStatus>('all');
-  const [tenantList, setTenantList] = useState<Tenant[]>(initialTenants);
+  const [tenantList, setTenantList] = useState<LiveTenant[]>([]);
+  const [auditLogs, setAuditLogs] = useState<LivePlatformAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
+  const [detailsTenant, setDetailsTenant] = useState<LiveTenant | null>(null);
 
   const [formOrgName, setFormOrgName] = useState('');
   const [formSubdomain, setFormSubdomain] = useState('');
   const [formOwnerName, setFormOwnerName] = useState('');
   const [formOwnerEmail, setFormOwnerEmail] = useState('');
-  const [formPlan, setFormPlan] = useState<TenantPlan>('enterprise');
+  const [formPlan, setFormPlan] = useState<TenantPlan>('ENTERPRISE');
   const [formStoresLimit, setFormStoresLimit] = useState('15');
   const [formStorageLimit, setFormStorageLimit] = useState('500');
-  const [formRegion, setFormRegion] = useState<TenantRegion>('mumbai');
+  const [formRegion, setFormRegion] = useState<TenantRegion>('MUMBAI');
   const [formDbStrategy, setFormDbStrategy] = useState<DbStrategy>('dedicated');
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [tenants, logs] = await Promise.all([listTenants(), listPlatformAuditLogs()]);
+      setTenantList(tenants);
+      setAuditLogs(logs);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load tenant directory from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalTenants = tenantList.length;
   const totalOutlets = tenantList.reduce((sum, t) => sum + t.storesUsed, 0);
@@ -123,10 +154,10 @@ export default function SuperAdminTenantsPage() {
     setFormSubdomain('');
     setFormOwnerName('');
     setFormOwnerEmail('');
-    setFormPlan('enterprise');
+    setFormPlan('ENTERPRISE');
     setFormStoresLimit('15');
     setFormStorageLimit('500');
-    setFormRegion('mumbai');
+    setFormRegion('MUMBAI');
     setFormDbStrategy('dedicated');
   }
 
@@ -136,7 +167,7 @@ export default function SuperAdminTenantsPage() {
     setDrawerOpen(true);
   }
 
-  function openEditDrawer(t: Tenant) {
+  function openEditDrawer(t: LiveTenant) {
     setEditId(t.id);
     setFormOrgName(t.organizationName);
     setFormSubdomain(t.subdomain);
@@ -150,71 +181,49 @@ export default function SuperAdminTenantsPage() {
     setDrawerOpen(true);
   }
 
-  function saveTenant() {
+  async function saveTenant() {
     if (!formOrgName.trim() || !formSubdomain.trim() || !formOwnerName.trim() || !formOwnerEmail.trim()) {
       showToast('Please fill all required tenant fields', 'danger');
       return;
     }
-    const subdomain = formSubdomain.trim().toLowerCase();
-    const storesLimit = parseInt(formStoresLimit, 10) || 10;
-    const storageLimitGB = parseInt(formStorageLimit, 10) || 250;
-
-    if (editId) {
-      setTenantList((prev) =>
-        prev.map((t) =>
-          t.id === editId
-            ? {
-                ...t,
-                organizationName: formOrgName.trim(),
-                subdomain,
-                ownerName: formOwnerName.trim(),
-                ownerEmail: formOwnerEmail.trim(),
-                plan: formPlan,
-                monthlyBilling: planMonthlyPrice[formPlan],
-                storesLimit,
-                storageLimitGB,
-                region: formRegion,
-                dbInstancePod: formDbStrategy === 'shared' ? `pg-shared-schema-${subdomain}` : `pg-pod-${subdomain}-01`,
-              }
-            : t,
-        ),
-      );
-      setDrawerOpen(false);
-      showToast(`Updated tenant record '${formOrgName.trim()}'`, 'success');
-      return;
-    }
-
-    const newTenant: Tenant = {
-      id: `ten-${Date.now()}`,
+    const input = {
       organizationName: formOrgName.trim(),
-      subdomain,
-      plan: formPlan,
-      storesUsed: 1,
-      storesLimit,
-      monthlyBilling: planMonthlyPrice[formPlan],
-      status: 'active',
-      storageUsedGB: 5,
-      storageLimitGB,
-      dbInstancePod: formDbStrategy === 'shared' ? `pg-shared-schema-${subdomain}` : `pg-pod-${subdomain}-01`,
-      region: formRegion,
+      subdomain: formSubdomain.trim().toLowerCase(),
       ownerName: formOwnerName.trim(),
       ownerEmail: formOwnerEmail.trim(),
-      createdAt: new Date().toISOString(),
+      plan: formPlan,
+      storesLimit: parseInt(formStoresLimit, 10) || 10,
+      storageLimitGB: parseInt(formStorageLimit, 10) || 250,
+      region: formRegion,
+      dbStrategy: formDbStrategy,
     };
-    setTenantList((prev) => [newTenant, ...prev]);
-    setDrawerOpen(false);
-    showToast(`Provisioned Enterprise Tenant '${newTenant.organizationName}'!`, 'success');
+
+    setSaving(true);
+    try {
+      if (editId) {
+        await updateTenant(editId, input);
+        showToast(`Updated tenant record '${input.organizationName}'`, 'success');
+      } else {
+        await createTenant(input);
+        showToast(`Provisioned Enterprise Tenant '${input.organizationName}'!`, 'success');
+      }
+      await reload();
+      setDrawerOpen(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save tenant', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function toggleTenantStatus(id: string) {
-    setTenantList((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const nextStatus: TenantStatus = t.status === 'active' ? 'suspended' : 'active';
-        showToast(`Tenant '${t.organizationName}' status set to ${statusLabels[nextStatus]}`, 'warning');
-        return { ...t, status: nextStatus };
-      }),
-    );
+  async function handleToggleStatus(t: LiveTenant) {
+    try {
+      const updated = await toggleTenantStatus(t.id);
+      setTenantList((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      showToast(`Tenant '${t.organizationName}' status set to ${statusLabels[updated.status]}`, 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update tenant status', 'danger');
+    }
   }
 
   function exportCsv() {
@@ -236,7 +245,7 @@ export default function SuperAdminTenantsPage() {
     showToast('Impersonation is disabled in this demo environment.', 'info');
   }
 
-  const columns: ColumnDef<Tenant, any>[] = [
+  const columns: ColumnDef<LiveTenant, any>[] = [
     {
       header: 'Organization & Domain',
       accessorKey: 'organizationName',
@@ -321,9 +330,9 @@ export default function SuperAdminTenantsPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All SaaS Plans</option>
-            <option value="enterprise">Enterprise Ultimate</option>
-            <option value="professional">Pro Business Retail</option>
-            <option value="starter">Starter POS Single</option>
+            <option value="ENTERPRISE">Enterprise Ultimate</option>
+            <option value="PROFESSIONAL">Pro Business Retail</option>
+            <option value="STARTER">Starter POS Single</option>
           </select>
 
           <select
@@ -332,10 +341,10 @@ export default function SuperAdminTenantsPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="trialing">Trialing</option>
-            <option value="past_due">Past Due</option>
-            <option value="suspended">Suspended</option>
+            <option value="ACTIVE">Active</option>
+            <option value="TRIAL">Trialing</option>
+            <option value="PAST_DUE">Past Due</option>
+            <option value="SUSPENDED">Suspended</option>
           </select>
 
           <PillTabs options={tabOptions} value={activeTab} onChange={(v) => setActiveTab(v as TcTab)} />
@@ -368,7 +377,7 @@ export default function SuperAdminTenantsPage() {
 
       {activeTab === 'cards' && (
         <div className="space-y-4">
-          {filteredTenants.length === 0 ? (
+          {!loading && filteredTenants.length === 0 ? (
             <GlassCard className="py-12 text-center text-slate-400">
               <p className="font-bold text-xs">No SaaS tenants matched your search filter criteria</p>
             </GlassCard>
@@ -433,7 +442,7 @@ export default function SuperAdminTenantsPage() {
                           View Details
                         </button>
                         <button
-                          onClick={() => toggleTenantStatus(t.id)}
+                          onClick={() => handleToggleStatus(t)}
                           title="Toggle Status"
                           className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white"
                         >
@@ -460,7 +469,7 @@ export default function SuperAdminTenantsPage() {
               + Register Tenant
             </button>
           </div>
-          <DataTable columns={columns} data={filteredTenants} emptyTitle="No tenants matched" emptyDescription="Try adjusting your filters." />
+          <DataTable columns={columns} data={filteredTenants} loading={loading} emptyTitle="No tenants matched" emptyDescription="Try adjusting your filters." />
         </GlassCard>
       )}
 
@@ -525,12 +534,12 @@ export default function SuperAdminTenantsPage() {
               <div key={l.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 dark:text-white">{l.tenant}</span>
-                    <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono text-[9px] font-bold">{l.event}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{l.tenantName}</span>
+                    <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono text-[9px] font-bold">{l.eventType}</span>
                   </div>
-                  <p className="text-slate-500 text-[11px] mt-0.5">{l.detail}</p>
+                  <p className="text-slate-500 text-[11px] mt-0.5">{l.details}</p>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono">{l.time}</span>
+                <span className="text-[10px] text-slate-400 font-mono">{formatDateTime(l.timestamp)}</span>
               </div>
             ))}
           </div>
@@ -550,9 +559,10 @@ export default function SuperAdminTenantsPage() {
             </Button>
             <button
               onClick={saveTenant}
-              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 transition disabled:opacity-50"
             >
-              Save Tenant Record
+              {saving ? 'Saving…' : 'Save Tenant Record'}
             </button>
           </>
         }
@@ -584,9 +594,9 @@ export default function SuperAdminTenantsPage() {
             value={formPlan}
             onChange={(e) => setFormPlan(e.target.value as TenantPlan)}
             options={[
-              { value: 'enterprise', label: `Enterprise Ultimate (${formatINR(planMonthlyPrice.enterprise)}/mo)` },
-              { value: 'professional', label: `Pro Business Retail (${formatINR(planMonthlyPrice.professional)}/mo)` },
-              { value: 'starter', label: `Starter POS Single (${formatINR(planMonthlyPrice.starter)}/mo)` },
+              { value: 'ENTERPRISE', label: `Enterprise Ultimate (${formatINR(planMonthlyPrice.ENTERPRISE)}/mo)` },
+              { value: 'PROFESSIONAL', label: `Pro Business Retail (${formatINR(planMonthlyPrice.PROFESSIONAL)}/mo)` },
+              { value: 'STARTER', label: `Starter POS Single (${formatINR(planMonthlyPrice.STARTER)}/mo)` },
             ]}
           />
           <Input label="Max Outlets Capacity" type="number" value={formStoresLimit} onChange={(e) => setFormStoresLimit(e.target.value)} />
@@ -598,9 +608,9 @@ export default function SuperAdminTenantsPage() {
             value={formRegion}
             onChange={(e) => setFormRegion(e.target.value as TenantRegion)}
             options={[
-              { value: 'mumbai', label: 'ap-south-1 (Mumbai Primary)' },
-              { value: 'virginia', label: 'us-east-1 (N. Virginia)' },
-              { value: 'frankfurt', label: 'eu-central-1 (Frankfurt)' },
+              { value: 'MUMBAI', label: 'ap-south-1 (Mumbai Primary)' },
+              { value: 'VIRGINIA', label: 'us-east-1 (N. Virginia)' },
+              { value: 'FRANKFURT', label: 'eu-central-1 (Frankfurt)' },
             ]}
           />
         </div>

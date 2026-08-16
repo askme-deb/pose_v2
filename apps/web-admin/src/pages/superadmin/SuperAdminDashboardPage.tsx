@@ -23,16 +23,17 @@ import {
   useToast,
 } from '@pospe/ui-library';
 import {
-  Tenant,
+  LiveTenant,
+  LivePlatformAuditLog,
   TenantPlan,
-  planLabels,
-  planMonthlyPrice,
-  statusLabels,
+  TenantStatus,
+  listTenants,
+  createTenant,
+  toggleTenantStatus,
+  listPlatformAuditLogs,
   tenantDomain,
-  tenants as initialTenants,
-} from '../../services/mockData/tenants';
-import { subscriptionPlans } from '../../services/mockData/subscriptionPlans';
-import { formatCompactINR, formatINR } from '../../utils/format';
+} from '../../services/api/tenants';
+import { formatCompactINR, formatDateTime, formatINR } from '../../utils/format';
 
 type SaTab = 'overview' | 'tenants' | 'clusters' | 'plans';
 
@@ -53,26 +54,10 @@ const clusters: ClusterNode[] = [
   { id: 'node-04', name: 'Asia Southeast Singapore (AWS ap-southeast-1)', cpu: '31%', ram: '54%', latency: '22ms', status: 'Healthy', activeConnections: 6100 },
 ];
 
-interface AuditEntry {
-  id: number;
-  time: string;
-  event: string;
-  detail: string;
-}
-
-const initialAuditFeed: AuditEntry[] = [
-  { id: 1, time: '4 mins ago', event: 'NEW_TENANT_PROVISIONED', detail: 'Organic Pantry Co initialized on Starter POS Trial' },
-  { id: 2, time: '22 mins ago', event: 'BILLING_SUCCESS', detail: 'Collected ₹149,999.00 subscription payment from Metro Hypermarket' },
-  { id: 3, time: '1 hour ago', event: 'CLUSTER_SCALE_UP', detail: 'Auto-scaled Asia South Primary Cluster 01 (+2 Pods)' },
-  { id: 4, time: '3 hours ago', event: 'PLAN_UPGRADE', detail: 'QuickBite Restaurant upgraded from Starter to Pro Business' },
-];
-
-const liveFeedTemplates: { event: string; detail: string }[] = [
-  { event: 'API_HEALTHCHECK', detail: 'All 4 cloud cluster nodes responded within SLA window' },
-  { event: 'BACKUP_SNAPSHOT', detail: 'Automated nightly DB snapshot completed for tenant fleet' },
-  { event: 'WEBHOOK_DELIVERED', detail: 'Razorpay subscription webhook delivered in 0.01s' },
-  { event: 'SESSION_LOGIN', detail: 'Tenant admin authenticated via SSO from Mumbai edge node' },
-  { event: 'STORAGE_SCAN', detail: 'Cloud storage quota scan completed across all tenant pods' },
+const PLAN_CATALOG = [
+  { id: 'plan-start', name: 'Starter POS Single', code: 'STARTER' as const, monthlyPrice: 14999, badge: 'Single Store', features: ['1 Retail Store POS', 'Barcode Scanner Sync', 'Thermal Receipt Printing', 'Standard Analytics'] },
+  { id: 'plan-pro', name: 'Pro Business Retail', code: 'PROFESSIONAL' as const, monthlyPrice: 49999, badge: 'Growth Standard', features: ['Up to 10 Store Outlets', 'Multi-Warehouse Sync', 'GST Tax Return Engine', 'Email & Chat Support'] },
+  { id: 'plan-ent', name: 'Enterprise Ultimate', code: 'ENTERPRISE' as const, monthlyPrice: 149999, badge: 'Popular Enterprise', features: ['Unlimited Store Outlets', 'Dedicated DB Instance', 'White-Label Branding', '24/7 SLA Phone Support'] },
 ];
 
 const tabOptions = [
@@ -82,56 +67,103 @@ const tabOptions = [
   { value: 'plans', label: 'SaaS Plans' },
 ];
 
-const planColor: Record<TenantPlan, 'purple' | 'blue' | 'emerald'> = {
-  enterprise: 'purple',
-  professional: 'blue',
-  starter: 'emerald',
+const planLabels: Record<TenantPlan, string> = {
+  ENTERPRISE: 'Enterprise Ultimate',
+  PROFESSIONAL: 'Pro Business Retail',
+  STARTER: 'Starter POS Single',
 };
 
-const statusColor: Record<Tenant['status'], 'emerald' | 'amber' | 'red' | 'slate'> = {
-  active: 'emerald',
-  trialing: 'amber',
-  past_due: 'amber',
-  suspended: 'red',
+const planMonthlyPrice: Record<TenantPlan, number> = {
+  STARTER: 14999,
+  PROFESSIONAL: 49999,
+  ENTERPRISE: 149999,
+};
+
+const statusLabels: Record<TenantStatus, string> = {
+  ACTIVE: 'Active',
+  TRIAL: 'Trialing',
+  PAST_DUE: 'Past Due',
+  SUSPENDED: 'Suspended',
+  CANCELLED: 'Cancelled',
+};
+
+const planColor: Record<TenantPlan, 'purple' | 'blue' | 'emerald'> = {
+  ENTERPRISE: 'purple',
+  PROFESSIONAL: 'blue',
+  STARTER: 'emerald',
+};
+
+const statusColor: Record<TenantStatus, 'emerald' | 'amber' | 'red' | 'slate'> = {
+  ACTIVE: 'emerald',
+  TRIAL: 'amber',
+  PAST_DUE: 'amber',
+  SUSPENDED: 'red',
+  CANCELLED: 'red',
 };
 
 export default function SuperAdminDashboardPage() {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<SaTab>('overview');
   const [search, setSearch] = useState('');
-  const [tenantList, setTenantList] = useState<Tenant[]>(initialTenants);
-  const [auditFeed, setAuditFeed] = useState<AuditEntry[]>(initialAuditFeed);
+  const [tenantList, setTenantList] = useState<LiveTenant[]>([]);
+  const [auditFeed, setAuditFeed] = useState<LivePlatformAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [formOrgName, setFormOrgName] = useState('');
   const [formSubdomain, setFormSubdomain] = useState('');
   const [formOwnerName, setFormOwnerName] = useState('');
   const [formOwnerEmail, setFormOwnerEmail] = useState('');
-  const [formPlan, setFormPlan] = useState<TenantPlan>('enterprise');
+  const [formPlan, setFormPlan] = useState<TenantPlan>('ENTERPRISE');
   const [formStoresLimit, setFormStoresLimit] = useState('10');
 
-  // Live scrolling SaaS platform log feed
+  async function reload() {
+    try {
+      const [tenants, logs] = await Promise.all([listTenants(), listPlatformAuditLogs()]);
+      setTenantList(tenants);
+      setAuditFeed(logs.slice(0, 12));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load platform data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
+    reload();
+    // Poll the cross-tenant audit trail periodically so the "live" feed
+    // reflects real platform events instead of a simulated random stream.
     const interval = setInterval(() => {
-      const tpl = liveFeedTemplates[Math.floor(Math.random() * liveFeedTemplates.length)];
-      setAuditFeed((prev) => [{ id: Date.now(), time: 'Just now', event: tpl.event, detail: tpl.detail }, ...prev].slice(0, 12));
-    }, 6000);
+      listPlatformAuditLogs()
+        .then((logs) => setAuditFeed(logs.slice(0, 12)))
+        .catch(() => undefined);
+    }, 10000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeTenantsCount = tenantList.filter((t) => t.status === 'active').length;
+  const activeTenantsCount = tenantList.filter((t) => t.status === 'ACTIVE').length;
   const totalStores = tenantList.reduce((sum, t) => sum + t.storesUsed, 0);
   const totalMRR = tenantList.reduce((sum, t) => sum + t.monthlyBilling, 0);
   const arpu = tenantList.length ? Math.round(totalMRR / tenantList.length) : 0;
 
   const mrrByTier = useMemo(() => {
-    const tiers: TenantPlan[] = ['enterprise', 'professional', 'starter'];
+    const tiers: TenantPlan[] = ['ENTERPRISE', 'PROFESSIONAL', 'STARTER'];
     return tiers.map((plan) => {
       const mrr = tenantList.filter((t) => t.plan === plan).reduce((sum, t) => sum + t.monthlyBilling, 0);
       const pct = totalMRR ? Math.round((mrr / totalMRR) * 100) : 0;
       return { plan, mrr, pct };
     });
   }, [tenantList, totalMRR]);
+
+  const planSubscriberCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tenantList.forEach((t) => {
+      counts[t.plan] = (counts[t.plan] ?? 0) + 1;
+    });
+    return counts;
+  }, [tenantList]);
 
   const filteredTenants = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -145,25 +177,25 @@ export default function SuperAdminDashboardPage() {
   }, [tenantList, search]);
 
   const tierBarClass: Record<TenantPlan, string> = {
-    enterprise: 'bg-gradient-to-r from-purple-600 to-indigo-600',
-    professional: 'bg-gradient-to-r from-blue-600 to-cyan-500',
-    starter: 'bg-gradient-to-r from-emerald-500 to-teal-400',
+    ENTERPRISE: 'bg-gradient-to-r from-purple-600 to-indigo-600',
+    PROFESSIONAL: 'bg-gradient-to-r from-blue-600 to-cyan-500',
+    STARTER: 'bg-gradient-to-r from-emerald-500 to-teal-400',
   };
   const tierTextClass: Record<TenantPlan, string> = {
-    enterprise: 'text-purple-600',
-    professional: 'text-blue-600',
-    starter: 'text-emerald-600',
+    ENTERPRISE: 'text-purple-600',
+    PROFESSIONAL: 'text-blue-600',
+    STARTER: 'text-emerald-600',
   };
 
-  function toggleTenantStatus(id: string) {
-    setTenantList((prev) =>
-      prev.map((t) => {
-        if (t.id !== id) return t;
-        const nextStatus = t.status === 'active' ? 'suspended' : 'active';
-        showToast(`Tenant '${t.organizationName}' status set to ${statusLabels[nextStatus]}`, 'warning');
-        return { ...t, status: nextStatus };
-      }),
-    );
+  async function handleToggleStatus(t: LiveTenant) {
+    try {
+      const updated = await toggleTenantStatus(t.id);
+      setTenantList((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      showToast(`Tenant '${t.organizationName}' status set to ${statusLabels[updated.status]}`, 'warning');
+      listPlatformAuditLogs().then((logs) => setAuditFeed(logs.slice(0, 12)));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update tenant status', 'danger');
+    }
   }
 
   function runDiagnostics() {
@@ -191,43 +223,37 @@ export default function SuperAdminDashboardPage() {
     setFormSubdomain('');
     setFormOwnerName('');
     setFormOwnerEmail('');
-    setFormPlan('enterprise');
+    setFormPlan('ENTERPRISE');
     setFormStoresLimit('10');
     setDrawerOpen(true);
   }
 
-  function saveTenant() {
+  async function saveTenant() {
     if (!formOrgName.trim() || !formSubdomain.trim() || !formOwnerName.trim() || !formOwnerEmail.trim()) {
       showToast('Please fill all required tenant fields', 'danger');
       return;
     }
-    const newTenant: Tenant = {
-      id: `ten-${Date.now()}`,
-      organizationName: formOrgName.trim(),
-      subdomain: formSubdomain.trim().toLowerCase(),
-      plan: formPlan,
-      storesUsed: 1,
-      storesLimit: parseInt(formStoresLimit, 10) || 10,
-      monthlyBilling: planMonthlyPrice[formPlan],
-      status: 'active',
-      storageUsedGB: 5,
-      storageLimitGB: 250,
-      dbInstancePod: `pg-pod-${formSubdomain.trim().toLowerCase()}-01`,
-      region: 'mumbai',
-      ownerName: formOwnerName.trim(),
-      ownerEmail: formOwnerEmail.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    setTenantList((prev) => [newTenant, ...prev]);
-    setAuditFeed((prev) => [
-      { id: Date.now(), time: 'Just now', event: 'NEW_TENANT_PROVISIONED', detail: `Provisioned tenant ${newTenant.organizationName} (${tenantDomain(newTenant)})` },
-      ...prev,
-    ]);
-    setDrawerOpen(false);
-    showToast(`Provisioned new SaaS Tenant '${newTenant.organizationName}'!`, 'success');
+    setSaving(true);
+    try {
+      const tenant = await createTenant({
+        organizationName: formOrgName.trim(),
+        subdomain: formSubdomain.trim().toLowerCase(),
+        ownerName: formOwnerName.trim(),
+        ownerEmail: formOwnerEmail.trim(),
+        plan: formPlan,
+        storesLimit: parseInt(formStoresLimit, 10) || 10,
+      });
+      await reload();
+      setDrawerOpen(false);
+      showToast(`Provisioned new SaaS Tenant '${tenant.organizationName}'!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not provision tenant', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const columns: ColumnDef<Tenant, any>[] = [
+  const columns: ColumnDef<LiveTenant, any>[] = [
     {
       header: 'Tenant Name & Subdomain',
       accessorKey: 'organizationName',
@@ -266,7 +292,7 @@ export default function SuperAdminDashboardPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="sm" onClick={() => toggleTenantStatus(row.original.id)}>
+          <Button variant="ghost" size="sm" onClick={() => handleToggleStatus(row.original)}>
             Manage
           </Button>
         </div>
@@ -383,10 +409,12 @@ export default function SuperAdminDashboardPage() {
               {auditFeed.map((f) => (
                 <div key={f.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[9px] text-purple-600 font-bold">{f.event}</span>
-                    <span className="text-[9px] text-slate-400">{f.time}</span>
+                    <span className="font-mono text-[9px] text-purple-600 font-bold">{f.eventType}</span>
+                    <span className="text-[9px] text-slate-400">{formatDateTime(f.timestamp)}</span>
                   </div>
-                  <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300">{f.detail}</p>
+                  <p className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                    <strong className="text-slate-900 dark:text-white">{f.tenantName}:</strong> {f.details}
+                  </p>
                 </div>
               ))}
             </div>
@@ -405,7 +433,7 @@ export default function SuperAdminDashboardPage() {
               + Register New Tenant
             </button>
           </div>
-          <DataTable columns={columns} data={filteredTenants} emptyTitle="No tenants matched" emptyDescription="Try adjusting your search." />
+          <DataTable columns={columns} data={filteredTenants} loading={loading} emptyTitle="No tenants matched" emptyDescription="Try adjusting your search." />
         </GlassCard>
       )}
 
@@ -482,36 +510,34 @@ export default function SuperAdminDashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {subscriptionPlans
-              .filter((p) => p.id !== 'plan-custom')
-              .map((p) => (
-                <div
-                  key={p.id}
-                  className="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4 hover:border-purple-500/50 transition"
-                >
-                  <div className="space-y-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/10 text-purple-600 border border-purple-500/20">{p.badge}</span>
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white">{p.name}</h3>
-                    <p className="text-2xl font-black text-purple-600 font-mono">{formatINR(p.monthlyPrice)} / mo</p>
-                    <ul className="space-y-2 pt-2 text-xs text-slate-600 dark:text-slate-300">
-                      {p.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" /> {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400">{p.subscriberCount} Active Subscribers</span>
-                    <button
-                      onClick={() => showToast(`Editing plan limits for ${p.name}`, 'info')}
-                      className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-sm"
-                    >
-                      Configure
-                    </button>
-                  </div>
+            {PLAN_CATALOG.map((p) => (
+              <div
+                key={p.id}
+                className="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4 hover:border-purple-500/50 transition"
+              >
+                <div className="space-y-3">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-purple-500/10 text-purple-600 border border-purple-500/20">{p.badge}</span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">{p.name}</h3>
+                  <p className="text-2xl font-black text-purple-600 font-mono">{formatINR(planMonthlyPrice[p.code])} / mo</p>
+                  <ul className="space-y-2 pt-2 text-xs text-slate-600 dark:text-slate-300">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" /> {f}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-              ))}
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">{planSubscriberCount[p.code] ?? 0} Active Subscribers</span>
+                  <button
+                    onClick={() => showToast(`Editing plan limits for ${p.name}`, 'info')}
+                    className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-bold text-xs shadow-sm"
+                  >
+                    Configure
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </GlassCard>
       )}
@@ -528,9 +554,10 @@ export default function SuperAdminDashboardPage() {
             </Button>
             <button
               onClick={saveTenant}
-              className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition"
+              disabled={saving}
+              className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-500/25 transition disabled:opacity-50"
             >
-              Provision Instance
+              {saving ? 'Provisioning…' : 'Provision Instance'}
             </button>
           </>
         }
@@ -562,9 +589,9 @@ export default function SuperAdminDashboardPage() {
             value={formPlan}
             onChange={(e) => setFormPlan(e.target.value as TenantPlan)}
             options={[
-              { value: 'enterprise', label: `Enterprise Ultimate (${formatINR(planMonthlyPrice.enterprise)}/mo)` },
-              { value: 'professional', label: `Pro Business Retail (${formatINR(planMonthlyPrice.professional)}/mo)` },
-              { value: 'starter', label: `Starter POS Single (${formatINR(planMonthlyPrice.starter)}/mo)` },
+              { value: 'ENTERPRISE', label: `Enterprise Ultimate (${formatINR(planMonthlyPrice.ENTERPRISE)}/mo)` },
+              { value: 'PROFESSIONAL', label: `Pro Business Retail (${formatINR(planMonthlyPrice.PROFESSIONAL)}/mo)` },
+              { value: 'STARTER', label: `Starter POS Single (${formatINR(planMonthlyPrice.STARTER)}/mo)` },
             ]}
           />
           <Input label="Store Outlets Limit" type="number" value={formStoresLimit} onChange={(e) => setFormStoresLimit(e.target.value)} />

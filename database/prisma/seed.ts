@@ -3,14 +3,24 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
+  const apexPlatformFields = {
+    ownerName: 'Alexander Wright',
+    ownerEmail: 'admin@apexsupermarket.com',
+    storesLimit: 25,
+    storageUsedGB: 142,
+    storageLimitGB: 500,
+    dbInstancePod: 'pg-pod-apex-01',
+    region: 'MUMBAI' as const,
+  };
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'apex-supermarket' },
-    update: {},
+    update: apexPlatformFields,
     create: {
       name: 'Apex Supermarket Chain',
       slug: 'apex-supermarket',
       plan: 'ENTERPRISE',
       status: 'ACTIVE',
+      ...apexPlatformFields,
     },
   });
 
@@ -504,6 +514,142 @@ async function main() {
 
   console.log(
     `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, ${gstReturnDefs.length} GST returns, ${roleDefs.length} RBAC roles, ${userDefs.length} users, and ${auditLogDefs.length} audit logs.`,
+  );
+
+  // ---------- Superadmin platform: other SaaS tenants on the platform ----------
+  // Unlike the primary tenant above, these are lightweight platform-directory
+  // records for the superadmin suite — they only carry Store rows (so
+  // storesUsed can be computed live, same "compute don't store" rule as
+  // everywhere else) rather than a full operational dataset, since no
+  // operational service ever resolves anything but the seeded demo tenant.
+  const platformTenantDefs = [
+    { name: 'Metro Hypermarket Ltd', slug: 'metro', plan: 'ENTERPRISE' as const, status: 'ACTIVE' as const, storeCount: 12, storesLimit: 50, storageUsedGB: 380, storageLimitGB: 1000, dbInstancePod: 'pg-pod-metro-02', region: 'MUMBAI' as const, ownerName: 'Vikramaditya Rao', ownerEmail: 'v.rao@metrohyper.com', createdAt: '2023-11-05T09:00:00Z' },
+    { name: 'QuickBite Restaurant Group', slug: 'quickbite', plan: 'PROFESSIONAL' as const, status: 'ACTIVE' as const, storeCount: 6, storesLimit: 10, storageUsedGB: 85, storageLimitGB: 250, dbInstancePod: 'pg-pod-quickbite-03', region: 'MUMBAI' as const, ownerName: 'Ananya Deshmukh', ownerEmail: 'ananya@quickbite.com', createdAt: '2024-06-18T09:00:00Z' },
+    { name: 'Zenith Pharma Labs', slug: 'zenithpharma', plan: 'ENTERPRISE' as const, status: 'ACTIVE' as const, storeCount: 8, storesLimit: 20, storageUsedGB: 210, storageLimitGB: 500, dbInstancePod: 'pg-pod-zenith-04', region: 'VIRGINIA' as const, ownerName: 'Dr. Cyrus Poonawalla', ownerEmail: 'cyrus@zenithpharma.com', createdAt: '2024-01-22T09:00:00Z' },
+    { name: 'Luxe Fashion Retail', slug: 'luxefashion', plan: 'PROFESSIONAL' as const, status: 'ACTIVE' as const, storeCount: 3, storesLimit: 5, storageUsedGB: 45, storageLimitGB: 250, dbInstancePod: 'pg-pod-luxe-05', region: 'FRANKFURT' as const, ownerName: 'Natasha Kapoor', ownerEmail: 'natasha@luxefashion.com', createdAt: '2024-08-02T09:00:00Z' },
+    { name: 'Organic Pantry Co', slug: 'organicpantry', plan: 'STARTER' as const, status: 'TRIAL' as const, storeCount: 1, storesLimit: 1, storageUsedGB: 12, storageLimitGB: 50, dbInstancePod: 'pg-shared-schema-organicpantry', region: 'MUMBAI' as const, ownerName: 'Karan Malhotra', ownerEmail: 'karan@organicpantry.com', createdAt: '2026-08-02T09:00:00Z' },
+    { name: 'Sundar Departmental Stores', slug: 'sundarstores', plan: 'STARTER' as const, status: 'PAST_DUE' as const, storeCount: 1, storesLimit: 2, storageUsedGB: 22, storageLimitGB: 50, dbInstancePod: 'pg-shared-schema-sundarstores', region: 'MUMBAI' as const, ownerName: 'Rohit Sundaram', ownerEmail: 'rohit@sundarstores.com', createdAt: '2024-05-14T09:00:00Z' },
+    { name: 'Bharat Electronics Retail', slug: 'bharatelectronics', plan: 'PROFESSIONAL' as const, status: 'SUSPENDED' as const, storeCount: 5, storesLimit: 10, storageUsedGB: 130, storageLimitGB: 250, dbInstancePod: 'pg-pod-bharat-08', region: 'VIRGINIA' as const, ownerName: 'Priya Nair', ownerEmail: 'priya@bharatelectronics.com', createdAt: '2023-09-28T09:00:00Z' },
+    { name: 'Coastal Seafood Mart', slug: 'coastalseafood', plan: 'STARTER' as const, status: 'ACTIVE' as const, storeCount: 1, storesLimit: 1, storageUsedGB: 8, storageLimitGB: 50, dbInstancePod: 'pg-shared-schema-coastalseafood', region: 'MUMBAI' as const, ownerName: 'Meera Pillai', ownerEmail: 'meera@coastalseafood.com', createdAt: '2025-02-10T09:00:00Z' },
+    { name: 'Highland Coffee Roasters', slug: 'highlandcoffee', plan: 'PROFESSIONAL' as const, status: 'ACTIVE' as const, storeCount: 4, storesLimit: 10, storageUsedGB: 60, storageLimitGB: 250, dbInstancePod: 'pg-pod-highland-10', region: 'FRANKFURT' as const, ownerName: 'Devraj Singh', ownerEmail: 'devraj@highlandcoffee.com', createdAt: '2025-07-21T09:00:00Z' },
+  ];
+
+  const platformTenantIds: Record<string, string> = { apex: tenant.id };
+  for (const t of platformTenantDefs) {
+    const platformTenant = await prisma.tenant.upsert({
+      where: { slug: t.slug },
+      update: {},
+      create: {
+        name: t.name,
+        slug: t.slug,
+        plan: t.plan,
+        status: t.status,
+        storesLimit: t.storesLimit,
+        storageUsedGB: t.storageUsedGB,
+        storageLimitGB: t.storageLimitGB,
+        dbInstancePod: t.dbInstancePod,
+        region: t.region,
+        ownerName: t.ownerName,
+        ownerEmail: t.ownerEmail,
+        createdAt: new Date(t.createdAt),
+      },
+    });
+    platformTenantIds[t.slug] = platformTenant.id;
+
+    const existingStores = await prisma.store.count({ where: { tenantId: platformTenant.id } });
+    for (let i = existingStores; i < t.storeCount; i++) {
+      await prisma.store.create({
+        data: { tenantId: platformTenant.id, name: `Outlet ${i + 1}`, type: 'FLAGSHIP', isPrimary: i === 0 },
+      });
+    }
+  }
+
+  const platformInvoiceDefs = [
+    { tenantSlug: 'apex', plan: 'ENTERPRISE' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz91f8bL20', amountINR: 149999, status: 'PAID' as const, issuedAt: '2026-08-01T09:00:00Z' },
+    { tenantSlug: 'metro', plan: 'ENTERPRISE' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz92f9cL21', amountINR: 249999, status: 'PAID' as const, issuedAt: '2026-08-01T09:00:00Z' },
+    { tenantSlug: 'quickbite', plan: 'PROFESSIONAL' as const, gateway: 'STRIPE' as const, gatewayRef: 'ch_3M000aX991', amountINR: 49999, status: 'PAID' as const, issuedAt: '2026-08-02T09:00:00Z' },
+    { tenantSlug: 'zenithpharma', plan: 'ENTERPRISE' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz94f1dL23', amountINR: 149999, status: 'PAID' as const, issuedAt: '2026-08-03T09:00:00Z' },
+    { tenantSlug: 'luxefashion', plan: 'PROFESSIONAL' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz95f2eL24', amountINR: 49999, status: 'PAID' as const, issuedAt: '2026-08-04T09:00:00Z' },
+    { tenantSlug: 'organicpantry', plan: 'STARTER' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz96f3fL25', amountINR: 14999, status: 'PENDING' as const, issuedAt: '2026-08-05T09:00:00Z' },
+    { tenantSlug: 'sundarstores', plan: 'STARTER' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz97f4gL26', amountINR: 14999, status: 'FAILED' as const, issuedAt: '2026-08-06T09:00:00Z' },
+    { tenantSlug: 'bharatelectronics', plan: 'PROFESSIONAL' as const, gateway: 'STRIPE' as const, gatewayRef: 'ch_3M001bY882', amountINR: 49999, status: 'FAILED' as const, issuedAt: '2026-08-07T09:00:00Z' },
+    { tenantSlug: 'coastalseafood', plan: 'STARTER' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz99f6iL28', amountINR: 14999, status: 'PAID' as const, issuedAt: '2026-08-08T09:00:00Z' },
+    { tenantSlug: 'highlandcoffee', plan: 'PROFESSIONAL' as const, gateway: 'RAZORPAY' as const, gatewayRef: 'pay_Rz9A0f7jL29', amountINR: 49999, status: 'PAID' as const, issuedAt: '2026-08-09T09:00:00Z' },
+  ];
+
+  for (const inv of platformInvoiceDefs) {
+    const existing = await prisma.platformInvoice.findFirst({ where: { gatewayRef: inv.gatewayRef } });
+    if (!existing) {
+      await prisma.platformInvoice.create({
+        data: {
+          tenantId: platformTenantIds[inv.tenantSlug],
+          plan: inv.plan,
+          gateway: inv.gateway,
+          gatewayRef: inv.gatewayRef,
+          amountINR: inv.amountINR,
+          status: inv.status,
+          issuedAt: new Date(inv.issuedAt),
+        },
+      });
+    }
+  }
+
+  const cnameDomainDefs = [
+    { tenantSlug: 'apex', cnameDomain: 'pos.apexsupermarket.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (6ms)' },
+    { tenantSlug: 'metro', cnameDomain: 'billing.metrohyper.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (8ms)' },
+    { tenantSlug: 'quickbite', cnameDomain: 'pos.quickbite.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (12ms)' },
+    { tenantSlug: 'zenithpharma', cnameDomain: 'billing.zenithpharma.com', edgeIngressTarget: 'ingress-virginia-02.apexpos.com', sslSlaStatus: 'DigiCert TLS 1.3', dnsPropagationStatus: 'Propagated (4ms)' },
+    { tenantSlug: 'luxefashion', cnameDomain: 'checkout.luxefashion.com', edgeIngressTarget: 'ingress-frankfurt-03.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (9ms)' },
+    { tenantSlug: 'bharatelectronics', cnameDomain: 'pos.bharatelectronics.com', edgeIngressTarget: 'ingress-virginia-02.apexpos.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (11ms)' },
+    { tenantSlug: 'highlandcoffee', cnameDomain: 'billing.highlandcoffee.com', edgeIngressTarget: 'ingress-frankfurt-03.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (7ms)' },
+    { tenantSlug: 'sundarstores', cnameDomain: 'pos.sundarstores.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (5ms)' },
+  ];
+
+  for (const d of cnameDomainDefs) {
+    const existing = await prisma.cnameDomain.findUnique({ where: { cnameDomain: d.cnameDomain } });
+    if (!existing) {
+      await prisma.cnameDomain.create({
+        data: {
+          tenantId: platformTenantIds[d.tenantSlug],
+          cnameDomain: d.cnameDomain,
+          edgeIngressTarget: d.edgeIngressTarget,
+          sslSlaStatus: d.sslSlaStatus,
+          dnsPropagationStatus: d.dnsPropagationStatus,
+        },
+      });
+    }
+  }
+
+  const platformAuditLogDefs = [
+    { tenantSlug: 'organicpantry', timestamp: '2026-08-16T13:15:00Z', actor: 'Super Administrator', eventType: 'TENANT_PROVISIONED', details: 'Initialized 14-day trial on Starter POS Single plan.', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+    { tenantSlug: 'metro', timestamp: '2026-08-16T12:45:00Z', actor: 'Super Administrator', eventType: 'STORAGE_SCALE_UP', details: 'Increased database storage allocation from 750GB to 1TB.', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+    { tenantSlug: 'apex', timestamp: '2026-08-16T10:20:00Z', actor: 'Super Administrator', eventType: 'ADMIN_LOGIN', details: 'Super Admin impersonated login for Alexander Wright.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
+    { tenantSlug: 'zenithpharma', timestamp: '2026-08-15T09:00:00Z', actor: 'System Security', eventType: 'SSL_RENEWED', details: "Wildcard SSL certificate auto-renewed for zenithpharma.apexpos.com.", ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+    { tenantSlug: 'quickbite', timestamp: '2026-08-14T09:00:00Z', actor: 'Super Administrator', eventType: 'PLAN_UPGRADE', details: 'Upgraded from Starter POS Single to Pro Business Retail.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
+    { tenantSlug: 'bharatelectronics', timestamp: '2026-08-13T09:00:00Z', actor: 'Billing Engine', eventType: 'BILLING_FAILED', details: 'Auto-debit declined by issuing bank; tenant marked past due.', ipAddress: '10.0.0.1', riskRating: 'HIGH' as const },
+    { tenantSlug: 'sundarstores', timestamp: '2026-08-12T09:00:00Z', actor: 'System Security', eventType: 'STORAGE_ALERT', details: 'Cloud storage usage crossed 80% of allocated quota.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
+    { tenantSlug: 'metro', timestamp: '2026-08-16T18:00:00Z', actor: 'Billing Engine', eventType: 'BILLING_SUCCESS', details: 'Collected ₹249,999.00 subscription payment from Metro Hypermarket.', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+  ];
+
+  for (const l of platformAuditLogDefs) {
+    const existing = await prisma.auditLog.findFirst({ where: { tenantId: platformTenantIds[l.tenantSlug], details: l.details } });
+    if (!existing) {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: platformTenantIds[l.tenantSlug],
+          actor: l.actor,
+          eventType: l.eventType,
+          details: l.details,
+          ipAddress: l.ipAddress,
+          riskRating: l.riskRating,
+          timestamp: new Date(l.timestamp),
+        },
+      });
+    }
+  }
+
+  console.log(
+    `Seeded SaaS platform directory with ${platformTenantDefs.length + 1} total tenants, ${platformInvoiceDefs.length} platform invoices, ${cnameDomainDefs.length} CNAME domains, and ${platformAuditLogDefs.length} platform audit log entries.`,
   );
 }
 

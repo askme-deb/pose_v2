@@ -1,12 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { BarChart3, Check, CreditCard, DollarSign, Download, RefreshCw, Search, Store, TrendingUp, X } from 'lucide-react';
 import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, Modal, PillTabs, useToast } from '@pospe/ui-library';
-import { SubscriptionPlan, subscriptionPlans as initialPlans } from '../../services/mockData/subscriptionPlans';
-import { TenantInvoice, tenantInvoices } from '../../services/mockData/tenantInvoices';
+import { LiveTenant, LivePlatformInvoice, TenantPlan, listTenants, listPlatformInvoices } from '../../services/api/tenants';
 import { formatCompactINR, formatDate, formatINR } from '../../utils/format';
 
 type SubsTab = 'tiers' | 'invoices' | 'matrix' | 'gateways';
+
+interface PlanTierDisplay {
+  id: string;
+  name: string;
+  code: TenantPlan | 'CUSTOM';
+  monthlyPrice: number;
+  storesIncluded: number;
+  badge: string;
+  features: string[];
+}
 
 interface FeatureRow {
   id: string;
@@ -15,6 +24,13 @@ interface FeatureRow {
   pro: boolean;
   enterprise: boolean;
 }
+
+const PLAN_CATALOG: PlanTierDisplay[] = [
+  { id: 'plan-start', name: 'Starter POS Single', code: 'STARTER', monthlyPrice: 14999, storesIncluded: 1, badge: 'Single Store', features: ['1 Retail Store POS', 'Barcode Scanner Sync', 'Thermal Receipt Printing', 'Standard Analytics'] },
+  { id: 'plan-pro', name: 'Pro Business Retail', code: 'PROFESSIONAL', monthlyPrice: 49999, storesIncluded: 10, badge: 'Growth Standard', features: ['Up to 10 Store Outlets', 'Multi-Warehouse Sync', 'GST Tax Return Engine', 'Email & Chat Support'] },
+  { id: 'plan-ent', name: 'Enterprise Ultimate', code: 'ENTERPRISE', monthlyPrice: 149999, storesIncluded: 25, badge: 'Popular Enterprise', features: ['Unlimited Store Outlets', 'Dedicated DB Instance', 'White-Label Branding', '24/7 SLA Phone Support'] },
+  { id: 'plan-custom', name: 'Custom Enterprise White-Label', code: 'CUSTOM', monthlyPrice: 299999, storesIncluded: 100, badge: 'Dedicated Private Cloud', features: ['Unlimited Store Outlets', 'Custom Domain Branding', 'Dedicated Kubernetes Cluster', 'Dedicated Account Manager'] },
+];
 
 const initialFeatureMatrix: FeatureRow[] = [
   { id: 'f1', feature: 'POS Touch Billing & Thermal Printing', starter: true, pro: true, enterprise: true },
@@ -33,24 +49,26 @@ const tabOptions = [
   { value: 'gateways', label: 'Gateways & Dunning' },
 ];
 
-const statusColor: Record<TenantInvoice['status'], 'emerald' | 'amber' | 'red'> = {
-  paid: 'emerald',
-  pending: 'amber',
-  failed: 'red',
+const statusColor: Record<LivePlatformInvoice['status'], 'emerald' | 'amber' | 'red'> = {
+  PAID: 'emerald',
+  PENDING: 'amber',
+  FAILED: 'red',
 };
 
-const gatewayLabel: Record<TenantInvoice['gateway'], string> = {
-  razorpay: 'Razorpay AutoPay',
-  stripe: 'Stripe Global',
+const gatewayLabel: Record<LivePlatformInvoice['gateway'], string> = {
+  RAZORPAY: 'Razorpay AutoPay',
+  STRIPE: 'Stripe Global',
 };
 
 export default function SuperAdminSubscriptionsPage() {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<SubsTab>('tiers');
   const [search, setSearch] = useState('');
-  const [plans, setPlans] = useState<SubscriptionPlan[]>(initialPlans);
-  const [invoices] = useState<TenantInvoice[]>(tenantInvoices);
+  const [tenants, setTenants] = useState<LiveTenant[]>([]);
+  const [invoices, setInvoices] = useState<LivePlatformInvoice[]>([]);
+  const [customTiers, setCustomTiers] = useState<PlanTierDisplay[]>([]);
   const [featureMatrix, setFeatureMatrix] = useState<FeatureRow[]>(initialFeatureMatrix);
+  const [loading, setLoading] = useState(true);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [formName, setFormName] = useState('');
@@ -58,12 +76,37 @@ export default function SuperAdminSubscriptionsPage() {
   const [formStores, setFormStores] = useState('10');
   const [formBadge, setFormBadge] = useState('Growth Standard');
 
-  const [selectedInvoice, setSelectedInvoice] = useState<TenantInvoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<LivePlatformInvoice | null>(null);
 
-  const totalMRR = 14850000;
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [t, i] = await Promise.all([listTenants(), listPlatformInvoices()]);
+        setTenants(t);
+        setInvoices(i);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed to load subscription data from the server', 'danger');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totalMRR = tenants.reduce((sum, t) => sum + t.monthlyBilling, 0);
   const arr = totalMRR * 12;
-  const totalSubscribers = plans.reduce((sum, p) => sum + p.subscriberCount, 0);
+  const totalSubscribers = tenants.length;
   const arpu = totalSubscribers ? Math.round(totalMRR / totalSubscribers) : 0;
+
+  const plans = useMemo(() => {
+    const subscriberCountByPlan: Record<string, number> = {};
+    tenants.forEach((t) => {
+      subscriberCountByPlan[t.plan] = (subscriberCountByPlan[t.plan] ?? 0) + 1;
+    });
+    return [...PLAN_CATALOG, ...customTiers].map((p) => ({ ...p, subscriberCount: subscriberCountByPlan[p.code] ?? 0 }));
+  }, [tenants, customTiers]);
 
   const filteredInvoices = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -86,16 +129,16 @@ export default function SuperAdminSubscriptionsPage() {
       showToast('Please fill the plan name and monthly price', 'danger');
       return;
     }
-    const newPlan: SubscriptionPlan = {
+    const newPlan: PlanTierDisplay = {
       id: `plan-${Date.now()}`,
       name: formName.trim(),
+      code: 'CUSTOM',
       monthlyPrice: parseInt(formPrice, 10) || 49999,
       storesIncluded: parseInt(formStores, 10) || 10,
       badge: formBadge.trim() || 'Custom Tier',
-      subscriberCount: 0,
       features: ['Full Multi-Branch Sync', 'GST Tax Engine', 'Standard SLA Support'],
     };
-    setPlans((prev) => [newPlan, ...prev]);
+    setCustomTiers((prev) => [newPlan, ...prev]);
     setDrawerOpen(false);
     showToast(`Created SaaS Pricing Tier '${newPlan.name}'!`, 'success');
   }
@@ -127,7 +170,7 @@ export default function SuperAdminSubscriptionsPage() {
     showToast(`Tested ${name} webhook connection - OK`, 'success');
   }
 
-  const invoiceColumns: ColumnDef<TenantInvoice, any>[] = [
+  const invoiceColumns: ColumnDef<LivePlatformInvoice, any>[] = [
     {
       header: 'Invoice ID & Date',
       accessorKey: 'id',
@@ -272,7 +315,7 @@ export default function SuperAdminSubscriptionsPage() {
               Export Invoices
             </button>
           </div>
-          <DataTable columns={invoiceColumns} data={filteredInvoices} emptyTitle="No invoices matched" emptyDescription="Try adjusting your search." />
+          <DataTable columns={invoiceColumns} data={filteredInvoices} loading={loading} emptyTitle="No invoices matched" emptyDescription="Try adjusting your search." />
         </GlassCard>
       )}
 

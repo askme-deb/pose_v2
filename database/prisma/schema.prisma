@@ -22,8 +22,15 @@ enum SubscriptionPlan {
 enum TenantStatus {
   TRIAL
   ACTIVE
+  PAST_DUE
   SUSPENDED
   CANCELLED
+}
+
+enum TenantRegion {
+  MUMBAI
+  VIRGINIA
+  FRANKFURT
 }
 
 model Tenant {
@@ -37,8 +44,20 @@ model Tenant {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
+  // Platform/superadmin provisioning metadata — not read by any operational
+  // service (those only ever resolve the single seeded demo tenant today),
+  // only by the superadmin SaaS management pages.
+  ownerName      String?
+  ownerEmail     String?
+  storesLimit    Int          @default(10)
+  storageUsedGB  Int          @default(0)
+  storageLimitGB Int          @default(250)
+  dbInstancePod  String?
+  region         TenantRegion @default(MUMBAI)
+
   stores           Store[]
   profile          TenantProfile?
+  branding         TenantBranding?
   users            User[]
   products         Product[]
   brands           Brand[]
@@ -51,6 +70,8 @@ model Tenant {
   gstReturns       GstReturn[]
   rbacRoles        RbacRole[]
   auditLogs        AuditLog[]
+  cnameDomains     CnameDomain[]
+  platformInvoices PlatformInvoice[]
 
   @@map("tenants")
 }
@@ -199,6 +220,65 @@ model TenantProfile {
   updatedAt           DateTime @updatedAt
 
   @@map("tenant_profiles")
+}
+
+// ---------- Superadmin: white-label branding, custom domains, SaaS billing ----------
+// TenantBranding is split out from Tenant for the same reason as TenantProfile:
+// purely display/config data for the superadmin white-label page, one row per tenant.
+
+model TenantBranding {
+  id            String   @id @default(cuid())
+  tenantId      String   @unique
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  appTitle      String?
+  faviconUrl    String?
+  logoUrl       String?
+  accentColor   String   @default("#2563eb")
+  fontFamily    String   @default("Plus Jakarta Sans")
+  customCss     String?
+  smtpFromLabel String?
+  smtpHost      String?
+  updatedAt     DateTime @updatedAt
+
+  @@map("tenant_branding")
+}
+
+model CnameDomain {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  cnameDomain          String   @unique
+  edgeIngressTarget    String   @default("ingress-mumbai-01.apexpos.com")
+  sslSlaStatus         String   @default("Let's Encrypt TLS 1.3")
+  dnsPropagationStatus String   @default("Propagated (5ms)")
+  createdAt            DateTime @default(now())
+
+  @@map("cname_domains")
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  STRIPE
+}
+
+enum PlatformInvoiceStatus {
+  PAID
+  PENDING
+  FAILED
+}
+
+model PlatformInvoice {
+  id         String                @id @default(cuid())
+  tenantId   String
+  tenant     Tenant                @relation(fields: [tenantId], references: [id])
+  plan       SubscriptionPlan
+  gateway    PaymentGateway
+  gatewayRef String
+  amountINR  Int
+  status     PlatformInvoiceStatus @default(PAID)
+  issuedAt   DateTime              @default(now())
+
+  @@map("platform_invoices")
 }
 
 // ---------- Inventory ----------
