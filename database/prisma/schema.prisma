@@ -47,6 +47,7 @@ model Tenant {
   purchaseOrders   PurchaseOrder[]
   warehouses       Warehouse[]
   warehouseTransfers WarehouseTransfer[]
+  gstReturns       GstReturn[]
 
   @@map("tenants")
 }
@@ -337,6 +338,32 @@ model InvoiceItem {
   total     Decimal @db.Decimal(12, 2)
 
   @@map("invoice_items")
+}
+
+enum GstFormType {
+  GSTR1
+  GSTR3B
+}
+
+enum GstFilingStatus {
+  PENDING
+  FILED
+}
+
+model GstReturn {
+  id             String          @id @default(cuid())
+  tenantId       String
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  formType       GstFormType
+  periodMonth    DateTime
+  billedTurnover Decimal         @default(0) @db.Decimal(14, 2)
+  taxLiability   Decimal         @default(0) @db.Decimal(14, 2)
+  arn            String?
+  status         GstFilingStatus @default(PENDING)
+  createdAt      DateTime        @default(now())
+
+  @@unique([tenantId, formType, periodMonth])
+  @@map("gst_returns")
 }
 
 // ---------- Warehouse logistics ----------

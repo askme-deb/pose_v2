@@ -352,8 +352,36 @@ async function main() {
     });
   }
 
+  const gstReturnDefs = [
+    { formType: 'GSTR1' as const, periodMonth: '2026-08-01', billedTurnover: 148920, taxLiability: 17870.4, arn: null, status: 'PENDING' as const },
+    { formType: 'GSTR3B' as const, periodMonth: '2026-07-01', billedTurnover: 215400, taxLiability: 25848, arn: 'AA270726098712', status: 'FILED' as const },
+    { formType: 'GSTR1' as const, periodMonth: '2026-06-01', billedTurnover: 198600, taxLiability: 23832, arn: 'AA270626084123', status: 'FILED' as const },
+    { formType: 'GSTR3B' as const, periodMonth: '2026-05-01', billedTurnover: 182500, taxLiability: 21900, arn: 'AA270526071490', status: 'FILED' as const },
+    { formType: 'GSTR1' as const, periodMonth: '2026-04-01', billedTurnover: 245000, taxLiability: 29400, arn: 'AA270426061234', status: 'FILED' as const },
+    { formType: 'GSTR3B' as const, periodMonth: '2026-03-01', billedTurnover: 160000, taxLiability: 19200, arn: 'AA270326051982', status: 'FILED' as const },
+    { formType: 'GSTR1' as const, periodMonth: '2026-02-01', billedTurnover: 172400, taxLiability: 20688, arn: 'AA270226043765', status: 'FILED' as const },
+    { formType: 'GSTR3B' as const, periodMonth: '2026-01-01', billedTurnover: 158900, taxLiability: 19068, arn: 'AA270126039981', status: 'FILED' as const },
+  ];
+
+  for (const g of gstReturnDefs) {
+    const existing = await prisma.gstReturn.findFirst({ where: { tenantId: tenant.id, formType: g.formType, periodMonth: new Date(g.periodMonth) } });
+    if (!existing) {
+      await prisma.gstReturn.create({
+        data: {
+          tenantId: tenant.id,
+          formType: g.formType,
+          periodMonth: new Date(g.periodMonth),
+          billedTurnover: g.billedTurnover,
+          taxLiability: g.taxLiability,
+          arn: g.arn,
+          status: g.status,
+        },
+      });
+    }
+  }
+
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, and ${transferDefs.length} warehouse transfers.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, and ${gstReturnDefs.length} GST returns.`,
   );
 }
 

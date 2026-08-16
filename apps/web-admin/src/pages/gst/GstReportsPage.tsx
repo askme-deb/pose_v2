@@ -1,18 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Calculator, Receipt, Percent, CheckCircle2, Search, FileJson, FileCheck2, FileDown, CheckSquare } from 'lucide-react';
 import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, PillTabs, Select, useToast } from '@pospe/ui-library';
 import { formatINR } from '../../utils/format';
 import {
-  GstReturn,
+  listGstReturns,
+  fileGstReturn,
+  markGstReturnFiled,
+  getGstSummary,
+  LiveGstReturn,
+  LiveTaxSlab,
   GstFormType,
   GstFilingStatus,
-  gstReturns as initialGstReturns,
-  taxSlabs,
-  gstFormOptions,
-} from '../../services/mockData/gstReturns';
+} from '../../services/api/gst';
 
-const ITC_CREDIT = 42300;
+const gstFormOptions = [
+  { value: 'GSTR1', label: 'GSTR-1 (Outward Supplies)' },
+  { value: 'GSTR3B', label: 'GSTR-3B (Summary Return)' },
+];
 
 function periodLabel(iso: string): string {
   return new Date(iso).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -20,14 +25,6 @@ function periodLabel(iso: string): string {
 
 function isoToMonthInput(iso: string): string {
   return iso.slice(0, 7);
-}
-
-function monthInputToIso(month: string): string {
-  return `${month}-01`;
-}
-
-function randomARN(): string {
-  return `AA270826${Math.floor(100000 + Math.random() * 900000)}`;
 }
 
 function downloadBlob(content: string, filename: string, type: string) {
@@ -51,7 +48,7 @@ type FilingFormState = {
 };
 
 const emptyForm: FilingFormState = {
-  formType: 'GSTR-1',
+  formType: 'GSTR1',
   period: '2026-08',
   billedTurnover: '',
   taxLiability: '',
@@ -60,12 +57,35 @@ const emptyForm: FilingFormState = {
 
 export default function GstReportsPage() {
   const { showToast } = useToast();
-  const [returns, setReturns] = useState<GstReturn[]>(initialGstReturns);
+  const [returns, setReturns] = useState<LiveGstReturn[]>([]);
+  const [taxSlabs, setTaxSlabs] = useState<LiveTaxSlab[]>([]);
+  const [itcCredit, setItcCredit] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'returns' | 'slabs'>('returns');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | GstFilingStatus>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FilingFormState>(emptyForm);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [rets, summary] = await Promise.all([listGstReturns(), getGstSummary()]);
+      setReturns(rets);
+      setTaxSlabs(summary.taxSlabs);
+      setItcCredit(summary.itcCredit);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load GST data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -79,7 +99,7 @@ export default function GstReportsPage() {
 
   const totalTurnover = returns.reduce((s, r) => s + r.billedTurnover, 0);
   const totalOutputTax = returns.reduce((s, r) => s + r.taxLiability, 0);
-  const netPayable = Math.max(0, totalOutputTax - ITC_CREDIT);
+  const netPayable = Math.max(0, totalOutputTax - itcCredit);
 
   function openFileDrawer() {
     setForm(emptyForm);
@@ -90,35 +110,43 @@ export default function GstReportsPage() {
     setDrawerOpen(false);
   }
 
-  function saveFiling() {
+  async function saveFiling() {
     const turnover = parseFloat(form.billedTurnover);
     const taxLiability = parseFloat(form.taxLiability);
     if (!form.period || Number.isNaN(turnover) || Number.isNaN(taxLiability)) {
       showToast('Return period, billed turnover, and tax liability are required', 'danger');
       return;
     }
-    const arn = form.arn.trim() || randomARN();
-    const newReturn: GstReturn = {
-      id: `gst-${Date.now()}`,
-      formType: form.formType,
-      periodMonth: monthInputToIso(form.period),
-      billedTurnover: turnover,
-      taxLiability,
-      arn,
-      status: 'filed',
-    };
-    setReturns((prev) => [newReturn, ...prev]);
-    showToast(`Filed GST Return for ${periodLabel(newReturn.periodMonth)} (ARN: ${arn})!`, 'success');
-    closeFileDrawer();
+    setSaving(true);
+    try {
+      const filed = await fileGstReturn({
+        formType: form.formType,
+        periodMonth: form.period,
+        billedTurnover: turnover,
+        taxLiability,
+        arn: form.arn.trim() || undefined,
+      });
+      await reload();
+      showToast(`Filed GST Return for ${periodLabel(filed.periodMonth)} (ARN: ${filed.arn})!`, 'success');
+      closeFileDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not file GST return', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function filePendingReturn(r: GstReturn) {
-    const arn = randomARN();
-    setReturns((prev) => prev.map((x) => (x.id === r.id ? { ...x, status: 'filed', arn } : x)));
-    showToast(`Successfully filed GST return for ${periodLabel(r.periodMonth)}!`, 'success');
+  async function filePendingReturn(r: LiveGstReturn) {
+    try {
+      const filed = await markGstReturnFiled(r.id);
+      await reload();
+      showToast(`Successfully filed GST return for ${periodLabel(filed.periodMonth)}!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not file return', 'danger');
+    }
   }
 
-  function downloadReturnJSON(r: GstReturn) {
+  function downloadReturnJSON(r: LiveGstReturn) {
     const payload = {
       formType: r.formType,
       period: periodLabel(r.periodMonth),
@@ -134,7 +162,7 @@ export default function GstReportsPage() {
   }
 
   function exportGSTR1JSON() {
-    const gstr1Returns = returns.filter((r) => r.formType === 'GSTR-1');
+    const gstr1Returns = returns.filter((r) => r.formType === 'GSTR1');
     const payload = {
       gstin: '27AAAAA0000A1Z5',
       exportedAt: new Date().toISOString(),
@@ -152,7 +180,7 @@ export default function GstReportsPage() {
     showToast('Generated official GSTR-1 JSON schema export.', 'success');
   }
 
-  const returnColumns: ColumnDef<GstReturn, any>[] = [
+  const returnColumns: ColumnDef<LiveGstReturn, any>[] = [
     {
       id: 'period',
       header: 'Tax Period Month',
@@ -165,7 +193,7 @@ export default function GstReportsPage() {
       accessorFn: (r) => r.formType,
       cell: ({ row }) => (
         <div className="font-semibold text-blue-600 dark:text-blue-400">
-          {row.original.formType === 'GSTR-1' ? 'GSTR-1 (Outward Supplies)' : 'GSTR-3B (Summary Return)'}
+          {row.original.formType === 'GSTR1' ? 'GSTR-1 (Outward Supplies)' : 'GSTR-3B (Summary Return)'}
         </div>
       ),
     },
@@ -201,7 +229,7 @@ export default function GstReportsPage() {
       accessorFn: (r) => r.status,
       cell: ({ row }) => (
         <div className="text-center">
-          {row.original.status === 'filed' ? (
+          {row.original.status === 'FILED' ? (
             <Badge color="emerald" pill>
               Filed & Verified
             </Badge>
@@ -219,7 +247,7 @@ export default function GstReportsPage() {
       accessorFn: (r) => r.arn,
       cell: ({ row }) => (
         <div className="text-[10px] font-mono text-slate-500">
-          {row.original.status === 'filed' ? `ARN: ${row.original.arn}` : 'Return not yet filed'}
+          {row.original.status === 'FILED' ? `ARN: ${row.original.arn}` : 'Return not yet filed'}
         </div>
       ),
     },
@@ -235,7 +263,7 @@ export default function GstReportsPage() {
           >
             <FileDown className="w-3.5 h-3.5" />
           </button>
-          {row.original.status === 'pending' && (
+          {row.original.status === 'PENDING' && (
             <button
               onClick={() => filePendingReturn(row.original)}
               title="File Return Now"
@@ -249,10 +277,10 @@ export default function GstReportsPage() {
     },
   ];
 
-  const slabColumns: ColumnDef<(typeof taxSlabs)[number], any>[] = [
-    { id: 'label', header: 'Tax Slab', accessorFn: (s) => s.label, cell: ({ row }) => <div className="font-bold text-xs text-slate-900 dark:text-white">{row.original.label}</div> },
+  const slabColumns: ColumnDef<LiveTaxSlab, any>[] = [
+    { id: 'label', header: 'Tax Slab', accessorFn: (s) => s.rate, cell: ({ row }) => <div className="font-bold text-xs text-slate-900 dark:text-white">{row.original.rate}% GST Slab</div> },
     { id: 'rate', header: 'Rate', accessorFn: (s) => s.rate, cell: ({ row }) => <div className="font-mono font-bold text-emerald-600">{row.original.rate}%</div> },
-    { id: 'itemsCount', header: 'SKU Coverage', accessorFn: (s) => s.itemsCount, cell: ({ row }) => <div className="text-slate-500">{row.original.itemsCount}</div> },
+    { id: 'skuCount', header: 'SKU Coverage', accessorFn: (s) => s.skuCount, cell: ({ row }) => <div className="text-slate-500">{row.original.skuCount} SKUs</div> },
     { id: 'taxableAmount', header: 'Taxable Base', accessorFn: (s) => s.taxableAmount, cell: ({ row }) => <div className="text-right font-mono font-bold text-slate-900 dark:text-white">{formatINR(row.original.taxableAmount)}</div> },
     { id: 'cgst', header: 'CGST', accessorFn: (s) => s.cgst, cell: ({ row }) => <div className="text-right font-mono text-slate-500">{formatINR(row.original.cgst)}</div> },
     { id: 'sgst', header: 'SGST', accessorFn: (s) => s.sgst, cell: ({ row }) => <div className="text-right font-mono text-slate-500">{formatINR(row.original.sgst)}</div> },
@@ -273,7 +301,8 @@ export default function GstReportsPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Generate GSTR-1 / GSTR-3B filings, audit CGST/SGST breakdowns, track Input Tax Credit (ITC), and export JSON returns.
+            Generate GSTR-1 / GSTR-3B filings, audit CGST/SGST breakdowns, track Input Tax Credit (ITC), and export
+            JSON returns. Tax slabs and ITC are computed live from the sales and purchasing ledgers.
           </p>
         </div>
 
@@ -295,8 +324,8 @@ export default function GstReportsPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
           >
             <option value="all">All Filing Statuses</option>
-            <option value="filed">Filed & Verified</option>
-            <option value="pending">Filing Pending</option>
+            <option value="FILED">Filed & Verified</option>
+            <option value="PENDING">Filing Pending</option>
           </select>
 
           <PillTabs
@@ -324,7 +353,7 @@ export default function GstReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Calculator} label="Gross Taxable Turnover" value={formatINR(totalTurnover)} delta="YTD Taxable Outward Billed" deltaTone="positive" color="emerald" />
         <KpiCard icon={Receipt} label="Output GST Liability" value={formatINR(totalOutputTax)} delta={`CGST ${formatINR(totalOutputTax / 2)} + SGST ${formatINR(totalOutputTax / 2)}`} deltaTone="neutral" color="blue" />
-        <KpiCard icon={Percent} label="Input Tax Credit (ITC)" value={formatINR(ITC_CREDIT)} delta="Eligible Purchase ITC (GSTR-2B)" deltaTone="neutral" color="purple" />
+        <KpiCard icon={Percent} label="Input Tax Credit (ITC)" value={formatINR(itcCredit)} delta="From Received Purchase Orders" deltaTone="neutral" color="purple" />
         <KpiCard icon={CheckCircle2} label="Net Payable GST" value={formatINR(netPayable)} delta="Net Tax Deposited (Challan)" deltaTone="positive" color="emerald" />
       </div>
 
@@ -334,6 +363,7 @@ export default function GstReportsPage() {
             <DataTable
               columns={returnColumns}
               data={filtered}
+              loading={loading}
               emptyTitle="No GST Returns Found"
               emptyDescription="No return period matches your filter criteria."
             />
@@ -342,7 +372,7 @@ export default function GstReportsPage() {
       ) : (
         <GlassCard padding="sm" className="!p-0 overflow-hidden">
           <div className="p-4">
-            <DataTable columns={slabColumns} data={taxSlabs} emptyTitle="No Tax Slabs Found" pageSize={taxSlabs.length} />
+            <DataTable columns={slabColumns} data={taxSlabs} loading={loading} emptyTitle="No Tax Slabs Found" pageSize={Math.max(taxSlabs.length, 1)} />
           </div>
         </GlassCard>
       )}
@@ -357,7 +387,9 @@ export default function GstReportsPage() {
             <Button variant="secondary" onClick={closeFileDrawer}>
               Cancel
             </Button>
-            <Button onClick={saveFiling}>Confirm GST Return Filing</Button>
+            <Button onClick={saveFiling} disabled={saving}>
+              {saving ? 'Filing…' : 'Confirm GST Return Filing'}
+            </Button>
           </>
         }
       >
