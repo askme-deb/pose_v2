@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
@@ -23,29 +23,47 @@ import {
 import { GlassCard, KpiCard, PillTabs, Badge, DataTable, useToast, cn } from '@pospe/ui-library';
 import { formatINR, formatCompactINR } from '../../utils/format';
 import { useThemeStore } from '../../store/useThemeStore';
-import {
-  dashboardTimeframeOptions,
-  dashboardKpisByTimeframe,
-  revenueTrendByTimeframe,
-  paymentSplitByTimeframe,
-  categoryPerformance,
-  branchPerformance,
-  hourlyFootfall,
-  transactions,
-  minutesAgoLabel,
-  topSkus,
-  stockAlerts,
-  type DashboardTimeframe,
-  type Transaction,
-  type PaymentColor,
-} from '../../services/mockData/dashboardMetrics';
+import { getDashboard, DashboardData, DashboardTimeframe, TransactionRow } from '../../services/api/dashboard';
 
-const PAYMENT_COLOR_HEX: Record<PaymentColor, string> = {
-  blue: '#3b82f6',
-  purple: '#a855f7',
-  emerald: '#10b981',
-  amber: '#f59e0b',
+const dashboardTimeframeOptions: { value: DashboardTimeframe; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: '7d', label: '7D' },
+  { value: '30d', label: '30D' },
+  { value: '90d', label: '90D' },
+];
+
+const TIMEFRAME_COMPARISON_LABEL: Record<DashboardTimeframe, string> = {
+  today: 'vs yesterday',
+  '7d': 'vs prior 7 days',
+  '30d': 'vs prior 30 days',
+  '90d': 'vs prior 90 days',
 };
+
+type PaymentColor = 'blue' | 'purple' | 'emerald';
+
+const PAYMENT_META: Record<'UPI' | 'CARD' | 'CASH', { label: string; color: PaymentColor; hex: string }> = {
+  UPI: { label: 'UPI / QR', color: 'blue', hex: '#3b82f6' },
+  CARD: { label: 'Cards', color: 'purple', hex: '#a855f7' },
+  CASH: { label: 'Cash', color: 'emerald', hex: '#10b981' },
+};
+
+// No real foot-traffic counter exists anywhere in the schema — this stays
+// decorative flavor, same treatment as the Superadmin cluster/gateway panels.
+const hourlyFootfall = [
+  { label: '9AM', visitors: 42 },
+  { label: '10AM', visitors: 58 },
+  { label: '11AM', visitors: 76 },
+  { label: '12PM', visitors: 112 },
+  { label: '1PM', visitors: 128 },
+  { label: '2PM', visitors: 96 },
+  { label: '3PM', visitors: 82 },
+  { label: '4PM', visitors: 104 },
+  { label: '5PM', visitors: 135 },
+  { label: '6PM', visitors: 162 },
+  { label: '7PM', visitors: 188 },
+  { label: '8PM', visitors: 134 },
+  { label: '9PM', visitors: 65 },
+];
 
 const AMBER_RAMP = ['#fde68a', '#fcd34d', '#fbbf24', '#f59e0b', '#d97706', '#b45309'];
 
@@ -54,6 +72,18 @@ function amberForValue(value: number, min: number, max: number): string {
   const ratio = (value - min) / (max - min);
   const idx = Math.min(AMBER_RAMP.length - 1, Math.floor(ratio * AMBER_RAMP.length));
   return AMBER_RAMP[idx];
+}
+
+function signed(pct: number): string {
+  return `${pct >= 0 ? '+' : ''}${pct}%`;
+}
+
+function minutesAgoLabel(createdAt: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(createdAt).getTime()) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
 }
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
@@ -76,20 +106,42 @@ export default function DashboardPage() {
   const [widgetTab, setWidgetTab] = useState<'top-skus' | 'low-stock'>('top-skus');
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardData | null>(null);
 
-  const kpis = dashboardKpisByTimeframe[timeframe];
-  const trend = revenueTrendByTimeframe[timeframe];
-  const paymentSplit = paymentSplitByTimeframe[timeframe];
-  const categoryPerf = useMemo(() => categoryPerformance(timeframe), [timeframe]);
-  const branchPerf = useMemo(() => branchPerformance(timeframe), [timeframe]);
+  async function load(tf: DashboardTimeframe) {
+    setLoading(true);
+    try {
+      const result = await getDashboard(tf);
+      setData(result);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load dashboard data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load(timeframe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeframe]);
+
+  const kpis = data?.kpis;
+  const trend = data?.trend ?? [];
+  const paymentSplit = data?.paymentSplit ?? [];
+  const categoryPerf = data?.categoryPerformance ?? [];
+  const branchPerf = data?.branchPerformance ?? [];
+  const topSkus = data?.topSkus ?? [];
+  const stockAlerts = data?.stockAlerts ?? [];
+  const transactions = data?.transactions ?? [];
 
   const filteredTransactions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return transactions;
     return transactions.filter(
-      (t) => t.invoiceNo.toLowerCase().includes(q) || t.customer.toLowerCase().includes(q),
+      (t) => t.invoiceNumber.toLowerCase().includes(q) || t.customerName.toLowerCase().includes(q),
     );
-  }, [search]);
+  }, [search, transactions]);
 
   const footfallMin = Math.min(...hourlyFootfall.map((h) => h.visitors));
   const footfallMax = Math.max(...hourlyFootfall.map((h) => h.visitors));
@@ -132,8 +184,8 @@ export default function DashboardPage() {
   const paymentOptions: ApexOptions = useMemo(
     () => ({
       chart: { type: 'donut', toolbar: { show: false }, fontFamily: 'inherit' },
-      labels: paymentSplit.map((p) => p.method),
-      colors: paymentSplit.map((p) => PAYMENT_COLOR_HEX[p.color]),
+      labels: paymentSplit.map((p) => PAYMENT_META[p.method].label),
+      colors: paymentSplit.map((p) => PAYMENT_META[p.method].hex),
       legend: { show: false },
       dataLabels: { enabled: false },
       stroke: { width: 2, colors: [dark ? '#0f172a' : '#ffffff'] },
@@ -203,9 +255,10 @@ export default function DashboardPage() {
   // ---------------------------------------------------------------------
 
   function handleExport() {
+    if (!kpis) return;
     downloadCsv(`dashboard-report-${timeframe}.csv`, [
       ['Metric', 'Value'],
-      ["Revenue", kpis.revenue],
+      ['Revenue', kpis.revenue],
       ['Orders', kpis.orders],
       ['Net Profit', kpis.profit],
       ['Margin %', kpis.marginPct],
@@ -213,35 +266,35 @@ export default function DashboardPage() {
       ['Low Stock SKUs', kpis.lowStockSkus],
       [],
       ['Invoice', 'Customer', 'Branch', 'Payment', 'Amount'],
-      ...transactions.map((t) => [t.invoiceNo, t.customer, t.branch, t.paymentMethod, t.amount]),
+      ...transactions.map((t) => [t.invoiceNumber, t.customerName, t.branch, t.paymentMethod, t.amount]),
     ]);
     showToast('Dashboard report exported as CSV', 'success');
   }
 
   function handleRefresh() {
     setRefreshing(true);
-    window.setTimeout(() => {
+    load(timeframe).finally(() => {
       setRefreshing(false);
       showToast('Dashboard data refreshed', 'success');
-    }, 600);
+    });
   }
 
-  const transactionColumns: ColumnDef<Transaction, unknown>[] = useMemo(
+  const transactionColumns: ColumnDef<TransactionRow, unknown>[] = useMemo(
     () => [
       {
-        accessorKey: 'invoiceNo',
+        accessorKey: 'invoiceNumber',
         header: 'Invoice',
         cell: ({ row }) => (
           <div>
-            <span className="font-mono font-bold text-blue-600">{row.original.invoiceNo}</span>
-            <div className="text-[10px] text-slate-400">{minutesAgoLabel(row.original.minutesAgo)}</div>
+            <span className="font-mono font-bold text-blue-600">#{row.original.invoiceNumber}</span>
+            <div className="text-[10px] text-slate-400">{minutesAgoLabel(row.original.createdAt)}</div>
           </div>
         ),
       },
       {
-        accessorKey: 'customer',
+        accessorKey: 'customerName',
         header: 'Customer',
-        cell: ({ row }) => <span className="font-semibold text-slate-800 dark:text-slate-200">{row.original.customer}</span>,
+        cell: ({ row }) => <span className="font-semibold text-slate-800 dark:text-slate-200">{row.original.customerName}</span>,
       },
       {
         accessorKey: 'branch',
@@ -251,7 +304,7 @@ export default function DashboardPage() {
       {
         accessorKey: 'paymentMethod',
         header: 'Payment',
-        cell: ({ row }) => <Badge color={row.original.paymentColor}>{row.original.paymentMethod}</Badge>,
+        cell: ({ row }) => <Badge color={PAYMENT_META[row.original.paymentMethod].color}>{PAYMENT_META[row.original.paymentMethod].label}</Badge>,
       },
       {
         accessorKey: 'amount',
@@ -266,7 +319,7 @@ export default function DashboardPage() {
         cell: ({ row }) => (
           <div className="flex justify-center">
             <button
-              onClick={() => showToast(`Opening receipt for ${row.original.invoiceNo}`, 'info')}
+              onClick={() => showToast(`Opening receipt for #${row.original.invoiceNumber}`, 'info')}
               className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white transition text-slate-600 dark:text-slate-300"
             >
               <Eye className="w-3.5 h-3.5" />
@@ -323,48 +376,48 @@ export default function DashboardPage() {
         <KpiCard
           icon={IndianRupee}
           label={timeframe === 'today' ? "Today's Revenue" : 'Total Revenue'}
-          value={formatINR(kpis.revenue)}
-          delta={`${kpis.revenueDelta} ${kpis.revenueDeltaSub}`}
-          deltaTone="positive"
+          value={formatINR(kpis?.revenue ?? 0)}
+          delta={`${signed(kpis?.revenueDeltaPct ?? 0)} ${TIMEFRAME_COMPARISON_LABEL[timeframe]}`}
+          deltaTone={(kpis?.revenueDeltaPct ?? 0) >= 0 ? 'positive' : 'negative'}
           color="blue"
         />
         <KpiCard
           icon={ShoppingCart}
           label="Total Orders"
-          value={`${kpis.orders} ${kpis.ordersSuffix}`}
-          delta={`${kpis.ordersDelta} · ${kpis.ordersDeltaSub}`}
-          deltaTone="positive"
+          value={`${kpis?.orders ?? 0} Bills`}
+          delta={`${signed(kpis?.ordersDeltaPct ?? 0)} ${TIMEFRAME_COMPARISON_LABEL[timeframe]}`}
+          deltaTone={(kpis?.ordersDeltaPct ?? 0) >= 0 ? 'positive' : 'negative'}
           color="indigo"
         />
         <KpiCard
           icon={ArrowUpRight}
           label="Net Profit"
-          value={formatINR(kpis.profit)}
-          delta={`${kpis.marginPct}% Margin · ${kpis.marginSub}`}
+          value={formatINR(kpis?.profit ?? 0)}
+          delta={`${kpis?.marginPct ?? 0}% Margin`}
           deltaTone="positive"
           color="emerald"
         />
         <KpiCard
           icon={Receipt}
           label="Avg Ticket Size"
-          value={formatINR(kpis.avgTicket)}
-          delta={`${kpis.avgTicketDelta} ${kpis.avgTicketDeltaSub}`}
-          deltaTone="positive"
+          value={formatINR(kpis?.avgTicket ?? 0)}
+          delta={`${signed(kpis?.avgTicketDeltaPct ?? 0)} basket value`}
+          deltaTone={(kpis?.avgTicketDeltaPct ?? 0) >= 0 ? 'positive' : 'negative'}
           color="purple"
         />
         <KpiCard
           icon={AlertTriangle}
           label="Low Stock Risk"
-          value={`${kpis.lowStockSkus} SKUs`}
-          delta={`${kpis.criticalReorders} Critical Reorders`}
+          value={`${kpis?.lowStockSkus ?? 0} SKUs`}
+          delta={`${kpis?.criticalReorders ?? 0} Critical Reorders`}
           deltaTone="negative"
           color="amber"
         />
         <KpiCard
           icon={Monitor}
           label="POS Registers"
-          value={`${kpis.registersActive}/${kpis.registersTotal} Active`}
-          delta={`${kpis.uptimePct}% Uptime`}
+          value="6/6 Active"
+          delta="100% Uptime"
           deltaTone="positive"
           color="cyan"
         />
@@ -409,34 +462,36 @@ export default function DashboardPage() {
             <Chart options={paymentOptions} series={paymentSeries} type="donut" height="100%" width="100%" />
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <span className="text-[10px] font-extrabold uppercase text-slate-400">Total Volume</span>
-              <span className="text-lg font-black text-slate-900 dark:text-white">{formatCompactINR(kpis.revenue)}</span>
+              <span className="text-lg font-black text-slate-900 dark:text-white">{formatCompactINR(kpis?.revenue ?? 0)}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 text-xs">
-            {paymentSplit.map((slice) => (
-              <div
-                key={slice.method}
-                className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800"
-              >
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold">
-                  <span
-                    className={cn(
-                      'w-2.5 h-2.5 rounded-full',
-                      slice.color === 'blue' && 'bg-blue-500',
-                      slice.color === 'purple' && 'bg-purple-500',
-                      slice.color === 'emerald' && 'bg-emerald-500',
-                      slice.color === 'amber' && 'bg-amber-500',
-                    )}
-                  />
-                  <span>{slice.method}</span>
+            {paymentSplit.map((slice) => {
+              const meta = PAYMENT_META[slice.method];
+              return (
+                <div
+                  key={slice.method}
+                  className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800"
+                >
+                  <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-semibold">
+                    <span
+                      className={cn(
+                        'w-2.5 h-2.5 rounded-full',
+                        meta.color === 'blue' && 'bg-blue-500',
+                        meta.color === 'purple' && 'bg-purple-500',
+                        meta.color === 'emerald' && 'bg-emerald-500',
+                      )}
+                    />
+                    <span>{meta.label}</span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between">
+                    <span className="font-extrabold text-slate-900 dark:text-white">{slice.pct}%</span>
+                    <span className="text-[10px] font-mono text-slate-400">{formatCompactINR(((kpis?.revenue ?? 0) * slice.pct) / 100)}</span>
+                  </div>
                 </div>
-                <div className="mt-1 flex items-baseline justify-between">
-                  <span className="font-extrabold text-slate-900 dark:text-white">{slice.pct}%</span>
-                  <span className="text-[10px] font-mono text-slate-400">{formatCompactINR((kpis.revenue * slice.pct) / 100)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </GlassCard>
       </div>
@@ -464,7 +519,7 @@ export default function DashboardPage() {
               <Store className="w-4 h-4 text-blue-600" />
               <span>Branch Performance</span>
             </h3>
-            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">3 Outlets</span>
+            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">{branchPerf.length} Outlets</span>
           </div>
           <div className="relative w-full h-56">
             <Chart options={branchOptions} series={branchSeries} type="bar" height="100%" width="100%" />
@@ -519,6 +574,7 @@ export default function DashboardPage() {
           <DataTable
             columns={transactionColumns}
             data={filteredTransactions}
+            loading={loading}
             pageSize={8}
             emptyTitle="No transactions found"
             emptyDescription="Try a different invoice number or customer name."

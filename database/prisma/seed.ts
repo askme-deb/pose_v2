@@ -289,6 +289,87 @@ async function main() {
     });
   }
 
+  // Rolling 30-day trailing invoice history, generated (not hand-typed) so the
+  // Dashboard's revenue trend/KPIs have real day-by-day shape to aggregate
+  // regardless of when this seed is actually run — unlike invoiceDefs above,
+  // which use fixed 2026-08 dates and would otherwise "age out" of the
+  // dashboard's 7d/30d windows a few days after seeding. Keyed by calendar
+  // date (not day-offset) so re-running the seed on the same day is a no-op,
+  // while running it again later just adds that new day's history.
+  function mulberry32(seed: number) {
+    let s = seed;
+    return () => {
+      s |= 0;
+      s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const trendRand = mulberry32(20260817);
+  const trendCustomerNames = ['Walk-in Customer', 'Walk-in Customer', ...customerDefs.map((c) => c.name)];
+  const trendPaymentMethods: Array<'UPI' | 'CARD' | 'CASH'> = ['UPI', 'UPI', 'UPI', 'CARD', 'CARD', 'CASH'];
+  const trendSkus = products.map((p) => p.sku);
+  let trendInvoiceCount = 0;
+
+  for (let daysAgo = 29; daysAgo >= 0; daysAgo--) {
+    const day = new Date();
+    day.setHours(0, 0, 0, 0);
+    day.setDate(day.getDate() - daysAgo);
+    const dateKey = `${day.getFullYear()}${String(day.getMonth() + 1).padStart(2, '0')}${String(day.getDate()).padStart(2, '0')}`;
+    const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+    const invoicesToday = Math.round((isWeekend ? 4 : 2) + trendRand() * (isWeekend ? 3 : 3));
+
+    for (let n = 0; n < invoicesToday; n++) {
+      // Draw every random value unconditionally, before checking whether this
+      // invoice already exists — skipping draws on an idempotent no-op would
+      // desync trendRand()'s position from the first run, cascading into a
+      // completely different (and endlessly "new") sequence on every re-run.
+      const lineCount = 1 + Math.floor(trendRand() * 3);
+      const lines: { sku: string; qty: number }[] = [];
+      for (let i = 0; i < lineCount; i++) {
+        const sku = trendSkus[Math.floor(trendRand() * trendSkus.length)];
+        lines.push({ sku, qty: 1 + Math.floor(trendRand() * 4) });
+      }
+      const customerName = trendCustomerNames[Math.floor(trendRand() * trendCustomerNames.length)];
+      const paymentMethod = trendPaymentMethods[Math.floor(trendRand() * trendPaymentMethods.length)];
+      const status = trendRand() < 0.06 ? ('REFUNDED' as const) : ('PAID' as const);
+      const hour = 9 + Math.floor(trendRand() * 12);
+      const minute = Math.floor(trendRand() * 60);
+
+      const invoiceNumber = `INV-D${dateKey}-${n + 1}`;
+      const existing = await prisma.invoice.findFirst({ where: { storeId: store.id, invoiceNumber } });
+      if (existing) continue;
+
+      const createdAt = new Date(day);
+      createdAt.setHours(hour, minute, 0, 0);
+
+      const items = buildInvoiceItems(lines);
+      const subtotal = items.reduce((sum, i) => sum + i.lineSubtotal, 0);
+      const taxTotal = items.reduce((sum, i) => sum + i.lineTax, 0);
+      const total = subtotal + taxTotal;
+
+      await prisma.invoice.create({
+        data: {
+          storeId: store.id,
+          customerId: customerIdByName[customerName] ?? null,
+          customerName,
+          invoiceNumber,
+          status,
+          paymentMethod,
+          subtotal,
+          taxTotal,
+          total,
+          createdAt,
+          items: {
+            create: items.map((i) => ({ productId: i.productId, quantity: i.quantity, price: i.price, gstRate: i.gstRate, total: i.total })),
+          },
+        },
+      });
+      trendInvoiceCount++;
+    }
+  }
+
   const supplierDefs = [
     { key: 'amul', name: 'Amul Dairy Cooperative Ltd', contactPerson: 'Rajesh Sharma', phone: '+91 98201 12345', email: 'supply@amuldairy.com', gstin: '24AAACA1234F1Z9' },
     { key: 'britannia', name: 'Britannia Industries Ltd', contactPerson: 'Sanjay Verma', phone: '+91 98450 99887', email: 'procurement@britannia.co.in', gstin: '29AAACB9876D1Z1' },
@@ -513,7 +594,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, ${gstReturnDefs.length} GST returns, ${roleDefs.length} RBAC roles, ${userDefs.length} users, and ${auditLogDefs.length} audit logs.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices + ${trendInvoiceCount} rolling trend invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, ${gstReturnDefs.length} GST returns, ${roleDefs.length} RBAC roles, ${userDefs.length} users, and ${auditLogDefs.length} audit logs.`,
   );
 
   // ---------- Superadmin platform: other SaaS tenants on the platform ----------
