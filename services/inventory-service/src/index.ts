@@ -6,6 +6,7 @@ import pinoHttp from 'pino-http';
 import healthRouter from './routes/health';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
+import brandsRouter from './routes/brands';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'inventory-service';
 
@@ -20,6 +21,7 @@ app.use(pinoHttp());
 app.use('/', healthRouter);
 app.use('/', productsRouter);
 app.use('/', categoriesRouter);
+app.use('/', brandsRouter);
 
 app.listen(PORT, () => {
   console.log(`[inventory-service] listening on port ${PORT}`);

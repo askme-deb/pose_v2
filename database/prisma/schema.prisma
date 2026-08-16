@@ -40,6 +40,7 @@ model Tenant {
   stores    Store[]
   users     User[]
   products  Product[]
+  brands    Brand[]
   customers Customer[]
   suppliers Supplier[]
 
@@ -95,12 +96,31 @@ model Store {
 // ---------- Inventory ----------
 
 model Category {
-  id       String    @id @default(cuid())
-  tenantId String
-  name     String
-  products Product[]
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  gstRate     Decimal   @default(0) @db.Decimal(5, 2)
+  description String?
+  imageUrl    String?
+  products    Product[]
 
   @@map("categories")
+}
+
+model Brand {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  name            String
+  countryOfOrigin String?
+  // Simple scalar array rather than a join table — matches the current UI's
+  // flat multi-select and keeps this in step with the Category model's
+  // similarly minimal shape. Revisit if brand/category start needing more
+  // than an id list (ordering, per-category metadata, etc).
+  categoryIds     String[] @default([])
+  createdAt       DateTime @default(now())
+
+  @@map("brands")
 }
 
 model Product {

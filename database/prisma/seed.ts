@@ -15,20 +15,52 @@ async function main() {
   });
 
   const categoryDefs = [
-    { name: 'Dairy', key: 'dairy' },
-    { name: 'Confectionery', key: 'confectionery' },
-    { name: 'Gourmet', key: 'gourmet' },
-    { name: 'Beverages', key: 'beverages' },
-    { name: 'Bakery', key: 'bakery' },
-    { name: 'Fresh Goods', key: 'fresh' },
+    { name: 'Dairy', key: 'dairy', gstRate: 5, description: 'Milk, cheese, curd and paneer products', imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200' },
+    { name: 'Confectionery', key: 'confectionery', gstRate: 18, description: 'Chocolates, candies and sweets', imageUrl: 'https://images.unsplash.com/photo-1481391319762-47dff72954d9?w=200' },
+    { name: 'Gourmet', key: 'gourmet', gstRate: 12, description: 'Imported and specialty food items', imageUrl: 'https://images.unsplash.com/photo-1543168256-418811576931?w=200' },
+    { name: 'Beverages', key: 'beverages', gstRate: 18, description: 'Soft drinks, juices and packaged water', imageUrl: 'https://images.unsplash.com/photo-1544145945-f90425340c7e?w=200' },
+    { name: 'Bakery', key: 'bakery', gstRate: 5, description: 'Breads, cakes and pastries', imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=200' },
+    { name: 'Fresh Goods', key: 'fresh', gstRate: 0, description: 'Fruits, vegetables and fresh produce', imageUrl: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=200' },
   ];
 
   const categories: Record<string, string> = {};
   for (const c of categoryDefs) {
     const existing = await prisma.category.findFirst({ where: { tenantId: tenant.id, name: c.name } });
     const category =
-      existing ?? (await prisma.category.create({ data: { tenantId: tenant.id, name: c.name } }));
+      existing ??
+      (await prisma.category.create({
+        data: {
+          tenantId: tenant.id,
+          name: c.name,
+          gstRate: c.gstRate,
+          description: c.description,
+          imageUrl: c.imageUrl,
+        },
+      }));
     categories[c.key] = category.id;
+  }
+
+  const brandDefs = [
+    { name: 'Amul', countryOfOrigin: 'India', categoryKeys: ['dairy'] },
+    { name: 'Cadbury', countryOfOrigin: 'United Kingdom', categoryKeys: ['confectionery'] },
+    { name: 'Nestle', countryOfOrigin: 'Switzerland', categoryKeys: ['confectionery', 'beverages'] },
+    { name: 'Britannia', countryOfOrigin: 'India', categoryKeys: ['bakery', 'confectionery'] },
+    { name: 'Coca-Cola', countryOfOrigin: 'United States', categoryKeys: ['beverages'] },
+    { name: "Haldiram's", countryOfOrigin: 'India', categoryKeys: ['gourmet', 'confectionery'] },
+  ];
+
+  for (const b of brandDefs) {
+    const existing = await prisma.brand.findFirst({ where: { tenantId: tenant.id, name: b.name } });
+    if (!existing) {
+      await prisma.brand.create({
+        data: {
+          tenantId: tenant.id,
+          name: b.name,
+          countryOfOrigin: b.countryOfOrigin,
+          categoryIds: b.categoryKeys.map((k) => categories[k]),
+        },
+      });
+    }
   }
 
   const products = [
@@ -67,7 +99,9 @@ async function main() {
     });
   }
 
-  console.log(`Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories and ${products.length} products.`);
+  console.log(
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, and ${products.length} products.`,
+  );
 }
 
 main()

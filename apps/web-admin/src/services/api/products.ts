@@ -15,11 +15,6 @@ export interface LiveProduct {
   imageUrl: string;
 }
 
-export interface LiveCategory {
-  id: string;
-  name: string;
-}
-
 interface ApiProduct {
   id: string;
   name: string;
@@ -33,11 +28,6 @@ interface ApiProduct {
   imageUrl: string | null;
   stockQty: number;
   minThreshold: number;
-}
-
-interface ApiCategory {
-  id: string;
-  name: string;
 }
 
 function toLiveProduct(p: ApiProduct): LiveProduct {
@@ -66,10 +56,6 @@ export function stockStatus(p: Pick<LiveProduct, 'stockQty' | 'minThreshold'>): 
 export async function listProducts(): Promise<LiveProduct[]> {
   const products = await apiClient.get<ApiProduct[]>('/api/inventory/products');
   return products.map(toLiveProduct);
-}
-
-export async function listCategories(): Promise<LiveCategory[]> {
-  return apiClient.get<ApiCategory[]>('/api/inventory/categories');
 }
 
 export interface ProductInput {

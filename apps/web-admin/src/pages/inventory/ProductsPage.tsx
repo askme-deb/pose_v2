@@ -27,14 +27,13 @@ import {
 } from '@pospe/ui-library';
 import {
   listProducts,
-  listCategories,
   createProduct,
   updateProduct,
   deleteProduct,
   stockStatus,
   LiveProduct,
-  LiveCategory,
 } from '../../services/api/products';
+import { listCategories, LiveCategory } from '../../services/api/taxonomy';
 import { formatINR } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 

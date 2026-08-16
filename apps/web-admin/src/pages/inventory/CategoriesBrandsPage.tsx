@@ -1,9 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, PlusCircle, Award, Tags, TrendingUp, Layers, Pencil, Globe } from 'lucide-react';
 import { Badge, Checkbox, Drawer, GlassCard, Input, KpiCard, PillTabs, Select, Textarea, useToast } from '@pospe/ui-library';
-import { categories as seedCategories, categoryOptions, Category } from '../../services/mockData/categories';
-import { brands as seedBrands, Brand } from '../../services/mockData/brands';
-import { products } from '../../services/mockData/products';
+import {
+  listCategories,
+  createCategory,
+  updateCategory,
+  listBrands,
+  createBrand,
+  updateBrand,
+  LiveCategory,
+  LiveBrand,
+} from '../../services/api/taxonomy';
+import { listProducts } from '../../services/api/products';
 import { formatINR } from '../../utils/format';
 
 type Tab = 'categories' | 'brands';
@@ -27,8 +35,12 @@ const emptyBrandForm = { name: '', countryOfOrigin: '', categoryIds: [] as strin
 
 export default function CategoriesBrandsPage() {
   const { showToast } = useToast();
-  const [categoryList, setCategoryList] = useState<Category[]>(() => seedCategories.map((c) => ({ ...c })));
-  const [brandList, setBrandList] = useState<Brand[]>(() => seedBrands.map((b) => ({ ...b, categoryIds: [...b.categoryIds] })));
+  const [categoryList, setCategoryList] = useState<LiveCategory[]>([]);
+  const [brandList, setBrandList] = useState<LiveBrand[]>([]);
+  const [categoryValuation, setCategoryValuation] = useState<Map<string, number>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [activeTab, setActiveTab] = useState<Tab>('categories');
   const [search, setSearch] = useState('');
 
@@ -40,12 +52,29 @@ export default function CategoriesBrandsPage() {
   const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
   const [brandForm, setBrandForm] = useState(emptyBrandForm);
 
-  const categoryValuation = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of products) {
-      map.set(p.categoryId, (map.get(p.categoryId) ?? 0) + p.sellingPrice * p.stockQty);
+  const categoryOptions = useMemo(() => categoryList.map((c) => ({ value: c.id, label: c.name })), [categoryList]);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [cats, brands, products] = await Promise.all([listCategories(), listBrands(), listProducts()]);
+      setCategoryList(cats);
+      setBrandList(brands);
+      const valuation = new Map<string, number>();
+      for (const p of products) {
+        valuation.set(p.categoryId, (valuation.get(p.categoryId) ?? 0) + p.sellingPrice * p.stockQty);
+      }
+      setCategoryValuation(valuation);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load taxonomy from the server', 'danger');
+    } finally {
+      setLoading(false);
     }
-    return map;
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const topCategory = useMemo(() => {
@@ -77,26 +106,35 @@ export default function CategoriesBrandsPage() {
     setCatDrawerOpen(true);
   }
 
-  function openEditCategory(c: Category) {
+  function openEditCategory(c: LiveCategory) {
     setEditingCategoryId(c.id);
     setCategoryForm({ name: c.name, gstRate: String(c.gstRate), description: c.description, imageUrl: c.imageUrl });
     setCatDrawerOpen(true);
   }
 
-  function handleSaveCategory(e: React.FormEvent) {
+  async function handleSaveCategory(e: React.FormEvent) {
     e.preventDefault();
-    const editing = editingCategoryId ? categoryList.find((c) => c.id === editingCategoryId) : undefined;
-    const next: Category = {
-      id: editing?.id ?? `cat-${Date.now()}`,
+    setSaving(true);
+    const input = {
       name: categoryForm.name.trim(),
       gstRate: Number(categoryForm.gstRate) || 0,
       description: categoryForm.description.trim(),
       imageUrl: categoryForm.imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
-      skuCount: editing?.skuCount ?? 0,
     };
-    setCategoryList((prev) => (editing ? prev.map((c) => (c.id === editing.id ? next : c)) : [next, ...prev]));
-    setCatDrawerOpen(false);
-    showToast('Category saved', 'success');
+    try {
+      if (editingCategoryId) {
+        await updateCategory(editingCategoryId, input);
+      } else {
+        await createCategory(input);
+      }
+      await reload();
+      setCatDrawerOpen(false);
+      showToast('Category saved', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save category', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function openAddBrand() {
@@ -105,7 +143,7 @@ export default function CategoriesBrandsPage() {
     setBrandDrawerOpen(true);
   }
 
-  function openEditBrand(b: Brand) {
+  function openEditBrand(b: LiveBrand) {
     setEditingBrandId(b.id);
     setBrandForm({ name: b.name, countryOfOrigin: b.countryOfOrigin, categoryIds: [...b.categoryIds] });
     setBrandDrawerOpen(true);
@@ -120,19 +158,28 @@ export default function CategoriesBrandsPage() {
     }));
   }
 
-  function handleSaveBrand(e: React.FormEvent) {
+  async function handleSaveBrand(e: React.FormEvent) {
     e.preventDefault();
-    const editing = editingBrandId ? brandList.find((b) => b.id === editingBrandId) : undefined;
-    const next: Brand = {
-      id: editing?.id ?? `brand-${Date.now()}`,
+    setSaving(true);
+    const input = {
       name: brandForm.name.trim(),
       countryOfOrigin: brandForm.countryOfOrigin.trim(),
       categoryIds: brandForm.categoryIds,
-      skuCount: editing?.skuCount ?? 0,
     };
-    setBrandList((prev) => (editing ? prev.map((b) => (b.id === editing.id ? next : b)) : [next, ...prev]));
-    setBrandDrawerOpen(false);
-    showToast('Brand saved', 'success');
+    try {
+      if (editingBrandId) {
+        await updateBrand(editingBrandId, input);
+      } else {
+        await createBrand(input);
+      }
+      await reload();
+      setBrandDrawerOpen(false);
+      showToast('Brand saved', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save brand', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -149,7 +196,8 @@ export default function CategoriesBrandsPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Organize product taxonomy, manage brand relationships, tax rates, and SKU mappings.
+            Organize product taxonomy, manage brand relationships, tax rates, and SKU mappings. Live data from the
+            inventory service.
           </p>
         </div>
 
@@ -211,7 +259,9 @@ export default function CategoriesBrandsPage() {
 
       {/* Directory panel */}
       <GlassCard>
-        {activeTab === 'categories' ? (
+        {loading ? (
+          <p className="text-center text-xs text-slate-400 py-10">Loading taxonomy…</p>
+        ) : activeTab === 'categories' ? (
           filteredCategories.length === 0 ? (
             <p className="text-center text-xs text-slate-400 py-10">No categories found. Try adjusting your search.</p>
           ) : (
@@ -302,9 +352,10 @@ export default function CategoriesBrandsPage() {
             <button
               form="category-form"
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-lg shadow-cyan-500/25"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 disabled:opacity-50"
             >
-              Save Category
+              {saving ? 'Saving…' : 'Save Category'}
             </button>
           </>
         }
@@ -358,9 +409,10 @@ export default function CategoriesBrandsPage() {
             <button
               form="brand-form"
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-lg shadow-cyan-500/25"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-lg shadow-cyan-500/25 disabled:opacity-50"
             >
-              Save Brand
+              {saving ? 'Saving…' : 'Save Brand'}
             </button>
           </>
         }
