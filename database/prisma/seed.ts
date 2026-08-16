@@ -297,8 +297,63 @@ async function main() {
     });
   }
 
+  const warehouseDefs = [
+    { key: 'central-mumbai', name: 'Central Distribution Warehouse', code: 'WH-CENTRAL-01', totalRacks: 24, address: 'Plot 14, Industrial Zone 4, Bhiwandi, Mumbai 421302', manager: 'David Miller' },
+    { key: 'cold-pune', name: 'Cold Storage Hub', code: 'WH-COLD-02', totalRacks: 16, address: 'Cold Chain Logistics Park, Chakan, Pune 410501', manager: 'Pooja Nair' },
+    { key: 'gourmet-thane', name: 'Gourmet & Specialty Vault', code: 'WH-GOURMET-03', totalRacks: 8, address: 'Specialty Foods Depot, Wagle Estate, Thane 400604', manager: 'Vikram Roy' },
+    { key: 'north-delhi', name: 'North Regional Hub', code: 'WH-NORTH-04', totalRacks: 20, address: 'Sector 18, Logistics Park, Gurugram, Haryana 122015', manager: 'Simran Kaur' },
+  ];
+
+  const warehouseIdByKey: Record<string, string> = {};
+  for (const w of warehouseDefs) {
+    const existing = await prisma.warehouse.findFirst({ where: { tenantId: tenant.id, name: w.name } });
+    const warehouse =
+      existing ??
+      (await prisma.warehouse.create({
+        data: { tenantId: tenant.id, name: w.name, code: w.code, totalRacks: w.totalRacks, address: w.address, manager: w.manager },
+      }));
+    warehouseIdByKey[w.key] = warehouse.id;
+  }
+
+  const transferDefs = [
+    { seq: 6011, source: 'central-mumbai', dest: 'cold-pune', carrier: 'Apex Fleet Truck #4 (Driver Manoj Kumar)', status: 'COMPLETED' as const, createdAt: '2026-08-10T16:30:00+05:30', lines: [{ sku: 'AML-GLD-1L', qty: 150 }, { sku: 'AML-PNR-200', qty: 80 }] },
+    { seq: 6012, source: 'cold-pune', dest: 'gourmet-thane', carrier: 'Refrigerated Logistics Unit #2', status: 'IN_TRANSIT' as const, createdAt: '2026-08-14T09:15:00+05:30', lines: [{ sku: 'CDB-DMS-60', qty: 200 }] },
+    { seq: 6013, source: 'central-mumbai', dest: 'north-delhi', carrier: 'Apex Fleet Truck #1', status: 'COMPLETED' as const, createdAt: '2026-08-08T11:45:00+05:30', lines: [{ sku: 'COC-750-BTL', qty: 400 }, { sku: 'COC-ZR-300', qty: 150 }] },
+    { seq: 6014, source: 'gourmet-thane', dest: 'central-mumbai', carrier: 'Secured Transit Logistics', status: 'IN_TRANSIT' as const, createdAt: '2026-08-15T08:50:00+05:30', lines: [{ sku: 'HLD-ALB-200', qty: 120 }, { sku: 'FRS-MNG-1KG', qty: 60 }] },
+    { seq: 6015, source: 'north-delhi', dest: 'cold-pune', carrier: 'Cargo Express Van #3', status: 'COMPLETED' as const, createdAt: '2026-08-07T14:20:00+05:30', lines: [{ sku: 'AML-CHZ-200', qty: 100 }] },
+    { seq: 6016, source: 'central-mumbai', dest: 'gourmet-thane', carrier: 'Apex Fleet Truck #2', status: 'COMPLETED' as const, createdAt: '2026-08-05T10:00:00+05:30', lines: [{ sku: 'NSC-MNC-4PK', qty: 250 }, { sku: 'NSC-CLC-100', qty: 90 }] },
+    { seq: 6017, source: 'cold-pune', dest: 'north-delhi', carrier: 'Northbound Freight Carrier', status: 'IN_TRANSIT' as const, createdAt: '2026-08-16T07:40:00+05:30', lines: [{ sku: 'BRT-GDC-200', qty: 300 }, { sku: 'BRT-BRB-400', qty: 150 }] },
+    { seq: 6018, source: 'north-delhi', dest: 'central-mumbai', carrier: 'Apex Fleet Truck #3', status: 'COMPLETED' as const, createdAt: '2026-08-06T13:10:00+05:30', lines: [{ sku: 'AML-GLD-1L', qty: 180 }] },
+  ];
+
+  for (const t of transferDefs) {
+    const transferNumber = `TRF-${t.seq}`;
+    const existing = await prisma.warehouseTransfer.findFirst({ where: { tenantId: tenant.id, transferNumber } });
+    if (existing) continue;
+
+    const lineItems = t.lines.map(({ sku, qty }) => {
+      const product = products.find((p) => p.sku === sku)!;
+      return { productId: productIdBySku[sku], qty, costPrice: product.costPrice };
+    });
+    const totalValuation = lineItems.reduce((sum, i) => sum + i.qty * i.costPrice, 0);
+
+    await prisma.warehouseTransfer.create({
+      data: {
+        tenantId: tenant.id,
+        transferNumber,
+        sourceWarehouseId: warehouseIdByKey[t.source],
+        destinationWarehouseId: warehouseIdByKey[t.dest],
+        totalValuation,
+        carrier: t.carrier,
+        status: t.status,
+        createdAt: new Date(t.createdAt),
+        items: { create: lineItems.map((i) => ({ productId: i.productId, qty: i.qty })) },
+      },
+    });
+  }
+
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, and ${poDefs.length} purchase orders.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, and ${transferDefs.length} warehouse transfers.`,
   );
 }
 

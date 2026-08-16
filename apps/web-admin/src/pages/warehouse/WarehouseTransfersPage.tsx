@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Search,
@@ -16,40 +16,51 @@ import {
 import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, PillTabs, Select, useToast } from '@pospe/ui-library';
 
 import { formatINR, formatDateTime } from '../../utils/format';
-import { products, productOptions } from '../../services/mockData/products';
-import { warehouses as seedWarehouses, type Warehouse } from '../../services/mockData/warehouses';
+import { listProducts, LiveProduct } from '../../services/api/products';
 import {
-  transfers as seedTransfers,
-  transferValuation,
-  type Transfer,
-  type TransferItem,
-  type TransferStatus,
-} from '../../services/mockData/transfers';
-
-const productsById = Object.fromEntries(products.map((p) => [p.id, p]));
+  listWarehouses,
+  createWarehouse,
+  listTransfers,
+  createTransfer,
+  completeTransfer,
+  LiveWarehouse,
+  LiveTransfer,
+  TransferStatus,
+} from '../../services/api/warehouseTransfers';
 
 const statusBadgeColor: Record<TransferStatus, 'emerald' | 'blue'> = {
-  completed: 'emerald',
-  'in-transit': 'blue',
+  COMPLETED: 'emerald',
+  IN_TRANSIT: 'blue',
 };
 
 const statusBadgeLabel: Record<TransferStatus, string> = {
-  completed: 'Received',
-  'in-transit': 'In Transit',
+  COMPLETED: 'Received',
+  IN_TRANSIT: 'In Transit',
 };
 
-const emptyTransferItem = (): TransferItem => ({ productId: products[0].id, qty: 1 });
-
-interface TransferLineItemsEditorProps {
-  items: TransferItem[];
-  onChange: (items: TransferItem[]) => void;
+interface TransferLineItem {
+  productId: string;
+  qty: number;
 }
 
-function TransferLineItemsEditor({ items, onChange }: TransferLineItemsEditorProps) {
-  const updateItem = (idx: number, patch: Partial<TransferItem>) => {
+interface TransferLineItemsEditorProps {
+  items: TransferLineItem[];
+  products: LiveProduct[];
+  onChange: (items: TransferLineItem[]) => void;
+}
+
+function transferValuation(items: TransferLineItem[], costById: Map<string, number>): number {
+  return items.reduce((sum, i) => sum + i.qty * (costById.get(i.productId) ?? 0), 0);
+}
+
+function TransferLineItemsEditor({ items, products, onChange }: TransferLineItemsEditorProps) {
+  const productOptions = useMemo(() => products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` })), [products]);
+  const costById = useMemo(() => new Map(products.map((p) => [p.id, p.costPrice])), [products]);
+
+  const updateItem = (idx: number, patch: Partial<TransferLineItem>) => {
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
-  const addItem = () => onChange([...items, emptyTransferItem()]);
+  const addItem = () => onChange([...items, { productId: products[0]?.id ?? '', qty: 1 }]);
   const removeItem = (idx: number) => onChange(items.filter((_, i) => i !== idx));
 
   return (
@@ -96,7 +107,7 @@ function TransferLineItemsEditor({ items, onChange }: TransferLineItemsEditorPro
       </Button>
       <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800">
         <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Estimated Valuation</span>
-        <span className="text-sm font-black text-slate-900 dark:text-white">{formatINR(transferValuation(items))}</span>
+        <span className="text-sm font-black text-slate-900 dark:text-white">{formatINR(transferValuation(items, costById))}</span>
       </div>
     </div>
   );
@@ -105,8 +116,11 @@ function TransferLineItemsEditor({ items, onChange }: TransferLineItemsEditorPro
 export default function WarehouseTransfersPage() {
   const { showToast } = useToast();
 
-  const [transfers, setTransfers] = useState<Transfer[]>(seedTransfers);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>(seedWarehouses);
+  const [transfers, setTransfers] = useState<LiveTransfer[]>([]);
+  const [warehouses, setWarehouses] = useState<LiveWarehouse[]>([]);
+  const [products, setProducts] = useState<LiveProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TransferStatus>('all');
@@ -118,7 +132,7 @@ export default function WarehouseTransfersPage() {
   const [transferForm, setTransferForm] = useState({
     sourceWarehouseId: '',
     destinationWarehouseId: '',
-    items: [emptyTransferItem()],
+    items: [{ productId: '', qty: 1 }] as TransferLineItem[],
     carrier: '',
   });
 
@@ -130,31 +144,46 @@ export default function WarehouseTransfersPage() {
     manager: '',
   });
 
-  const warehousesById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
+  async function reload() {
+    setLoading(true);
+    try {
+      const [trs, whs, prods] = await Promise.all([listTransfers(), listWarehouses(), listProducts()]);
+      setTransfers(trs);
+      setWarehouses(whs);
+      setProducts(prods);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load warehouse data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalTransferredUnits = useMemo(
     () => transfers.reduce((sum, t) => sum + t.items.reduce((s, i) => s + i.qty, 0), 0),
     [transfers],
   );
   const totalValuation = useMemo(() => transfers.reduce((sum, t) => sum + t.totalValuation, 0), [transfers]);
-  const inTransitCount = useMemo(() => transfers.filter((t) => t.status === 'in-transit').length, [transfers]);
+  const inTransitCount = useMemo(() => transfers.filter((t) => t.status === 'IN_TRANSIT').length, [transfers]);
 
   const filteredTransfers = useMemo(() => {
     const q = search.toLowerCase().trim();
     return transfers.filter((t) => {
-      const source = warehousesById[t.sourceWarehouseId]?.facilityName ?? '';
-      const dest = warehousesById[t.destinationWarehouseId]?.facilityName ?? '';
-      const itemNames = t.items.map((i) => productsById[i.productId]?.name ?? '').join(' ');
+      const itemNames = t.items.map((i) => i.productName).join(' ');
       const matchesSearch =
         !q ||
-        t.id.toLowerCase().includes(q) ||
-        source.toLowerCase().includes(q) ||
-        dest.toLowerCase().includes(q) ||
+        t.transferNumber.toLowerCase().includes(q) ||
+        t.sourceWarehouseName.toLowerCase().includes(q) ||
+        t.destinationWarehouseName.toLowerCase().includes(q) ||
         itemNames.toLowerCase().includes(q);
       const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [transfers, search, statusFilter, warehousesById]);
+  }, [transfers, search, statusFilter]);
 
   const filteredWarehouses = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -168,22 +197,28 @@ export default function WarehouseTransfersPage() {
     );
   }, [warehouses, search]);
 
-  const markReceived = (id: string) => {
-    setTransfers((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'completed' } : t)));
-    showToast(`Marked shipment ${id} as received at destination!`, 'success');
+  const markReceived = async (id: string, transferNumber: string) => {
+    try {
+      await completeTransfer(id);
+      await reload();
+      showToast(`Marked shipment ${transferNumber} as received at destination!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not mark transfer as received', 'danger');
+    }
   };
 
   const openTransferDrawer = () => {
+    const firstProduct = products[0];
     setTransferForm({
       sourceWarehouseId: warehouses[0]?.id ?? '',
       destinationWarehouseId: warehouses[1]?.id ?? warehouses[0]?.id ?? '',
-      items: [emptyTransferItem()],
+      items: [{ productId: firstProduct?.id ?? '', qty: 1 }],
       carrier: '',
     });
     setTransferDrawerOpen(true);
   };
 
-  const handleSaveTransfer = () => {
+  const handleSaveTransfer = async () => {
     if (!transferForm.sourceWarehouseId || !transferForm.destinationWarehouseId) {
       showToast('Select both a source and a destination facility.', 'danger');
       return;
@@ -196,20 +231,22 @@ export default function WarehouseTransfersPage() {
       showToast('Every line item needs a product and a valid quantity.', 'danger');
       return;
     }
-    const newId = `TRF-${7000 + Math.floor(Math.random() * 900)}`;
-    const newTransfer: Transfer = {
-      id: newId,
-      sourceWarehouseId: transferForm.sourceWarehouseId,
-      destinationWarehouseId: transferForm.destinationWarehouseId,
-      items: transferForm.items,
-      totalValuation: transferValuation(transferForm.items),
-      carrier: transferForm.carrier.trim() || 'Apex Express Logistics',
-      status: 'in-transit',
-      createdAt: new Date().toISOString(),
-    };
-    setTransfers((prev) => [newTransfer, ...prev]);
-    showToast(`Dispatched stock transfer ${newId} to ${warehousesById[transferForm.destinationWarehouseId]?.facilityName}!`, 'success');
-    setTransferDrawerOpen(false);
+    setSaving(true);
+    try {
+      const transfer = await createTransfer({
+        sourceWarehouseId: transferForm.sourceWarehouseId,
+        destinationWarehouseId: transferForm.destinationWarehouseId,
+        items: transferForm.items,
+        carrier: transferForm.carrier.trim() || undefined,
+      });
+      await reload();
+      showToast(`Dispatched stock transfer ${transfer.transferNumber} to ${transfer.destinationWarehouseName}!`, 'success');
+      setTransferDrawerOpen(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not dispatch transfer', 'danger');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openWarehouseDrawer = () => {
@@ -217,32 +254,38 @@ export default function WarehouseTransfersPage() {
     setWarehouseDrawerOpen(true);
   };
 
-  const handleSaveWarehouse = () => {
+  const handleSaveWarehouse = async () => {
     if (!warehouseForm.facilityName.trim()) {
       showToast('Facility name is required.', 'danger');
       return;
     }
-    const newWarehouse: Warehouse = {
-      id: `wh-${Date.now()}`,
-      facilityName: warehouseForm.facilityName.trim(),
-      facilityCode: warehouseForm.facilityCode.trim() || `WH-${warehouseForm.facilityName.substring(0, 3).toUpperCase()}-0${warehouses.length + 1}`,
-      totalRacks: Math.max(0, parseInt(warehouseForm.totalRacks, 10) || 12),
-      address: warehouseForm.address.trim() || 'Logistics Zone',
-      manager: warehouseForm.manager.trim() || 'Warehouse Manager',
-    };
-    setWarehouses((prev) => [newWarehouse, ...prev]);
-    showToast(`Registered new warehouse facility "${newWarehouse.facilityName}"!`, 'success');
-    setWarehouseDrawerOpen(false);
+    setSaving(true);
+    try {
+      const warehouse = await createWarehouse({
+        name: warehouseForm.facilityName.trim(),
+        code: warehouseForm.facilityCode.trim() || undefined,
+        totalRacks: warehouseForm.totalRacks ? Math.max(0, parseInt(warehouseForm.totalRacks, 10) || 0) : undefined,
+        address: warehouseForm.address.trim() || undefined,
+        manager: warehouseForm.manager.trim() || undefined,
+      });
+      await reload();
+      showToast(`Registered new warehouse facility "${warehouse.facilityName}"!`, 'success');
+      setWarehouseDrawerOpen(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not register warehouse', 'danger');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const transferColumns: ColumnDef<Transfer>[] = useMemo(
+  const transferColumns: ColumnDef<LiveTransfer>[] = useMemo(
     () => [
       {
         header: 'Transfer Ref & Date',
-        accessorKey: 'id',
+        accessorKey: 'transferNumber',
         cell: ({ row }) => (
           <div>
-            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.id}</div>
+            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.transferNumber}</div>
             <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
           </div>
         ),
@@ -252,9 +295,9 @@ export default function WarehouseTransfersPage() {
         id: 'route',
         cell: ({ row }) => (
           <div className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
-            <span>{warehousesById[row.original.sourceWarehouseId]?.facilityName ?? 'Unknown'}</span>
+            <span>{row.original.sourceWarehouseName}</span>
             <ArrowRight className="w-3 h-3 text-amber-500" />
-            <span>{warehousesById[row.original.destinationWarehouseId]?.facilityName ?? 'Unknown'}</span>
+            <span>{row.original.destinationWarehouseName}</span>
           </div>
         ),
       },
@@ -263,7 +306,7 @@ export default function WarehouseTransfersPage() {
         id: 'items',
         cell: ({ row }) => (
           <span className="text-slate-600 dark:text-slate-300 line-clamp-1 max-w-xs block">
-            {row.original.items.map((i) => `${productsById[i.productId]?.name ?? 'Item'} (x${i.qty})`).join(', ')}
+            {row.original.items.map((i) => `${i.productName} (x${i.qty})`).join(', ')}
           </span>
         ),
       },
@@ -293,7 +336,7 @@ export default function WarehouseTransfersPage() {
         accessorKey: 'status',
         cell: ({ row }) => (
           <div className="flex justify-center">
-            <Badge color={statusBadgeColor[row.original.status]} pill dot={row.original.status === 'in-transit'}>
+            <Badge color={statusBadgeColor[row.original.status]} pill dot={row.original.status === 'IN_TRANSIT'}>
               {statusBadgeLabel[row.original.status]}
             </Badge>
           </div>
@@ -303,10 +346,10 @@ export default function WarehouseTransfersPage() {
         header: 'Actions',
         id: 'actions',
         cell: ({ row }) =>
-          row.original.status === 'in-transit' ? (
+          row.original.status === 'IN_TRANSIT' ? (
             <div className="flex justify-center">
               <button
-                onClick={() => markReceived(row.original.id)}
+                onClick={() => markReceived(row.original.id, row.original.transferNumber)}
                 title="Mark Received"
                 className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-600 transition"
               >
@@ -316,7 +359,7 @@ export default function WarehouseTransfersPage() {
           ) : null,
       },
     ],
-    [warehousesById],
+    [],
   );
 
   return (
@@ -354,8 +397,8 @@ export default function WarehouseTransfersPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-amber-500"
           >
             <option value="all">All Transfer Statuses</option>
-            <option value="in-transit">In Transit</option>
-            <option value="completed">Completed</option>
+            <option value="IN_TRANSIT">In Transit</option>
+            <option value="COMPLETED">Completed</option>
           </select>
 
           <PillTabs
@@ -396,6 +439,7 @@ export default function WarehouseTransfersPage() {
           <DataTable
             columns={transferColumns}
             data={filteredTransfers}
+            loading={loading}
             emptyTitle="No Stock Transfers Found"
             emptyDescription="No transfer ref IDs or facilities match your search filter."
           />
@@ -455,8 +499,9 @@ export default function WarehouseTransfersPage() {
               variant="primary"
               className="flex-1 !from-amber-600 !to-orange-600 hover:!from-amber-700 hover:!to-orange-700"
               onClick={handleSaveTransfer}
+              disabled={saving}
             >
-              Dispatch Stock Transfer
+              {saving ? 'Dispatching…' : 'Dispatch Stock Transfer'}
             </Button>
             <Button variant="ghost" onClick={() => setTransferDrawerOpen(false)}>
               Cancel
@@ -481,7 +526,7 @@ export default function WarehouseTransfersPage() {
           />
         </div>
 
-        <TransferLineItemsEditor items={transferForm.items} onChange={(items) => setTransferForm((f) => ({ ...f, items }))} />
+        <TransferLineItemsEditor items={transferForm.items} products={products} onChange={(items) => setTransferForm((f) => ({ ...f, items }))} />
 
         <Input
           label="Transport Carrier & Driver"
@@ -502,8 +547,9 @@ export default function WarehouseTransfersPage() {
               variant="primary"
               className="flex-1 !from-amber-600 !to-orange-600 hover:!from-amber-700 hover:!to-orange-700"
               onClick={handleSaveWarehouse}
+              disabled={saving}
             >
-              Save Warehouse
+              {saving ? 'Saving…' : 'Save Warehouse'}
             </Button>
             <Button variant="ghost" onClick={() => setWarehouseDrawerOpen(false)}>
               Cancel
