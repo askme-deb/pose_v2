@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Search, ShoppingBag, FileText, Truck, Building2, Plus, X, CheckCircle2 } from 'lucide-react';
 import {
@@ -16,57 +16,65 @@ import {
 } from '@pospe/ui-library';
 
 import { formatINR, formatDate } from '../../utils/format';
-import { products, productOptions } from '../../services/mockData/products';
-import { suppliers as seedSuppliers, type Supplier } from '../../services/mockData/suppliers';
+import { listProducts, LiveProduct } from '../../services/api/products';
 import {
-  purchaseOrders as seedOrders,
-  lineTotal,
-  type PurchaseOrder,
-  type PurchaseOrderItem,
-  type PaymentStatus,
-  type OrderStatus,
-} from '../../services/mockData/purchaseOrders';
-
-const productsById = Object.fromEntries(products.map((p) => [p.id, p]));
+  listSuppliers,
+  createSupplier,
+  listPurchaseOrders,
+  createPurchaseOrder,
+  receivePurchaseOrder,
+  LiveSupplier,
+  LivePurchaseOrder,
+  PaymentStatus,
+  OrderStatus,
+} from '../../services/api/purchaseOrders';
 
 const paymentBadgeColor: Record<PaymentStatus, 'blue' | 'purple' | 'red'> = {
-  paid: 'blue',
-  partial: 'purple',
-  unpaid: 'red',
+  PAID: 'blue',
+  PARTIAL: 'purple',
+  UNPAID: 'red',
 };
 
 const paymentBadgeLabel: Record<PaymentStatus, string> = {
-  paid: 'Paid',
-  partial: 'Partial',
-  unpaid: 'Unpaid',
+  PAID: 'Paid',
+  PARTIAL: 'Partial',
+  UNPAID: 'Unpaid',
 };
 
 const orderBadgeColor: Record<OrderStatus, 'emerald' | 'amber'> = {
-  received: 'emerald',
-  pending: 'amber',
+  RECEIVED: 'emerald',
+  PENDING: 'amber',
 };
 
 const orderBadgeLabel: Record<OrderStatus, string> = {
-  received: 'Received Goods',
-  pending: 'Pending Delivery',
+  RECEIVED: 'Received Goods',
+  PENDING: 'Pending Delivery',
 };
 
-const emptyItem = (): PurchaseOrderItem => ({
-  productId: products[0].id,
-  qty: 1,
-  unitPrice: products[0].costPrice,
-});
-
-interface LineItemsEditorProps {
-  items: PurchaseOrderItem[];
-  onChange: (items: PurchaseOrderItem[]) => void;
+interface POLineItem {
+  productId: string;
+  qty: number;
+  unitPrice: number;
 }
 
-function LineItemsEditor({ items, onChange }: LineItemsEditorProps) {
-  const updateItem = (idx: number, patch: Partial<PurchaseOrderItem>) => {
+interface LineItemsEditorProps {
+  items: POLineItem[];
+  products: LiveProduct[];
+  onChange: (items: POLineItem[]) => void;
+}
+
+function lineTotal(items: POLineItem[]): number {
+  return items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
+}
+
+function LineItemsEditor({ items, products, onChange }: LineItemsEditorProps) {
+  const productOptions = useMemo(() => products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` })), [products]);
+  const productsById = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
+
+  const updateItem = (idx: number, patch: Partial<POLineItem>) => {
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   };
-  const addItem = () => onChange([...items, emptyItem()]);
+  const addItem = () => onChange([...items, { productId: products[0]?.id ?? '', qty: 1, unitPrice: products[0]?.costPrice ?? 0 }]);
   const removeItem = (idx: number) => onChange(items.filter((_, i) => i !== idx));
 
   return (
@@ -137,8 +145,11 @@ function LineItemsEditor({ items, onChange }: LineItemsEditorProps) {
 export default function PurchaseOrdersPage() {
   const { showToast } = useToast();
 
-  const [orders, setOrders] = useState<PurchaseOrder[]>(seedOrders);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(seedSuppliers);
+  const [orders, setOrders] = useState<LivePurchaseOrder[]>([]);
+  const [suppliers, setSuppliers] = useState<LiveSupplier[]>([]);
+  const [products, setProducts] = useState<LiveProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
@@ -149,10 +160,10 @@ export default function PurchaseOrdersPage() {
 
   const [poForm, setPoForm] = useState({
     supplierId: '',
-    items: [emptyItem()],
+    items: [{ productId: '', qty: 1, unitPrice: 0 }] as POLineItem[],
     expectedDeliveryDate: '',
-    paymentStatus: 'unpaid' as PaymentStatus,
-    orderStatus: 'pending' as OrderStatus,
+    paymentStatus: 'UNPAID' as PaymentStatus,
+    orderStatus: 'PENDING' as OrderStatus,
   });
 
   const [supplierForm, setSupplierForm] = useState({
@@ -163,25 +174,38 @@ export default function PurchaseOrdersPage() {
     gstin: '',
   });
 
-  const suppliersById = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
+  async function reload() {
+    setLoading(true);
+    try {
+      const [ords, sups, prods] = await Promise.all([listPurchaseOrders(), listSuppliers(), listProducts()]);
+      setOrders(ords);
+      setSuppliers(sups);
+      setProducts(prods);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load purchasing data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalProcurementValue = useMemo(() => orders.reduce((sum, o) => sum + o.totalAmount, 0), [orders]);
-  const pendingDeliveries = useMemo(() => orders.filter((o) => o.orderStatus === 'pending').length, [orders]);
+  const pendingDeliveries = useMemo(() => orders.filter((o) => o.orderStatus === 'PENDING').length, [orders]);
 
   const filteredOrders = useMemo(() => {
     const q = search.toLowerCase().trim();
     return orders.filter((po) => {
-      const supplier = suppliersById[po.supplierId];
-      const itemNames = po.items.map((i) => productsById[i.productId]?.name ?? '').join(' ');
+      const itemNames = po.items.map((i) => i.productName).join(' ');
       const matchesSearch =
-        !q ||
-        po.id.toLowerCase().includes(q) ||
-        (supplier?.companyName.toLowerCase().includes(q) ?? false) ||
-        itemNames.toLowerCase().includes(q);
+        !q || po.poNumber.toLowerCase().includes(q) || po.supplierName.toLowerCase().includes(q) || itemNames.toLowerCase().includes(q);
       const matchesStatus = statusFilter === 'all' || po.orderStatus === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [orders, search, statusFilter, suppliersById]);
+  }, [orders, search, statusFilter]);
 
   const filteredSuppliers = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -195,23 +219,29 @@ export default function PurchaseOrdersPage() {
     );
   }, [suppliers, search]);
 
-  const markReceived = (id: string) => {
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, orderStatus: 'received' } : o)));
-    showToast(`Marked goods received for ${id}!`, 'success');
+  const markReceived = async (id: string, poNumber: string) => {
+    try {
+      await receivePurchaseOrder(id);
+      await reload();
+      showToast(`Marked goods received for ${poNumber} — stock updated!`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not mark as received', 'danger');
+    }
   };
 
   const openPoDrawer = () => {
+    const firstProduct = products[0];
     setPoForm({
       supplierId: suppliers[0]?.id ?? '',
-      items: [emptyItem()],
+      items: [{ productId: firstProduct?.id ?? '', qty: 1, unitPrice: firstProduct?.costPrice ?? 0 }],
       expectedDeliveryDate: '',
-      paymentStatus: 'unpaid',
-      orderStatus: 'pending',
+      paymentStatus: 'UNPAID',
+      orderStatus: 'PENDING',
     });
     setPoDrawerOpen(true);
   };
 
-  const handleSavePO = () => {
+  const handleSavePO = async () => {
     if (!poForm.supplierId) {
       showToast('Select a supplier vendor to issue this PO.', 'danger');
       return;
@@ -220,20 +250,23 @@ export default function PurchaseOrdersPage() {
       showToast('Every line item needs a product and a valid quantity.', 'danger');
       return;
     }
-    const newId = `PO-${9000 + Math.floor(Math.random() * 900)}`;
-    const newOrder: PurchaseOrder = {
-      id: newId,
-      supplierId: poForm.supplierId,
-      items: poForm.items,
-      totalAmount: lineTotal(poForm.items),
-      expectedDeliveryDate: poForm.expectedDeliveryDate || new Date().toISOString().slice(0, 10),
-      paymentStatus: poForm.paymentStatus,
-      orderStatus: poForm.orderStatus,
-      createdAt: new Date().toISOString(),
-    };
-    setOrders((prev) => [newOrder, ...prev]);
-    showToast(`Issued purchase order ${newId} to ${suppliersById[poForm.supplierId]?.companyName}!`, 'success');
-    setPoDrawerOpen(false);
+    setSaving(true);
+    try {
+      const order = await createPurchaseOrder({
+        supplierId: poForm.supplierId,
+        items: poForm.items,
+        expectedDeliveryDate: poForm.expectedDeliveryDate || new Date().toISOString().slice(0, 10),
+        paymentStatus: poForm.paymentStatus,
+        orderStatus: poForm.orderStatus,
+      });
+      await reload();
+      showToast(`Issued purchase order ${order.poNumber} to ${order.supplierName}!`, 'success');
+      setPoDrawerOpen(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not issue purchase order', 'danger');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openSupplierDrawer = () => {
@@ -241,54 +274,53 @@ export default function PurchaseOrdersPage() {
     setSupplierDrawerOpen(true);
   };
 
-  const handleSaveSupplier = () => {
+  const handleSaveSupplier = async () => {
     if (!supplierForm.companyName.trim()) {
       showToast('Company / vendor name is required.', 'danger');
       return;
     }
-    const newSupplier: Supplier = {
-      id: `sup-${Date.now()}`,
-      companyName: supplierForm.companyName.trim(),
-      contactPerson: supplierForm.contactPerson.trim() || 'Not specified',
-      phone: supplierForm.phone.trim() || 'Not specified',
-      email: supplierForm.email.trim() || 'Not specified',
-      gstin: supplierForm.gstin.trim() || 'Not specified',
-      totalOrders: 0,
-      outstandingAmount: 0,
-    };
-    setSuppliers((prev) => [newSupplier, ...prev]);
-    showToast(`Registered supplier vendor "${newSupplier.companyName}"!`, 'success');
-    setSupplierDrawerOpen(false);
+    setSaving(true);
+    try {
+      const supplier = await createSupplier({
+        name: supplierForm.companyName.trim(),
+        contactPerson: supplierForm.contactPerson.trim() || undefined,
+        phone: supplierForm.phone.trim() || undefined,
+        email: supplierForm.email.trim() || undefined,
+        gstin: supplierForm.gstin.trim() || undefined,
+      });
+      await reload();
+      showToast(`Registered supplier vendor "${supplier.companyName}"!`, 'success');
+      setSupplierDrawerOpen(false);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not register supplier', 'danger');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const orderColumns: ColumnDef<PurchaseOrder>[] = useMemo(
+  const orderColumns: ColumnDef<LivePurchaseOrder>[] = useMemo(
     () => [
       {
         header: 'PO Number & Date',
-        accessorKey: 'id',
+        accessorKey: 'poNumber',
         cell: ({ row }) => (
           <div>
-            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.id}</div>
+            <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.poNumber}</div>
             <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDate(row.original.createdAt)}</div>
           </div>
         ),
       },
       {
         header: 'Supplier Vendor',
-        id: 'supplier',
-        accessorFn: (row) => suppliersById[row.supplierId]?.companyName ?? '',
-        cell: ({ row }) => (
-          <span className="font-bold text-xs text-slate-900 dark:text-white">
-            {suppliersById[row.original.supplierId]?.companyName ?? 'Unknown Supplier'}
-          </span>
-        ),
+        accessorKey: 'supplierName',
+        cell: ({ row }) => <span className="font-bold text-xs text-slate-900 dark:text-white">{row.original.supplierName}</span>,
       },
       {
         header: 'Items Summary',
         id: 'items',
         cell: ({ row }) => (
           <span className="text-slate-600 dark:text-slate-300 line-clamp-1 max-w-xs block">
-            {row.original.items.map((i) => `${productsById[i.productId]?.name ?? 'Item'} (x${i.qty})`).join(', ')}
+            {row.original.items.map((i) => `${i.productName} (x${i.qty})`).join(', ')}
           </span>
         ),
       },
@@ -322,7 +354,7 @@ export default function PurchaseOrdersPage() {
         accessorKey: 'orderStatus',
         cell: ({ row }) => (
           <div className="flex justify-center">
-            <Badge color={orderBadgeColor[row.original.orderStatus]} pill dot={row.original.orderStatus === 'pending'}>
+            <Badge color={orderBadgeColor[row.original.orderStatus]} pill dot={row.original.orderStatus === 'PENDING'}>
               {orderBadgeLabel[row.original.orderStatus]}
             </Badge>
           </div>
@@ -332,10 +364,10 @@ export default function PurchaseOrdersPage() {
         header: 'Actions',
         id: 'actions',
         cell: ({ row }) =>
-          row.original.orderStatus === 'pending' ? (
+          row.original.orderStatus === 'PENDING' ? (
             <div className="flex justify-center">
               <button
-                onClick={() => markReceived(row.original.id)}
+                onClick={() => markReceived(row.original.id, row.original.poNumber)}
                 title="Mark Goods Received"
                 className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-600 transition"
               >
@@ -345,10 +377,10 @@ export default function PurchaseOrdersPage() {
           ) : null,
       },
     ],
-    [suppliersById],
+    [],
   );
 
-  const supplierColumns: ColumnDef<Supplier>[] = useMemo(
+  const supplierColumns: ColumnDef<LiveSupplier>[] = useMemo(
     () => [
       {
         header: 'Supplier Company',
@@ -408,7 +440,8 @@ export default function PurchaseOrdersPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Manage vendor purchase orders, track inward stock shipments, and supplier relationships.
+            Manage vendor purchase orders, track inward stock shipments, and supplier relationships. Marking a PO
+            received restocks inventory immediately.
           </p>
         </div>
 
@@ -430,8 +463,8 @@ export default function PurchaseOrdersPage() {
             className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Order Statuses</option>
-            <option value="received">Received Goods</option>
-            <option value="pending">Pending Delivery</option>
+            <option value="RECEIVED">Received Goods</option>
+            <option value="PENDING">Pending Delivery</option>
           </select>
 
           <PillTabs
@@ -468,6 +501,7 @@ export default function PurchaseOrdersPage() {
           <DataTable
             columns={orderColumns}
             data={filteredOrders}
+            loading={loading}
             emptyTitle="No Purchase Orders Found"
             emptyDescription="No PO numbers or suppliers match your filter criteria."
           />
@@ -475,6 +509,7 @@ export default function PurchaseOrdersPage() {
           <DataTable
             columns={supplierColumns}
             data={filteredSuppliers}
+            loading={loading}
             emptyTitle="No Suppliers Found"
             emptyDescription="No supplier vendors match your search term."
           />
@@ -489,8 +524,8 @@ export default function PurchaseOrdersPage() {
         width="lg"
         footer={
           <>
-            <Button variant="primary" className="flex-1" onClick={handleSavePO}>
-              Issue Purchase Order
+            <Button variant="primary" className="flex-1" onClick={handleSavePO} disabled={saving}>
+              {saving ? 'Issuing…' : 'Issue Purchase Order'}
             </Button>
             <Button variant="ghost" onClick={() => setPoDrawerOpen(false)}>
               Cancel
@@ -507,7 +542,7 @@ export default function PurchaseOrdersPage() {
           onChange={(e) => setPoForm((f) => ({ ...f, supplierId: e.target.value }))}
         />
 
-        <LineItemsEditor items={poForm.items} onChange={(items) => setPoForm((f) => ({ ...f, items }))} />
+        <LineItemsEditor items={poForm.items} products={products} onChange={(items) => setPoForm((f) => ({ ...f, items }))} />
 
         <Input
           label="Expected Delivery Date"
@@ -520,9 +555,9 @@ export default function PurchaseOrdersPage() {
           <Select
             label="Payment Status"
             options={[
-              { value: 'paid', label: 'Paid' },
-              { value: 'partial', label: 'Partial' },
-              { value: 'unpaid', label: 'Unpaid' },
+              { value: 'PAID', label: 'Paid' },
+              { value: 'PARTIAL', label: 'Partial' },
+              { value: 'UNPAID', label: 'Unpaid' },
             ]}
             value={poForm.paymentStatus}
             onChange={(e) => setPoForm((f) => ({ ...f, paymentStatus: e.target.value as PaymentStatus }))}
@@ -530,8 +565,8 @@ export default function PurchaseOrdersPage() {
           <Select
             label="Order Status"
             options={[
-              { value: 'pending', label: 'Pending Delivery' },
-              { value: 'received', label: 'Received' },
+              { value: 'PENDING', label: 'Pending Delivery' },
+              { value: 'RECEIVED', label: 'Received' },
             ]}
             value={poForm.orderStatus}
             onChange={(e) => setPoForm((f) => ({ ...f, orderStatus: e.target.value as OrderStatus }))}
@@ -546,8 +581,8 @@ export default function PurchaseOrdersPage() {
         subtitle="Add supplier contact details, phone, and GSTIN."
         footer={
           <>
-            <Button variant="primary" className="flex-1" onClick={handleSaveSupplier}>
-              Save Supplier Vendor
+            <Button variant="primary" className="flex-1" onClick={handleSaveSupplier} disabled={saving}>
+              {saving ? 'Saving…' : 'Save Supplier Vendor'}
             </Button>
             <Button variant="ghost" onClick={() => setSupplierDrawerOpen(false)}>
               Cancel

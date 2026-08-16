@@ -240,8 +240,65 @@ async function main() {
     });
   }
 
+  const supplierDefs = [
+    { key: 'amul', name: 'Amul Dairy Cooperative Ltd', contactPerson: 'Rajesh Sharma', phone: '+91 98201 12345', email: 'supply@amuldairy.com', gstin: '24AAACA1234F1Z9' },
+    { key: 'britannia', name: 'Britannia Industries Ltd', contactPerson: 'Sanjay Verma', phone: '+91 98450 99887', email: 'procurement@britannia.co.in', gstin: '29AAACB9876D1Z1' },
+    { key: 'nestle', name: 'Nestle India Distribution', contactPerson: 'Anita Desai', phone: '+91 98110 54321', email: 'orders@nestle.co.in', gstin: '07AAACN4321E1Z5' },
+    { key: 'mondelez', name: 'Mondelez India Foods Pvt Ltd', contactPerson: 'Karan Mehta', phone: '+91 98200 33210', email: 'trade@mondelezindia.com', gstin: '27AAACM5566K1Z8' },
+    { key: 'cocacola', name: 'Hindustan Coca-Cola Beverages', contactPerson: 'Deepak Nair', phone: '+91 98330 77654', email: 'distribution@hccb.in', gstin: '33AAACH7890L1Z3' },
+    { key: 'haldirams', name: "Haldiram's Snacks Foods Pvt Ltd", contactPerson: 'Pooja Agarwal', phone: '+91 98110 22456', email: 'supply@haldirams.com', gstin: '09AAACH3456M1Z6' },
+  ];
+
+  const supplierIdByKey: Record<string, string> = {};
+  for (const s of supplierDefs) {
+    const existing = await prisma.supplier.findFirst({ where: { tenantId: tenant.id, name: s.name } });
+    const supplier =
+      existing ??
+      (await prisma.supplier.create({
+        data: { tenantId: tenant.id, name: s.name, contactPerson: s.contactPerson, phone: s.phone, email: s.email, gstin: s.gstin },
+      }));
+    supplierIdByKey[s.key] = supplier.id;
+  }
+
+  const poDefs = [
+    { seq: 8041, supplierKey: 'amul', paymentStatus: 'PAID' as const, orderStatus: 'RECEIVED' as const, expectedDeliveryDate: '2026-08-05', createdAt: '2026-07-30T10:15:00+05:30', lines: [{ sku: 'AML-GLD-1L', qty: 200 }, { sku: 'AML-PNR-200', qty: 100 }] },
+    { seq: 8042, supplierKey: 'britannia', paymentStatus: 'PARTIAL' as const, orderStatus: 'PENDING' as const, expectedDeliveryDate: '2026-08-10', createdAt: '2026-08-02T09:40:00+05:30', lines: [{ sku: 'BRT-GDC-200', qty: 300 }, { sku: 'BRT-BRB-400', qty: 150 }] },
+    { seq: 8043, supplierKey: 'nestle', paymentStatus: 'PAID' as const, orderStatus: 'RECEIVED' as const, expectedDeliveryDate: '2026-08-01', createdAt: '2026-07-28T14:05:00+05:30', lines: [{ sku: 'NSC-CLC-100', qty: 120 }, { sku: 'NSC-MNC-4PK', qty: 200 }] },
+    { seq: 8044, supplierKey: 'mondelez', paymentStatus: 'UNPAID' as const, orderStatus: 'PENDING' as const, expectedDeliveryDate: '2026-08-12', createdAt: '2026-08-05T11:22:00+05:30', lines: [{ sku: 'CDB-DMS-60', qty: 400 }] },
+    { seq: 8045, supplierKey: 'cocacola', paymentStatus: 'PAID' as const, orderStatus: 'RECEIVED' as const, expectedDeliveryDate: '2026-08-03', createdAt: '2026-07-29T08:50:00+05:30', lines: [{ sku: 'COC-750-BTL', qty: 600 }, { sku: 'COC-ZR-300', qty: 250 }] },
+    { seq: 8046, supplierKey: 'haldirams', paymentStatus: 'PARTIAL' as const, orderStatus: 'PENDING' as const, expectedDeliveryDate: '2026-08-14', createdAt: '2026-08-07T16:12:00+05:30', lines: [{ sku: 'HLD-ALB-200', qty: 180 }, { sku: 'FRS-MNG-1KG', qty: 80 }] },
+    { seq: 8047, supplierKey: 'amul', paymentStatus: 'PAID' as const, orderStatus: 'RECEIVED' as const, expectedDeliveryDate: '2026-07-31', createdAt: '2026-07-25T09:00:00+05:30', lines: [{ sku: 'AML-CHZ-200', qty: 150 }] },
+    { seq: 8048, supplierKey: 'britannia', paymentStatus: 'UNPAID' as const, orderStatus: 'PENDING' as const, expectedDeliveryDate: '2026-08-16', createdAt: '2026-08-10T13:35:00+05:30', lines: [{ sku: 'BRT-GDC-200', qty: 220 }, { sku: 'BRT-BRB-400', qty: 100 }] },
+  ];
+
+  for (const po of poDefs) {
+    const poNumber = `PO-${po.seq}`;
+    const existing = await prisma.purchaseOrder.findFirst({ where: { tenantId: tenant.id, poNumber } });
+    if (existing) continue;
+
+    const lineItems = po.lines.map(({ sku, qty }) => {
+      const product = products.find((p) => p.sku === sku)!;
+      return { productId: productIdBySku[sku], qty, unitPrice: product.costPrice };
+    });
+    const totalAmount = lineItems.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
+
+    await prisma.purchaseOrder.create({
+      data: {
+        tenantId: tenant.id,
+        supplierId: supplierIdByKey[po.supplierKey],
+        poNumber,
+        totalAmount,
+        expectedDeliveryDate: new Date(po.expectedDeliveryDate),
+        paymentStatus: po.paymentStatus,
+        orderStatus: po.orderStatus,
+        createdAt: new Date(po.createdAt),
+        items: { create: lineItems.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })) },
+      },
+    });
+  }
+
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, and ${invoiceDefs.length} invoices.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, and ${poDefs.length} purchase orders.`,
   );
 }
 

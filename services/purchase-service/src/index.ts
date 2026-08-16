@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import healthRouter from './routes/health';
+import suppliersRouter from './routes/suppliers';
+import purchaseOrdersRouter from './routes/purchaseOrders';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'purchase-service';
 
@@ -16,6 +18,8 @@ app.use(express.json());
 app.use(pinoHttp());
 
 app.use('/', healthRouter);
+app.use('/', suppliersRouter);
+app.use('/', purchaseOrdersRouter);
 
 app.listen(PORT, () => {
   console.log(`[purchase-service] listening on port ${PORT}`);
