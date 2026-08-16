@@ -1,24 +1,35 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Search, Download, Sliders, ClipboardList, TrendingDown, DollarSign, Clock, CheckCircle2 } from 'lucide-react';
 import { Badge, Drawer, DataTable, GlassCard, Input, KpiCard, Select, useToast } from '@pospe/ui-library';
-import { products, productOptions } from '../../services/mockData/products';
-import { StockAdjustment, reasonCodeOptions, stockAdjustments as seedAdjustments } from '../../services/mockData/stockAdjustments';
+import { listProducts, LiveProduct } from '../../services/api/products';
+import {
+  listStockAdjustments,
+  createStockAdjustment,
+  approveStockAdjustment,
+  LiveStockAdjustment,
+  AdjustmentAction,
+} from '../../services/api/stockAdjustments';
 import { formatDateTime, formatINR } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 
-const productById = new Map(products.map((p) => [p.id, p]));
-
 const actionOptions = [
-  { value: 'subtract', label: 'Subtract Stock (-)' },
-  { value: 'add', label: 'Add Stock (+)' },
+  { value: 'SUBTRACT', label: 'Subtract Stock (-)' },
+  { value: 'ADD', label: 'Add Stock (+)' },
+];
+
+const reasonCodeOptions = [
+  { value: 'Expired / Damaged', label: 'Expired / Damaged' },
+  { value: 'Audit Variance Correction', label: 'Audit Variance Correction' },
+  { value: 'Store Consumption / Tasting', label: 'Store Consumption / Tasting' },
+  { value: 'Shrinkage / Missing', label: 'Shrinkage / Missing' },
 ];
 
 const reasonFilterOptions = [{ value: 'all', label: 'All Adjustment Reasons' }, ...reasonCodeOptions];
 
 const emptyForm = {
-  productId: productOptions[0]?.value ?? '',
-  action: 'subtract' as StockAdjustment['action'],
+  productId: '',
+  action: 'SUBTRACT' as AdjustmentAction,
   qty: '1',
   reasonCode: reasonCodeOptions[0]?.value ?? '',
   auditor: 'Manager Alex',
@@ -26,86 +37,108 @@ const emptyForm = {
 
 export default function StockAdjustmentsPage() {
   const { showToast } = useToast();
-  const [adjustments, setAdjustments] = useState<StockAdjustment[]>(() => seedAdjustments.map((a) => ({ ...a })));
+  const [adjustments, setAdjustments] = useState<LiveStockAdjustment[]>([]);
+  const [products, setProducts] = useState<LiveProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [search, setSearch] = useState('');
   const [reasonFilter, setReasonFilter] = useState('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
+  const productOptions = useMemo(() => products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` })), [products]);
+
+  async function reload() {
+    setLoading(true);
+    try {
+      const [rows, prods] = await Promise.all([listStockAdjustments(), listProducts()]);
+      setAdjustments(rows);
+      setProducts(prods);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load stock adjustments from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const totalAdjustments = adjustments.length;
-  const netQtyVariance = adjustments.reduce((sum, a) => sum + (a.action === 'add' ? a.qty : -a.qty), 0);
+  const netQtyVariance = adjustments.reduce((sum, a) => sum + (a.action === 'ADD' ? a.qty : -a.qty), 0);
   const netValuationImpact = adjustments.reduce((sum, a) => sum + a.valueImpact, 0);
-  const pendingCount = adjustments.filter((a) => a.status === 'pending').length;
+  const pendingCount = adjustments.filter((a) => a.status === 'PENDING').length;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return adjustments.filter((a) => {
-      const product = productById.get(a.productId);
       const matchesSearch =
-        !q ||
-        a.id.toLowerCase().includes(q) ||
-        product?.name.toLowerCase().includes(q) ||
-        product?.sku.toLowerCase().includes(q);
+        !q || a.id.toLowerCase().includes(q) || a.productName.toLowerCase().includes(q) || a.productSku.toLowerCase().includes(q);
       const matchesReason = reasonFilter === 'all' || a.reasonCode === reasonFilter;
       return matchesSearch && matchesReason;
     });
   }, [adjustments, search, reasonFilter]);
 
   function openDrawer() {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, productId: productOptions[0]?.value ?? '' });
     setDrawerOpen(true);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const product = productById.get(form.productId);
-    const qty = Number(form.qty) || 0;
-    const signed = form.action === 'add' ? qty : -qty;
-    const next: StockAdjustment = {
-      id: `adj-${Date.now()}`,
-      productId: form.productId,
-      action: form.action,
-      qty,
-      reasonCode: form.reasonCode,
-      auditor: form.auditor.trim() || 'Manager Alex',
-      valueImpact: signed * (product?.costPrice ?? 0),
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-    setAdjustments((prev) => [next, ...prev]);
-    setDrawerOpen(false);
-    showToast('Adjustment logged', 'success');
+    setSaving(true);
+    try {
+      await createStockAdjustment({
+        productId: form.productId,
+        action: form.action,
+        qty: Number(form.qty) || 0,
+        reasonCode: form.reasonCode,
+        auditor: form.auditor.trim() || 'Manager Alex',
+      });
+      await reload();
+      setDrawerOpen(false);
+      showToast('Adjustment logged', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not log adjustment', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleApprove(id: string) {
-    setAdjustments((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'approved' } : a)));
-    showToast('Adjustment approved', 'success');
+  async function handleApprove(id: string) {
+    try {
+      await approveStockAdjustment(id);
+      setAdjustments((prev) => prev.map((a) => (a.id === id ? { ...a, status: 'APPROVED' } : a)));
+      showToast('Adjustment approved', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not approve adjustment', 'danger');
+    }
   }
 
   function handleExportCSV() {
     downloadCSV(
       'stock-adjustments-log.csv',
       ['Ref ID', 'Date', 'Product', 'SKU', 'Action', 'Qty', 'Reason', 'Auditor', 'Value Impact', 'Status'],
-      filtered.map((a) => {
-        const product = productById.get(a.productId);
-        return [
-          a.id,
-          formatDateTime(a.createdAt),
-          product?.name ?? a.productId,
-          product?.sku ?? '',
-          a.action,
-          a.qty,
-          a.reasonCode,
-          a.auditor,
-          a.valueImpact,
-          a.status,
-        ];
-      }),
+      filtered.map((a) => [
+        a.id,
+        formatDateTime(a.createdAt),
+        a.productName,
+        a.productSku,
+        a.action,
+        a.qty,
+        a.reasonCode,
+        a.auditor,
+        a.valueImpact,
+        a.status,
+      ]),
     );
     showToast('Stock adjustment log exported', 'success');
   }
 
-  const columns: ColumnDef<StockAdjustment, any>[] = [
+  const columns: ColumnDef<LiveStockAdjustment, any>[] = [
     {
       header: 'Date',
       accessorKey: 'createdAt',
@@ -114,24 +147,21 @@ export default function StockAdjustmentsPage() {
     {
       header: 'Product',
       id: 'product',
-      cell: ({ row }) => {
-        const product = productById.get(row.original.productId);
-        return (
-          <div>
-            <p className="font-bold text-slate-800 dark:text-slate-100">{product?.name ?? row.original.productId}</p>
-            <p className="text-[10px] font-mono text-slate-400">{product?.sku}</p>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <div>
+          <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.productName}</p>
+          <p className="text-[10px] font-mono text-slate-400">{row.original.productSku}</p>
+        </div>
+      ),
     },
     {
       header: 'Action',
       accessorKey: 'action',
       cell: ({ getValue }) => {
-        const action = getValue() as StockAdjustment['action'];
+        const action = getValue() as AdjustmentAction;
         return (
-          <Badge color={action === 'add' ? 'emerald' : 'red'} pill>
-            {action === 'add' ? 'Add (+)' : 'Subtract (-)'}
+          <Badge color={action === 'ADD' ? 'emerald' : 'red'} pill>
+            {action === 'ADD' ? 'Add (+)' : 'Subtract (-)'}
           </Badge>
         );
       },
@@ -151,10 +181,10 @@ export default function StockAdjustmentsPage() {
       header: 'Status',
       accessorKey: 'status',
       cell: ({ getValue }) => {
-        const status = getValue() as StockAdjustment['status'];
+        const status = getValue() as LiveStockAdjustment['status'];
         return (
-          <Badge color={status === 'approved' ? 'emerald' : 'amber'} dot pill>
-            {status === 'approved' ? 'Approved' : 'Pending'}
+          <Badge color={status === 'APPROVED' ? 'emerald' : 'amber'} dot pill>
+            {status === 'APPROVED' ? 'Approved' : 'Pending'}
           </Badge>
         );
       },
@@ -163,7 +193,7 @@ export default function StockAdjustmentsPage() {
       header: 'Actions',
       id: 'actions',
       cell: ({ row }) =>
-        row.original.status === 'pending' ? (
+        row.original.status === 'PENDING' ? (
           <button
             onClick={() => handleApprove(row.original.id)}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition"
@@ -190,7 +220,8 @@ export default function StockAdjustmentsPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Reconcile inventory variances, log stock shrinkage, damage, and audit corrections.
+            Reconcile inventory variances, log stock shrinkage, damage, and audit corrections. Adjustments apply to
+            live stock immediately; approval is the manager sign-off.
           </p>
         </div>
 
@@ -262,6 +293,7 @@ export default function StockAdjustmentsPage() {
         <DataTable
           columns={columns}
           data={filtered}
+          loading={loading}
           emptyTitle="No adjustments found"
           emptyDescription="Try adjusting your search or reason filter."
           pageSize={8}
@@ -286,9 +318,10 @@ export default function StockAdjustmentsPage() {
             <button
               form="adjustment-form"
               type="submit"
-              className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-lg shadow-rose-500/25"
+              disabled={saving}
+              className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-lg shadow-rose-500/25 disabled:opacity-50"
             >
-              Submit Adjustment
+              {saving ? 'Submitting…' : 'Submit Adjustment'}
             </button>
           </>
         }
@@ -307,7 +340,7 @@ export default function StockAdjustmentsPage() {
               required
               options={actionOptions}
               value={form.action}
-              onChange={(e) => setForm((f) => ({ ...f, action: e.target.value as StockAdjustment['action'] }))}
+              onChange={(e) => setForm((f) => ({ ...f, action: e.target.value as AdjustmentAction }))}
             />
             <Input
               label="Quantity Amount"

@@ -7,6 +7,7 @@ import healthRouter from './routes/health';
 import productsRouter from './routes/products';
 import categoriesRouter from './routes/categories';
 import brandsRouter from './routes/brands';
+import stockAdjustmentsRouter from './routes/stockAdjustments';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'inventory-service';
 
@@ -22,6 +23,7 @@ app.use('/', healthRouter);
 app.use('/', productsRouter);
 app.use('/', categoriesRouter);
 app.use('/', brandsRouter);
+app.use('/', stockAdjustmentsRouter);
 
 app.listen(PORT, () => {
   console.log(`[inventory-service] listening on port ${PORT}`);

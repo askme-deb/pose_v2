@@ -37,12 +37,13 @@ model Tenant {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
-  stores    Store[]
-  users     User[]
-  products  Product[]
-  brands    Brand[]
-  customers Customer[]
-  suppliers Supplier[]
+  stores           Store[]
+  users            User[]
+  products         Product[]
+  brands           Brand[]
+  stockAdjustments StockAdjustment[]
+  customers        Customer[]
+  suppliers        Supplier[]
 
   @@map("tenants")
 }
@@ -146,11 +147,39 @@ model Product {
   minThreshold Int      @default(0)
   createdAt  DateTime @default(now())
 
-  stockItems  StockItem[]
-  invoiceItems InvoiceItem[]
+  stockItems       StockItem[]
+  invoiceItems     InvoiceItem[]
+  stockAdjustments StockAdjustment[]
 
   @@unique([tenantId, sku])
   @@map("products")
+}
+
+enum AdjustmentAction {
+  ADD
+  SUBTRACT
+}
+
+enum AdjustmentStatus {
+  PENDING
+  APPROVED
+}
+
+model StockAdjustment {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  productId   String
+  product     Product          @relation(fields: [productId], references: [id])
+  action      AdjustmentAction
+  qty         Int
+  reasonCode  String
+  auditor     String
+  valueImpact Decimal          @default(0) @db.Decimal(12, 2)
+  status      AdjustmentStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  @@map("stock_adjustments")
 }
 
 model StockItem {

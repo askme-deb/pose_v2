@@ -78,8 +78,9 @@ async function main() {
     { name: 'Coca-Cola Zero 300ml Can', sku: 'COC-ZR-300', barcode: '5449000131805', category: 'beverages', price: 45, mrp: 49, costPrice: 35, gstRate: 18, stockQty: 5, minThreshold: 40, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200' },
   ];
 
+  const productIdBySku: Record<string, string> = {};
   for (const p of products) {
-    await prisma.product.upsert({
+    const product = await prisma.product.upsert({
       where: { tenantId_sku: { tenantId: tenant.id, sku: p.sku } },
       update: {},
       create: {
@@ -97,10 +98,48 @@ async function main() {
         imageUrl: p.imageUrl,
       },
     });
+    productIdBySku[p.sku] = product.id;
+  }
+
+  // Illustrative audit history only — these are inserted directly (not via the
+  // service's increment-on-create logic) so they don't perturb the stockQty
+  // values seeded above.
+  const adjustmentDefs = [
+    { sku: 'BRT-GDC-200', action: 'SUBTRACT' as const, qty: 40, reasonCode: 'Expired / Damaged', auditor: 'Rohit Sharma', status: 'APPROVED' as const, createdAt: '2026-08-01T10:15:00+05:30' },
+    { sku: 'COC-ZR-300', action: 'SUBTRACT' as const, qty: 15, reasonCode: 'Shrinkage / Missing', auditor: 'Priya Nair', status: 'APPROVED' as const, createdAt: '2026-08-03T14:30:00+05:30' },
+    { sku: 'NSC-MNC-4PK', action: 'SUBTRACT' as const, qty: 12, reasonCode: 'Store Consumption / Tasting', auditor: 'Manager Alex', status: 'PENDING' as const, createdAt: '2026-08-05T09:00:00+05:30' },
+    { sku: 'CDB-DMS-60', action: 'SUBTRACT' as const, qty: 8, reasonCode: 'Expired / Damaged', auditor: 'Rohit Sharma', status: 'APPROVED' as const, createdAt: '2026-08-06T11:45:00+05:30' },
+    { sku: 'AML-GLD-1L', action: 'ADD' as const, qty: 60, reasonCode: 'Audit Variance Correction', auditor: 'Sunita Rao', status: 'APPROVED' as const, createdAt: '2026-08-07T08:20:00+05:30' },
+    { sku: 'HLD-ALB-200', action: 'SUBTRACT' as const, qty: 10, reasonCode: 'Shrinkage / Missing', auditor: 'Priya Nair', status: 'PENDING' as const, createdAt: '2026-08-09T16:10:00+05:30' },
+    { sku: 'AML-CHZ-200', action: 'ADD' as const, qty: 20, reasonCode: 'Audit Variance Correction', auditor: 'Sunita Rao', status: 'APPROVED' as const, createdAt: '2026-08-12T10:30:00+05:30' },
+    { sku: 'FRS-MNG-1KG', action: 'SUBTRACT' as const, qty: 18, reasonCode: 'Shrinkage / Missing', auditor: 'Rohit Sharma', status: 'PENDING' as const, createdAt: '2026-08-14T09:50:00+05:30' },
+    { sku: 'COC-750-BTL', action: 'ADD' as const, qty: 100, reasonCode: 'Audit Variance Correction', auditor: 'Priya Nair', status: 'APPROVED' as const, createdAt: '2026-08-15T13:15:00+05:30' },
+  ];
+
+  for (const a of adjustmentDefs) {
+    const productId = productIdBySku[a.sku];
+    const existing = await prisma.stockAdjustment.findFirst({ where: { tenantId: tenant.id, productId, createdAt: new Date(a.createdAt) } });
+    if (!existing) {
+      const product = products.find((p) => p.sku === a.sku)!;
+      const signedQty = a.action === 'ADD' ? a.qty : -a.qty;
+      await prisma.stockAdjustment.create({
+        data: {
+          tenantId: tenant.id,
+          productId,
+          action: a.action,
+          qty: a.qty,
+          reasonCode: a.reasonCode,
+          auditor: a.auditor,
+          valueImpact: signedQty * product.costPrice,
+          status: a.status,
+          createdAt: new Date(a.createdAt),
+        },
+      });
+    }
   }
 
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, and ${products.length} products.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, and ${adjustmentDefs.length} stock adjustments.`,
   );
 }
 
