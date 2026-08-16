@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Subscriptions & Plans - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Operational Action Header -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">SaaS Subscriptions & Billing Engine</h1>
+            <span id="subs-engine-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ₹14.85M Monthly MRR • 128 Active Subscriptions
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Manage multi-tenant recurring billing plans, configure feature entitlement matrices, inspect automated invoice payments, and setup payment gateway dunning rules.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search Input -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="search-subs-input" onkeyup="filterSubsData()" placeholder="Search invoice, tenant, plan tier..." class="pl-10 pr-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 w-64 shadow-inner">
+          </div>
+
+          <!-- Active View Tab Switcher -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+            <button onclick="switchSubsTab('tiers', this)" class="subs-tab-btn px-3 py-1.5 rounded-xl transition bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20">Plan Tiers (4)</button>
+            <button onclick="switchSubsTab('invoices', this)" class="subs-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-emerald-600">Invoices Ledger</button>
+            <button onclick="switchSubsTab('matrix', this)" class="subs-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-emerald-600">Feature Entitlements</button>
+            <button onclick="switchSubsTab('gateways', this)" class="subs-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-emerald-600">Gateways & Dunning</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="exportInvoicesCSV()" class="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-emerald-500 transition shadow-sm">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>Export Invoices</span>
+            </button>
+            <button onclick="openTierDrawer()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-lg shadow-emerald-500/25 transition transform hover:scale-[1.02]">
+              <i data-lucide="credit-card" class="w-4 h-4"></i>
+              <span>+ Create Plan Tier</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Monthly Recurring Revenue</span>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1">₹14.85M</h3>
+            <p class="text-[11px] text-emerald-600 font-semibold mt-0.5">+18.4% YoY SaaS MRR</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="trending-up" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Annual Run Rate (ARR)</span>
+            <h3 class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">₹178.2M</h3>
+            <p class="text-[11px] text-blue-600 font-semibold mt-0.5">Projected FY 2026</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Subscription Renewal SLA</span>
+            <h3 class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">98.6%</h3>
+            <p class="text-[11px] text-purple-600 font-semibold mt-0.5">1.4% Dunning Auto-Retry</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Avg Revenue Per Tenant</span>
+            <h3 class="text-2xl font-black text-amber-500 mt-1">₹116,015</h3>
+            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">+6.2% Expansion Revenue</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: Subscription Tier Cards -->
+      <div id="subs-tab-tiers-panel" class="space-y-4">
+        <div id="subs-tiers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <!-- Dynamically Populated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB 2: Active Subscriber Invoices Ledger -->
+      <div id="subs-tab-invoices-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Tenant Recurring Invoices Ledger</h3>
+              <p class="text-xs text-slate-400">Live ledger of automated monthly subscription billing transactions, Razorpay/Stripe charges, and tax receipts.</p>
+            </div>
+            <button onclick="exportInvoicesCSV()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md">Export Invoices</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Invoice ID & Date</th>
+                  <th class="py-3 px-4">Tenant Business</th>
+                  <th class="py-3 px-4">SaaS Tier Plan</th>
+                  <th class="py-3 px-4">Payment Gateway</th>
+                  <th class="py-3 px-4">Amount (INR)</th>
+                  <th class="py-3 px-4">Invoice Status</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subs-invoices-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Feature Entitlements Matrix -->
+      <div id="subs-tab-matrix-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Feature Entitlement & Access Matrix</h3>
+              <p class="text-xs text-slate-400">Compare and toggle feature entitlements across Enterprise, Pro, and Starter plans.</p>
+            </div>
+            <button onclick="showToast('Feature entitlements saved and propagated to tenant sessions', 'success')" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-md">Save Entitlements</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Platform Module Feature</th>
+                  <th class="py-3 px-4 text-center">Starter POS Single</th>
+                  <th class="py-3 px-4 text-center">Pro Business Retail</th>
+                  <th class="py-3 px-4 text-center">Enterprise Ultimate</th>
+                </tr>
+              </thead>
+              <tbody id="subs-matrix-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Gateways & Dunning Rules -->
+      <div id="subs-tab-gateways-panel" class="hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Gateway 1: Razorpay POS EDC -->
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold text-sm">
+                  RP
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-slate-900 dark:text-white text-sm">Razorpay Subscriptions (India)</h3>
+                  <p class="text-[10px] text-slate-400">INR Direct Debit, UPI Autopay, eNACH Credit Cards</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">CONNECTED</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between"><span class="text-slate-400">Webhook Status:</span><span class="font-mono text-emerald-600 font-bold">200 OK (0.01s)</span></div>
+              <div class="flex justify-between"><span class="text-slate-400">Active Subscriptions:</span><span class="font-bold text-slate-900 dark:text-white">114 Tenants</span></div>
+              <div class="flex justify-between"><span class="text-slate-400">Success Rate:</span><span class="font-mono text-emerald-600 font-bold">99.1%</span></div>
+            </div>
+
+            <button onclick="showToast('Tested Razorpay webhook connection - OK', 'success')" class="w-full py-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs hover:bg-slate-200">Test Webhook Sync</button>
+          </div>
+
+          <!-- Gateway 2: Stripe Global -->
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-purple-600/10 text-purple-600 flex items-center justify-center font-bold text-sm">
+                  ST
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-slate-900 dark:text-white text-sm">Stripe Global SaaS Gateway</h3>
+                  <p class="text-[10px] text-slate-400">USD/EUR Multi-Currency Enterprise Accounts</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">CONNECTED</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between"><span class="text-slate-400">Webhook Status:</span><span class="font-mono text-emerald-600 font-bold">200 OK (0.02s)</span></div>
+              <div class="flex justify-between"><span class="text-slate-400">Active Subscriptions:</span><span class="font-bold text-slate-900 dark:text-white">14 Tenants</span></div>
+              <div class="flex justify-between"><span class="text-slate-400">Success Rate:</span><span class="font-mono text-emerald-600 font-bold">98.4%</span></div>
+            </div>
+
+            <button onclick="showToast('Tested Stripe Global connection - OK', 'success')" class="w-full py-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs hover:bg-slate-200">Test Webhook Sync</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Side-Over Plan Tier Customizer Drawer -->
+  <div id="subscription-tier-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-end hidden">
+    <div class="bg-white dark:bg-slate-900 h-full max-w-md w-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto space-y-6 animate-slide-in-right">
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <h3 id="tier-drawer-title" class="text-lg font-bold text-slate-900 dark:text-white">Configure SaaS Plan Tier</h3>
+            <p class="text-xs text-slate-400">Set pricing parameters, outlet limits, and feature permissions.</p>
+          </div>
+          <button onclick="closeTierDrawer()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs">✕</button>
+        </div>
+
+        <form id="tier-drawer-form" onsubmit="saveTierFromDrawer(event)" class="space-y-4 text-xs">
+          <input type="hidden" id="form-tier-edit-id" value="">
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Subscription Plan Name *</label>
+            <input type="text" id="form-tier-name" required placeholder="e.g. Enterprise Ultimate Plus" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-xs">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Monthly Price (INR) *</label>
+              <input type="number" id="form-tier-price" required placeholder="149999" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Store Outlets Included</label>
+              <input type="number" id="form-tier-stores" value="25" required class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Tier Marketing Badge</label>
+            <input type="text" id="form-tier-badge" value="Popular Enterprise" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+          </div>
+
+          <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <button type="button" onclick="closeTierDrawer()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Cancel</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-lg shadow-emerald-500/25">Publish Plan Tier</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Invoice Receipt Modal -->
+  <div id="invoice-detail-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h3 id="inv-modal-id" class="text-base font-extrabold text-slate-900 dark:text-white font-mono">INV-SAAS-2026-891</h3>
+          <p id="inv-modal-date" class="text-xs text-slate-400">Billed on Aug 01, 2026</p>
+        </div>
+        <button onclick="closeInvoiceDetailModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
+          <div class="flex justify-between"><span class="text-slate-400">Billed Tenant:</span><strong id="inv-modal-tenant" class="text-slate-900 dark:text-white">Apex Supermarket Chain</strong></div>
+          <div class="flex justify-between"><span class="text-slate-400">Plan Tier:</span><strong id="inv-modal-plan" class="text-emerald-600">Enterprise Ultimate</strong></div>
+          <div class="flex justify-between"><span class="text-slate-400">Gateway Ref:</span><span id="inv-modal-tx" class="font-mono text-slate-600 dark:text-slate-300">pay_Rz91f8bL20</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Subtotal Amount:</span><span id="inv-modal-subtotal" class="font-mono text-slate-900 dark:text-white">₹127,117.80</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">18% IGST Tax:</span><span id="inv-modal-tax" class="font-mono text-slate-900 dark:text-white">₹22,881.20</span></div>
+          <div class="flex justify-between border-t border-slate-200 dark:border-slate-800 pt-2"><span class="font-bold text-slate-900 dark:text-white">Total Amount Paid:</span><strong id="inv-modal-total" class="font-mono text-emerald-600 text-sm">₹149,999.00</strong></div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="showToast('Tax Receipt PDF dispatched to tenant admin email', 'success'); closeInvoiceDetailModal();" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-md">Email PDF Receipt</button>
+        <button onclick="closeInvoiceDetailModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Master SaaS Subscription Data Engine
+    let subscriptionPlansData = [
+      { id: 'plan-ent', name: 'Enterprise Ultimate', price: 149999, stores: 25, subscribers: 38, badge: 'Popular Enterprise', features: ['Unlimited Outlets', 'Dedicated DB Instance', 'White-Label Branding', '24/7 SLA Phone Support'] },
+      { id: 'plan-pro', name: 'Pro Business Retail', price: 49999, stores: 10, subscribers: 64, badge: 'Growth Standard', features: ['Up to 10 Store Outlets', 'Multi-Warehouse Sync', 'GST Tax Return Engine', 'Email & Chat Support'] },
+      { id: 'plan-start', name: 'Starter POS Single', price: 14999, stores: 1, subscribers: 26, badge: 'Single Store', features: ['1 Retail Store POS', 'Barcode Scanner Sync', 'Thermal Receipt Printing', 'Standard Analytics'] },
+      { id: 'plan-custom', name: 'Custom Enterprise White-Label', price: 299999, stores: 100, subscribers: 4, badge: 'Dedicated Private Cloud', features: ['Unlimited Store Outlets', 'Custom Domain Branding', 'Dedicated Kubernetes Cluster', 'Dedicated Account Manager'] }
+    ];
+
+    let subscriberInvoicesData = [
+      { id: 'INV-SAAS-2026-891', date: '01 Aug 2026', tenant: 'Apex Supermarket Chain', plan: 'Enterprise Ultimate', gateway: 'Razorpay AutoPay', amount: 149999, status: 'Paid', tx: 'pay_Rz91f8bL20' },
+      { id: 'INV-SAAS-2026-892', date: '01 Aug 2026', tenant: 'Metro Hypermarket Ltd', plan: 'Enterprise Ultimate', gateway: 'Razorpay Direct', amount: 249999, status: 'Paid', tx: 'pay_Rz92f9cL21' },
+      { id: 'INV-SAAS-2026-893', date: '02 Aug 2026', tenant: 'QuickBite Restaurant Group', plan: 'Pro Business Retail', gateway: 'Stripe Global', amount: 49999, status: 'Paid', tx: 'ch_3M000aX991' },
+      { id: 'INV-SAAS-2026-894', date: '03 Aug 2026', tenant: 'Zenith Pharma Labs', plan: 'Enterprise Ultimate', gateway: 'Razorpay AutoPay', amount: 149999, status: 'Paid', tx: 'pay_Rz94f1dL23' },
+      { id: 'INV-SAAS-2026-895', date: '04 Aug 2026', tenant: 'Luxe Fashion Retail', plan: 'Pro Business Retail', gateway: 'Razorpay Direct', amount: 49999, status: 'Paid', tx: 'pay_Rz95f2eL24' },
+      { id: 'INV-SAAS-2026-896', date: '05 Aug 2026', tenant: 'Organic Pantry Co', plan: 'Starter POS Single', gateway: 'Razorpay UPI', amount: 14999, status: 'Pending', tx: 'pay_Rz96f3fL25' }
+    ];
+
+    let featureMatrixData = [
+      { feature: 'POS Touch Billing & Thermal Printing', starter: true, pro: true, enterprise: true },
+      { feature: 'Multi-Warehouse & Rack Inventory Sync', starter: false, pro: true, enterprise: true },
+      { feature: 'GST Tax Return Filing Engine & E-Way Bills', starter: false, pro: true, enterprise: true },
+      { feature: 'CRM Loyalty Points & WhatsApp PDF Receipts', starter: false, pro: true, enterprise: true },
+      { feature: 'Dedicated PostgreSQL DB Schema Isolation', starter: false, pro: false, enterprise: true },
+      { feature: 'Custom Domain White-Label Branding', starter: false, pro: false, enterprise: true },
+      { feature: '24/7 Phone SLA & Dedicated Account Manager', starter: false, pro: false, enterprise: true }
+    ];
+
+    let activeSubsTab = 'tiers';
+    let currentSubsSearch = '';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSubscriptionTierCards();
+      renderInvoicesLedgerTable();
+      renderFeatureEntitlementsMatrix();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    function switchSubsTab(tab, btn) {
+      activeSubsTab = tab;
+      document.querySelectorAll('.subs-tab-btn').forEach(b => {
+        b.className = 'subs-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-emerald-600';
+      });
+      if (btn) {
+        btn.className = 'subs-tab-btn px-3 py-1.5 rounded-xl transition bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20';
+      }
+
+      ['tiers', 'invoices', 'matrix', 'gateways'].forEach(t => {
+        const panel = document.getElementById(`subs-tab-${t}-panel`);
+        if (panel) {
+          if (t === tab) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function filterSubsData() {
+      currentSubsSearch = (document.getElementById('search-subs-input')?.value || '').toLowerCase();
+      renderInvoicesLedgerTable();
+    }
+
+    function renderSubscriptionTierCards() {
+      const grid = document.getElementById('subs-tiers-grid');
+      if (!grid) return;
+
+      let html = '';
+      subscriptionPlansData.forEach(p => {
+        html += `
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition group">
+            <div class="space-y-3">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">${p.badge}</span>
+              <h3 class="text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600 transition">${p.name}</h3>
+              <p class="text-2xl font-black text-emerald-600 font-mono">₹${p.price.toLocaleString('en-IN')} <span class="text-xs text-slate-400 font-normal">/ mo</span></p>
+
+              <ul class="space-y-2 pt-2 text-xs text-slate-600 dark:text-slate-300">
+                <li class="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200"><i data-lucide="store" class="w-3.5 h-3.5 text-indigo-500"></i> ${p.stores} Store Outlets Limit</li>
+                ${p.features.map(f => `<li class="flex items-center gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i> ${f}</li>`).join('')}
+              </ul>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-400">${p.subscribers} Active Tenants</span>
+              <button onclick="openTierDrawer('${p.id}')" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-sm">Configure</button>
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = html;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function renderInvoicesLedgerTable() {
+      const tbody = document.getElementById('subs-invoices-table-body');
+      if (!tbody) return;
+
+      let filtered = subscriberInvoicesData;
+      if (currentSubsSearch) {
+        filtered = filtered.filter(i => i.id.toLowerCase().includes(currentSubsSearch) || i.tenant.toLowerCase().includes(currentSubsSearch) || i.plan.toLowerCase().includes(currentSubsSearch));
+      }
+
+      let html = '';
+      filtered.forEach(i => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4">
+              <div class="font-mono font-bold text-slate-900 dark:text-white">${i.id}</div>
+              <div class="text-[10px] text-slate-400">${i.date}</div>
+            </td>
+            <td class="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">${i.tenant}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">${i.plan}</span></td>
+            <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${i.gateway}</td>
+            <td class="py-3 px-4 font-mono font-black text-slate-900 dark:text-white">₹${i.amount.toLocaleString('en-IN')}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-500'}">${i.status}</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openInvoiceDetailModal('${i.id}')" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[11px] hover:bg-slate-200">View Receipt</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function renderFeatureEntitlementsMatrix() {
+      const tbody = document.getElementById('subs-matrix-table-body');
+      if (!tbody) return;
+
+      let html = '';
+      featureMatrixData.forEach(m => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">${m.feature}</td>
+            <td class="py-3.5 px-4 text-center">
+              ${m.starter ? '<i data-lucide="check" class="w-4 h-4 text-emerald-500 mx-auto"></i>' : '<i data-lucide="x" class="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto"></i>'}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              ${m.pro ? '<i data-lucide="check" class="w-4 h-4 text-emerald-500 mx-auto"></i>' : '<i data-lucide="x" class="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto"></i>'}
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              ${m.enterprise ? '<i data-lucide="check" class="w-4 h-4 text-emerald-500 mx-auto"></i>' : '<i data-lucide="x" class="w-4 h-4 text-slate-300 dark:text-slate-700 mx-auto"></i>'}
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Modal & Drawer Actions
+    function openTierDrawer(id = null) {
+      document.getElementById('subscription-tier-drawer')?.classList.remove('hidden');
+    }
+
+    function closeTierDrawer() {
+      document.getElementById('subscription-tier-drawer')?.classList.add('hidden');
+    }
+
+    function saveTierFromDrawer(e) {
+      e.preventDefault();
+      const name = document.getElementById('form-tier-name').value;
+      const price = parseInt(document.getElementById('form-tier-price').value || 49999);
+      const stores = parseInt(document.getElementById('form-tier-stores').value || 10);
+      const badge = document.getElementById('form-tier-badge').value;
+
+      const newPlan = {
+        id: `plan-${Date.now()}`,
+        name,
+        price,
+        stores,
+        subscribers: 1,
+        badge,
+        features: ['Full Multi-Branch Sync', 'GST Tax Engine', 'Standard SLA Support']
+      };
+
+      subscriptionPlansData.unshift(newPlan);
+      renderSubscriptionTierCards();
+      closeTierDrawer();
+      showToast(`Created SaaS Pricing Tier '${name}'!`, 'success');
+    }
+
+    function openInvoiceDetailModal(id) {
+      const inv = subscriberInvoicesData.find(x => x.id === id);
+      if (!inv) return;
+
+      const subtotal = Math.round(inv.amount / 1.18);
+      const tax = inv.amount - subtotal;
+
+      document.getElementById('inv-modal-id').innerText = inv.id;
+      document.getElementById('inv-modal-date').innerText = `Billed on ${inv.date}`;
+      document.getElementById('inv-modal-tenant').innerText = inv.tenant;
+      document.getElementById('inv-modal-plan').innerText = inv.plan;
+      document.getElementById('inv-modal-tx').innerText = inv.tx;
+      document.getElementById('inv-modal-subtotal').innerText = `₹${subtotal.toLocaleString('en-IN')}`;
+      document.getElementById('inv-modal-tax').innerText = `₹${tax.toLocaleString('en-IN')}`;
+      document.getElementById('inv-modal-total').innerText = `₹${inv.amount.toLocaleString('en-IN')}`;
+
+      document.getElementById('invoice-detail-modal')?.classList.remove('hidden');
+    }
+
+    function closeInvoiceDetailModal() {
+      document.getElementById('invoice-detail-modal')?.classList.add('hidden');
+    }
+
+    function exportInvoicesCSV() {
+      let csv = 'Invoice ID,Date,Tenant Business,Plan Tier,Payment Gateway,Amount (INR),Status\n';
+      subscriberInvoicesData.forEach(i => {
+        csv += `"${i.id}","${i.date}","${i.tenant}","${i.plan}","${i.gateway}",${i.amount},${i.status}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'ApexPOS_Subscription_Invoices_Ledger.csv');
+      a.click();
+      showToast('Subscription Invoices Exported to CSV!', 'success');
+    }
+  </script>
+
+  </div>
+
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div id="receipt-modal-body"></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Print Thermal Receipt</button>
+        <button onclick="closeReceiptModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="search-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" placeholder="Type a command or search term..." class="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 outline-none">
+        <button onclick="toggleSearchModal()" class="text-xs text-slate-400">ESC</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

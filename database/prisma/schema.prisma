@@ -1,0 +1,214 @@
+// PosPe — core multi-tenant schema (starter).
+// Each business-domain service (billing, inventory, purchase, sales, ...)
+// extends this schema with its own models as it's built out.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- SaaS / Tenant management ----------
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+model Tenant {
+  id           String            @id @default(cuid())
+  name         String
+  slug         String            @unique
+  plan         SubscriptionPlan  @default(STARTER)
+  status       TenantStatus      @default(TRIAL)
+  whiteLabel   Boolean           @default(false)
+  customDomain String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  stores    Store[]
+  users     User[]
+  products  Product[]
+  customers Customer[]
+  suppliers Supplier[]
+
+  @@map("tenants")
+}
+
+enum UserRole {
+  TENANT_OWNER
+  BRANCH_ADMIN
+  STORE_MANAGER
+  CASHIER
+  ACCOUNTANT
+  INVENTORY_MANAGER
+  SALES_EXECUTIVE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  storeId      String?
+  store        Store?   @relation(fields: [storeId], references: [id])
+  name         String
+  email        String
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+// ---------- Store / Warehouse ----------
+
+model Store {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  address   String?
+  gstin     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users      User[]
+  invoices   Invoice[]
+  stockItems StockItem[]
+
+  @@map("stores")
+}
+
+// ---------- Inventory ----------
+
+model Category {
+  id       String    @id @default(cuid())
+  tenantId String
+  name     String
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  name       String
+  sku        String
+  barcode    String?
+  hsnCode    String?
+  unit       String   @default("PCS")
+  mrp        Decimal  @default(0) @db.Decimal(12, 2)
+  price      Decimal  @default(0) @db.Decimal(12, 2)
+  gstRate    Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt  DateTime @default(now())
+
+  stockItems  StockItem[]
+  invoiceItems InvoiceItem[]
+
+  @@unique([tenantId, sku])
+  @@map("products")
+}
+
+model StockItem {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int      @default(0)
+  reorderAt Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, productId])
+  @@map("stock_items")
+}
+
+// ---------- Customers / Suppliers ----------
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  phone     String?
+  email     String?
+  loyaltyPoints Int  @default(0)
+  createdAt DateTime @default(now())
+
+  invoices Invoice[]
+
+  @@map("customers")
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  @@map("suppliers")
+}
+
+// ---------- Billing ----------
+
+enum InvoiceStatus {
+  DRAFT
+  HELD
+  PAID
+  PARTIALLY_PAID
+  REFUNDED
+  CANCELLED
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  storeId       String
+  store         Store         @relation(fields: [storeId], references: [id])
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  invoiceNumber String
+  status        InvoiceStatus @default(DRAFT)
+  subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  taxTotal      Decimal       @default(0) @db.Decimal(12, 2)
+  total         Decimal       @default(0) @db.Decimal(12, 2)
+  createdAt     DateTime      @default(now())
+
+  items InvoiceItem[]
+
+  @@unique([storeId, invoiceNumber])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Decimal @db.Decimal(12, 2)
+  gstRate   Decimal @db.Decimal(5, 2)
+  total     Decimal @db.Decimal(12, 2)
+
+  @@map("invoice_items")
+}

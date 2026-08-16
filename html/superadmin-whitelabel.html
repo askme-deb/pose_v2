@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>White Label Branding - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Operational Action Header -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Enterprise White-Label Branding Engine</h1>
+            <span id="wl-engine-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-500/20 uppercase tracking-wider flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> 38 White-Label Tenants Active • 38 Custom CNAME SSL Secured
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Configure tenant brand identities, custom CNAME domain mappings, custom CSS themes, transactional SMTP email layouts, and custom login portals.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search Input -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="search-wl-input" onkeyup="filterWLData()" placeholder="Search domain, tenant, theme..." class="pl-10 pr-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-rose-500 w-64 shadow-inner">
+          </div>
+
+          <!-- Active View Tab Switcher -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+            <button onclick="switchWLTab('theme', this)" class="wl-tab-btn px-3 py-1.5 rounded-xl transition bg-rose-600 text-white font-bold shadow-md shadow-rose-500/20">Brand Theme & Logo</button>
+            <button onclick="switchWLTab('domains', this)" class="wl-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-rose-600">Custom Domains (38)</button>
+            <button onclick="switchWLTab('emails', this)" class="wl-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-rose-600">Email & SMTP</button>
+            <button onclick="switchWLTab('code', this)" class="wl-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-rose-600">Custom CSS & Scripts</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="openAddDomainModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-rose-500 transition shadow-sm">
+              <i data-lucide="globe" class="w-3.5 h-3.5 text-rose-600"></i>
+              <span>+ Add CNAME Domain</span>
+            </button>
+            <button onclick="saveWLBranding()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white text-xs font-bold shadow-lg shadow-rose-500/25 transition transform hover:scale-[1.02]">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Branding Config</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">White-Label Enterprise Tenants</span>
+            <h3 class="text-2xl font-black text-slate-900 dark:text-white mt-1">38 Tenants</h3>
+            <p class="text-[11px] text-rose-600 font-semibold mt-0.5">100% Brand Isolated</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
+            <i data-lucide="palette" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Custom CNAME Mappings</span>
+            <h3 class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">38 Domains</h3>
+            <p class="text-[11px] text-blue-600 font-semibold mt-0.5">SSL TLS 1.3 Auto-Renewed</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Transactional Emails (30d)</span>
+            <h3 class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">1.42M Sent</h3>
+            <p class="text-[11px] text-emerald-600 font-semibold mt-0.5">99.8% Inbox Delivery Rate</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="mail" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Custom DNS Ingress SLA</span>
+            <h3 class="text-2xl font-black text-amber-500 mt-1">100% Propagated</h3>
+            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">6ms Cloud Edge Latency</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <i data-lucide="cpu" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: Brand Themes & Logos Customizer -->
+      <div id="wl-tab-theme-panel" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          <!-- Customizer Controls Left Form -->
+          <div class="lg:col-span-7 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Tenant Brand & Theme Customizer</h3>
+              <p class="text-xs text-slate-400">Select target enterprise tenant organization to customize logo, accent color, and typography.</p>
+            </div>
+
+            <div class="space-y-4 text-xs">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Target Tenant Organization</label>
+                <select id="wl-select-tenant" onchange="loadTenantWLConfig()" class="w-full px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-bold text-rose-600">
+                  <option value="ten-101">Apex Supermarket Chain (apex.apexpos.com)</option>
+                  <option value="ten-102">Metro Hypermarket Ltd (pos.metrohyper.com)</option>
+                  <option value="ten-103">QuickBite Restaurant Group (pos.quickbite.com)</option>
+                  <option value="ten-104">Zenith Pharma Labs (billing.zenithpharma.com)</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Custom Application Display Title</label>
+                  <input type="text" id="wl-app-title" onkeyup="updateWLLivePreview()" value="Apex Supermarket Chain POS" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-bold">
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Favicon Image URL</label>
+                  <input type="text" id="wl-favicon-url" value="images/logo.svg" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-mono">
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Brand Logo Image</label>
+                <div class="flex items-center gap-3">
+                  <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center">
+                    <img id="wl-logo-preview-img" src="images/logo.svg" alt="Brand Logo" class="h-8">
+                  </div>
+                  <input type="text" id="wl-logo-url" onkeyup="updateWLLivePreview()" value="images/logo.svg" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-mono text-xs">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Primary Accent Color Theme</label>
+                  <div class="flex items-center gap-2">
+                    <input type="color" id="wl-primary-color" onchange="updateWLLivePreview()" value="#2563eb" class="w-10 h-9 rounded-xl border border-slate-200 cursor-pointer">
+                    <input type="text" id="wl-primary-hex" onkeyup="updateWLLivePreview()" value="#2563eb" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-mono font-bold">
+                  </div>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">UI Font Family</label>
+                  <select id="wl-font-family" onchange="updateWLLivePreview()" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-bold">
+                    <option value="Plus Jakarta Sans">Plus Jakarta Sans (Default)</option>
+                    <option value="Inter">Inter UI</option>
+                    <option value="Roboto">Roboto Condensed</option>
+                    <option value="Outfit">Outfit Modern</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live UI Header Mockup Preview Right -->
+          <div class="lg:col-span-5 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4 flex flex-col justify-between">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Live White-Label Preview</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600">LIVE CANVAS</span>
+              </div>
+              <p class="text-xs text-slate-400">Visual representation of how the header and buttons render inside the tenant's POS billing terminal.</p>
+
+              <!-- Live Header Canvas -->
+              <div id="wl-live-canvas" class="p-4 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-lg space-y-4 transition-all">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div class="flex items-center gap-2.5">
+                    <img id="mockup-logo-img" src="images/logo.svg" class="h-7">
+                    <span id="mockup-app-title" class="font-extrabold text-xs text-slate-900 dark:text-white">Apex Supermarket Chain POS</span>
+                  </div>
+                  <div id="mockup-badge" class="px-2.5 py-1 rounded-xl text-white text-[10px] font-bold shadow-sm" style="background-color: #2563eb">
+                    Tenant Terminal
+                  </div>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                  <div class="flex justify-between text-[11px]"><span class="text-slate-400">Sample POS Cart Subtotal:</span><span class="font-bold text-slate-900 dark:text-white font-mono">₹4,850.00</span></div>
+                  <button id="mockup-btn" class="w-full py-2 rounded-xl text-white font-bold text-xs shadow-md transition" style="background-color: #2563eb">
+                    Proceed to Complete Checkout
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 text-center">
+              Changes apply instantaneously across all tenant store branches.
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- TAB 2: Custom CNAME Domains & SSL Certificates -->
+      <div id="wl-tab-domains-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Custom CNAME Domain Mappings & SSL Status</h3>
+              <p class="text-xs text-slate-400">Active custom domains configured by Enterprise Ultimate subscribers pointing to ApexPOS cloud edge ingress.</p>
+            </div>
+            <button onclick="openAddDomainModal()" class="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-md">+ Add CNAME Mapping</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Tenant Organization</th>
+                  <th class="py-3 px-4">Custom CNAME Domain</th>
+                  <th class="py-3 px-4">Cloud Edge Ingress Target</th>
+                  <th class="py-3 px-4">SSL Certificate SLA</th>
+                  <th class="py-3 px-4 text-right">DNS Propagation</th>
+                </tr>
+              </thead>
+              <tbody id="wl-domains-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Email & SMTP Relays -->
+      <div id="wl-tab-emails-panel" class="hidden space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Transactional Email & Custom SMTP Gateway</h3>
+              <p class="text-xs text-slate-400">Configure white-labeled SendGrid/Amazon SES relays for automated sales receipt dispatch.</p>
+            </div>
+            <button onclick="showToast('Test email receipt dispatched via SMTP relay', 'success')" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs hover:bg-slate-200">Send Test Email</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">From Sender Email Name</label>
+              <input type="text" value="Apex Supermarket Receipts <billing@apexsupermarket.com>" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">SMTP Host Server</label>
+              <input type="text" value="smtp.sendgrid.net (Port 587 TLS)" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 outline-none font-mono">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Custom CSS & Scripts -->
+      <div id="wl-tab-code-panel" class="hidden space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Custom CSS Stylesheet & Script Injection</h3>
+            <p class="text-xs text-slate-400">Inject custom CSS overrides or analytics tracking scripts into tenant sessions.</p>
+          </div>
+
+          <div class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Custom CSS Override Rules</label>
+              <textarea rows="4" placeholder="/* Custom CSS overrides */ .glass-panel { border-radius: 20px; }" class="w-full p-3 rounded-xl bg-slate-900 font-mono text-emerald-400 text-xs outline-none border border-slate-800">.brand-header-custom { background: linear-gradient(135deg, #1e3a8a, #3b82f6); }</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Add CNAME Domain Modal -->
+  <div id="add-domain-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Add Custom CNAME Domain</h3>
+          <p class="text-xs text-slate-400">Map custom tenant domain to cloud edge ingress.</p>
+        </div>
+        <button onclick="closeAddDomainModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <form onsubmit="saveCustomDomain(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Target Business Tenant</label>
+          <select id="form-domain-tenant" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-bold text-rose-600">
+            <option value="Apex Supermarket Chain">Apex Supermarket Chain</option>
+            <option value="Metro Hypermarket Ltd">Metro Hypermarket Ltd</option>
+            <option value="QuickBite Restaurant Group">QuickBite Restaurant Group</option>
+            <option value="Zenith Pharma Labs">Zenith Pharma Labs</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Custom CNAME Domain Host *</label>
+          <input type="text" id="form-domain-host" required placeholder="pos.apexsupermarket.com" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono font-bold">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">ApexPOS Ingress Edge Target</label>
+          <input type="text" value="ingress-mumbai-01.apexpos.com" disabled class="w-full px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 outline-none font-mono text-slate-500">
+        </div>
+
+        <div class="pt-3 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+          <button type="button" onclick="closeAddDomainModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs shadow-lg shadow-rose-500/25">Provision SSL & Bind</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Master White-Label Data Engine State
+    let whiteLabelDomainsData = [
+      { id: 'dom-01', tenant: 'Apex Supermarket Chain', host: 'pos.apexsupermarket.com', ingress: 'ingress-mumbai-01.apexpos.com', ssl: 'Let\'s Encrypt TLS 1.3', status: 'Propagated (6ms)' },
+      { id: 'dom-02', tenant: 'Metro Hypermarket Ltd', host: 'billing.metrohyper.com', ingress: 'ingress-mumbai-01.apexpos.com', ssl: 'Cloudflare TLS 1.3', status: 'Propagated (8ms)' },
+      { id: 'dom-03', tenant: 'QuickBite Restaurant Group', host: 'pos.quickbite.com', ingress: 'ingress-mumbai-01.apexpos.com', ssl: 'Let\'s Encrypt TLS 1.3', status: 'Propagated (12ms)' },
+      { id: 'dom-04', tenant: 'Zenith Pharma Labs', host: 'billing.zenithpharma.com', ingress: 'ingress-virginia-02.apexpos.com', ssl: 'DigiCert TLS 1.3', status: 'Propagated (4ms)' }
+    ];
+
+    let activeWLTab = 'theme';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderDomainsTable();
+      updateWLLivePreview();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    function switchWLTab(tab, btn) {
+      activeWLTab = tab;
+      document.querySelectorAll('.wl-tab-btn').forEach(b => {
+        b.className = 'wl-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-rose-600';
+      });
+      if (btn) {
+        btn.className = 'wl-tab-btn px-3 py-1.5 rounded-xl transition bg-rose-600 text-white font-bold shadow-md shadow-rose-500/20';
+      }
+
+      ['theme', 'domains', 'emails', 'code'].forEach(t => {
+        const panel = document.getElementById(`wl-tab-${t}-panel`);
+        if (panel) {
+          if (t === tab) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function updateWLLivePreview() {
+      const title = document.getElementById('wl-app-title')?.value || 'Apex Supermarket Chain POS';
+      const logoUrl = document.getElementById('wl-logo-url')?.value || 'images/logo.svg';
+      const color = document.getElementById('wl-primary-color')?.value || '#2563eb';
+      const hexInput = document.getElementById('wl-primary-hex');
+      const font = document.getElementById('wl-font-family')?.value || 'Plus Jakarta Sans';
+
+      if (hexInput && hexInput !== document.activeElement) {
+        hexInput.value = color;
+      }
+
+      const mockupTitle = document.getElementById('mockup-app-title');
+      const mockupLogo = document.getElementById('mockup-logo-img');
+      const mockupBadge = document.getElementById('mockup-badge');
+      const mockupBtn = document.getElementById('mockup-btn');
+      const liveCanvas = document.getElementById('wl-live-canvas');
+
+      if (mockupTitle) mockupTitle.innerText = title;
+      if (mockupLogo) mockupLogo.src = logoUrl;
+      if (mockupBadge) mockupBadge.style.backgroundColor = color;
+      if (mockupBtn) mockupBtn.style.backgroundColor = color;
+      if (liveCanvas) liveCanvas.style.fontFamily = font;
+    }
+
+    function loadTenantWLConfig() {
+      showToast('Loaded White-Label branding configuration for selected tenant', 'info');
+      updateWLLivePreview();
+    }
+
+    function saveWLBranding() {
+      showToast('White-Label Branding config saved and deployed to tenant edge CDN!', 'success');
+    }
+
+    function renderDomainsTable() {
+      const tbody = document.getElementById('wl-domains-table-body');
+      if (!tbody) return;
+
+      let html = '';
+      whiteLabelDomainsData.forEach(d => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${d.tenant}</td>
+            <td class="py-3 px-4 font-mono font-bold text-rose-600">${d.host}</td>
+            <td class="py-3 px-4 font-mono text-slate-500">${d.ingress}</td>
+            <td class="py-3 px-4 text-emerald-600 font-bold">${d.ssl}</td>
+            <td class="py-3 px-4 text-right">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">${d.status}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function openAddDomainModal() {
+      document.getElementById('add-domain-modal')?.classList.remove('hidden');
+    }
+
+    function closeAddDomainModal() {
+      document.getElementById('add-domain-modal')?.classList.add('hidden');
+    }
+
+    function saveCustomDomain(e) {
+      e.preventDefault();
+      const tenant = document.getElementById('form-domain-tenant').value;
+      const host = document.getElementById('form-domain-host').value;
+
+      whiteLabelDomainsData.unshift({
+        id: `dom-${Date.now()}`,
+        tenant,
+        host,
+        ingress: 'ingress-mumbai-01.apexpos.com',
+        ssl: 'Let\'s Encrypt TLS 1.3',
+        status: 'Propagated (5ms)'
+      });
+
+      renderDomainsTable();
+      closeAddDomainModal();
+      showToast(`Custom CNAME domain '${host}' bound with Let's Encrypt SSL!`, 'success');
+    }
+
+    function filterWLData() {
+      const query = (document.getElementById('search-wl-input')?.value || '').toLowerCase();
+      const tbody = document.getElementById('wl-domains-table-body');
+      if (!tbody) return;
+
+      let filtered = whiteLabelDomainsData;
+      if (query) {
+        filtered = filtered.filter(d => d.tenant.toLowerCase().includes(query) || d.host.toLowerCase().includes(query));
+      }
+
+      let html = '';
+      filtered.forEach(d => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${d.tenant}</td>
+            <td class="py-3 px-4 font-mono font-bold text-rose-600">${d.host}</td>
+            <td class="py-3 px-4 font-mono text-slate-500">${d.ingress}</td>
+            <td class="py-3 px-4 text-emerald-600 font-bold">${d.ssl}</td>
+            <td class="py-3 px-4 text-right">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">${d.status}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+  </script>
+
+  </div>
+
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div id="receipt-modal-body"></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Print Thermal Receipt</button>
+        <button onclick="closeReceiptModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="search-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" placeholder="Type a command or search term..." class="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 outline-none">
+        <button onclick="toggleSearchModal()" class="text-xs text-slate-400">ESC</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

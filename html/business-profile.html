@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Company Settings - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Operational Action Header -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Business Profile & Settings</h1>
+            <span id="profile-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> GST Verified • Apex Supermarket Chain
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Manage legal business entity credentials, GSTIN tax rules, multi-branch store directories, thermal receipt templates, and cloud API integrations.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Active View Tab Switcher -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+            <button onclick="switchProfileTab('general', this)" class="profile-tab-btn px-3 py-1.5 rounded-xl transition bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20">General Identity</button>
+            <button onclick="switchProfileTab('tax', this)" class="profile-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-blue-600">Tax & GST</button>
+            <button onclick="switchProfileTab('branches', this)" class="profile-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-blue-600">Branch Locations (4)</button>
+            <button onclick="switchProfileTab('receipt', this)" class="profile-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-blue-600">Thermal Receipt</button>
+            <button onclick="switchProfileTab('api', this)" class="profile-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-blue-600">API & Cloud</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="previewThermalReceiptModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-blue-500 transition shadow-sm">
+              <i data-lucide="printer" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>Receipt Preview</span>
+            </button>
+            <button onclick="saveAllCompanySettings()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition transform hover:scale-[1.02]">
+              <i data-lucide="save" class="w-4 h-4"></i>
+              <span>Save Profile Settings</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Configured Store Branches</span>
+            <h3 id="kpi-branch-count" class="text-2xl font-black text-slate-900 dark:text-white mt-1">4 Outlets</h3>
+            <p class="text-[11px] text-blue-600 font-semibold mt-0.5">Downtown Flagship (Primary)</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <i data-lucide="store" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">GSTIN Registration</span>
+            <h3 class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">27AAAAA0000</h3>
+            <p class="text-[11px] text-emerald-600 font-semibold mt-0.5">Active GSTR-1 Verified</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="file-check" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Thermal POS Printers</span>
+            <h3 class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">6 Terminals</h3>
+            <p class="text-[11px] text-purple-600 font-semibold mt-0.5">80mm ESC/POS Online</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+            <i data-lucide="printer" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Cloud Integrations</span>
+            <h3 class="text-2xl font-black text-amber-500 mt-1">4 Connected</h3>
+            <p class="text-[11px] text-amber-600 font-semibold mt-0.5">Razorpay, WhatsApp API, Drive</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+            <i data-lucide="cloud-lightning" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: General Business Identity -->
+      <div id="profile-tab-general-panel" class="space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">General Business Identity & Branding</h3>
+              <p class="text-xs text-slate-400">Primary legal entity information displayed across customer invoices and public receipts.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 font-bold text-[10px]">Supermarket & Hypermarket Retail</span>
+          </div>
+
+          <form id="form-general-identity" onsubmit="event.preventDefault(); saveAllCompanySettings();" class="space-y-5 text-xs">
+            <div class="flex flex-col lg:flex-row gap-6 items-start">
+              <!-- Company Brand Logo Avatar -->
+              <div class="flex flex-col items-center gap-3 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full lg:w-64">
+                <div class="relative w-28 h-28 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 shadow-inner flex items-center justify-center group">
+                  <img id="company-logo-preview" src="images/logo.svg" alt="ApexPOS Logo" class="max-h-full max-w-full object-contain">
+                  <div class="absolute inset-0 bg-black/50 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center cursor-pointer" onclick="document.getElementById('logo-file-input').click()">
+                    <i data-lucide="camera" class="w-6 h-6 text-white"></i>
+                  </div>
+                </div>
+                <input type="file" id="logo-file-input" class="hidden" accept="image/*" onchange="handleLogoUpload(event)">
+                <div class="text-center">
+                  <button type="button" onclick="document.getElementById('logo-file-input').click()" class="px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 font-bold text-[11px] hover:bg-blue-600 hover:text-white transition">Upload Brand Logo</button>
+                  <p class="text-[10px] text-slate-400 mt-1">PNG, SVG or JPG (Max 2MB)</p>
+                </div>
+              </div>
+
+              <!-- Main Business Identity Fields -->
+              <div class="flex-1 space-y-4 w-full">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Registered Business Name *</label>
+                    <input type="text" id="setting-company-name" value="Apex Supermarket Chain Pvt Ltd" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Display Brand Tagline</label>
+                    <input type="text" id="setting-company-tagline" value="Fresh Organic Produce & Daily Essentials" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Retail Vertical Category</label>
+                    <select id="setting-retail-category" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="supermarket" selected>Supermarket / Grocery Chain</option>
+                      <option value="apparel">Apparel & Fashion Boutique</option>
+                      <option value="restaurant">Restaurant & QSR Food Chain</option>
+                      <option value="pharmacy">Pharmacy & Healthcare</option>
+                      <option value="electronics">Electronics & Appliances</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Company Incorporation No.</label>
+                    <input type="text" id="setting-cin-no" value="U52100MH2021PTC368920" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Year Established</label>
+                    <input type="number" id="setting-year-est" value="2021" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Corporate Support Email</label>
+                    <input type="email" id="setting-company-email" value="support@apexsupermarket.com" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Helpline Phone Number</label>
+                    <input type="text" id="setting-company-phone" value="+91 (022) 4988-7700" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Headquarters Address</label>
+                  <textarea id="setting-company-address" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 h-20">Apex Tower, 4th Floor, Commercial Zone 9, BKC, Bandra East, Mumbai - 400051, Maharashtra, India</textarea>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB 2: Tax, GST & Financial Billing -->
+      <div id="profile-tab-tax-panel" class="hidden space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Taxation, GSTIN & Invoice Numbering Rules</h3>
+              <p class="text-xs text-slate-400">Set statutory tax numbers, automatic invoice serial prefixing, HSN codes, and currency formatting.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[10px]">India GST Compliant (CGST + SGST / IGST)</span>
+          </div>
+
+          <form id="form-tax-settings" onsubmit="event.preventDefault(); saveAllCompanySettings();" class="space-y-4 text-xs">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">15-Digit GSTIN Number *</label>
+                <input type="text" id="setting-gstin-no" value="27AAAAA0000A1Z5" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">PAN Account Number *</label>
+                <input type="text" id="setting-pan-no" value="AAAAA0000A" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">State GST Registration Code</label>
+                <select id="setting-state-code" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none">
+                  <option value="27" selected>27 - Maharashtra</option>
+                  <option value="07">07 - Delhi NCR</option>
+                  <option value="29">29 - Karnataka</option>
+                  <option value="33">33 - Tamil Nadu</option>
+                  <option value="09">09 - Uttar Pradesh</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Default POS Tax Rate Slab</label>
+                <select id="setting-default-tax" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none">
+                  <option value="18" selected>18% GST (Standard Retail)</option>
+                  <option value="12">12% GST (Processed Foods)</option>
+                  <option value="5">5% GST (Essential Commodities)</option>
+                  <option value="0">0% GST (Exempted Fresh Goods)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Invoice Number Prefix Format</label>
+                <input type="text" id="setting-inv-prefix" value="INV-2026-" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Next Auto-Increment Invoice No.</label>
+                <input type="number" id="setting-inv-next" value="9822" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Billing Currency Symbol</label>
+                <input type="text" id="setting-currency-symbol" value="₹" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Financial Year Start</label>
+                <select id="setting-fy-start" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none">
+                  <option value="April" selected>April (1st April - 31st March)</option>
+                  <option value="January">January (1st Jan - 31st Dec)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">E-Way Bill Generation Threshold (₹)</label>
+                <input type="number" id="setting-eway-threshold" value="50000" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- TAB 3: Store Branch Locations & Multi-store Directory -->
+      <div id="profile-tab-branches-panel" class="hidden space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Multi-Branch Outlets & Warehouse Locations</h3>
+              <p class="text-xs text-slate-400">Manage physical stores, linked thermal printers, branch managers, and inventory routing.</p>
+            </div>
+            <button onclick="openBranchDrawer()" class="px-3.5 py-2 rounded-2xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700">+ Register Store Branch</button>
+          </div>
+
+          <div id="branches-grid-container" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Thermal POS Receipt Customizer -->
+      <div id="profile-tab-receipt-panel" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left: Receipt Customization Controls -->
+          <div class="lg:col-span-7 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Thermal POS Receipt Template Customizer</h3>
+                <p class="text-xs text-slate-400">Configure receipt headers, footers, terms, and printer width specs.</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 font-bold text-[10px]">80mm ESC/POS Thermal</span>
+            </div>
+
+            <form id="form-receipt-customizer" onchange="updateLiveReceiptPreview()" class="space-y-4 text-xs">
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Receipt Header Title (Store Name)</label>
+                <input type="text" id="setting-receipt-header" value="APEX SUPERMARKET" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold outline-none">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Receipt Sub-Header (Tagline / Address)</label>
+                <input type="text" id="setting-receipt-subheader" value="Downtown Flagship Branch • Call: 022-49887700" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Receipt Footer Gratitude Message</label>
+                <input type="text" id="setting-receipt-footer" value="Thank you for shopping at Apex Supermarket! Visit again soon." class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none">
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Return Policy Terms & Conditions</label>
+                <textarea id="setting-receipt-terms" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono outline-none h-20">Returns accepted within 7 days with original invoice receipt. Perishables non-returnable.</textarea>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Thermal Paper Roll Width</label>
+                  <select id="setting-receipt-width" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs outline-none">
+                    <option value="80" selected>80mm (Standard Desktop POS)</option>
+                    <option value="58">58mm (Handheld Mobile Bluetooth)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">UPI QR Code on Receipt</label>
+                  <select id="setting-receipt-qr" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs outline-none">
+                    <option value="true" selected>Print Dynamic Payment QR Code</option>
+                    <option value="false">Hide Payment QR Code</option>
+                  </select>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Right: Live Thermal Receipt Preview Card -->
+          <div class="lg:col-span-5 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <span class="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="eye" class="w-4 h-4 text-blue-600"></i> Live Receipt Preview
+              </span>
+              <button onclick="window.print()" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-[11px] hover:bg-slate-200">Test Print</button>
+            </div>
+
+            <!-- Receipt Container Mockup -->
+            <div class="bg-amber-50/70 dark:bg-slate-950 p-5 rounded-2xl border border-amber-200/70 dark:border-slate-800 font-mono text-xs shadow-inner space-y-3 text-slate-900 dark:text-slate-100">
+              <div id="live-receipt-preview-content" class="space-y-2 text-center">
+                <!-- Dynamically rendered by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: System Integrations & Security -->
+      <div id="profile-tab-api-panel" class="hidden space-y-6">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-6">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">API Credentials & Cloud Integrations</h3>
+              <p class="text-xs text-slate-400">Manage payment gateway webhooks, WhatsApp receipt APIs, and automated backup schedules.</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[10px]">4 Services Connected</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+            <!-- Integration 1: Razorpay Payment Gateway -->
+            <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
+                    <i data-lucide="credit-card" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-extrabold text-slate-900 dark:text-white">Razorpay POS Gateway</h4>
+                    <p class="text-[10px] text-slate-400">Card EDC & UPI QR Payments</p>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">Connected</span>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Razorpay Key ID</label>
+                <div class="flex gap-2">
+                  <input type="password" value="rzp_live_98820199481729" readonly class="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs">
+                  <button onclick="copyToClipboard('rzp_live_98820199481729')" class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 font-bold">Copy</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Integration 2: WhatsApp Business API -->
+            <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                    <i data-lucide="message-square" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-extrabold text-slate-900 dark:text-white">WhatsApp Business API</h4>
+                    <p class="text-[10px] text-slate-400">Automated PDF Receipt Dispatch</p>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">Connected</span>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">WhatsApp Business Phone ID</label>
+                <div class="flex gap-2">
+                  <input type="text" value="+91 98201 99887" readonly class="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs">
+                  <button onclick="showToast('WhatsApp Test Message Sent!', 'success')" class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 font-bold">Test</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Register / Edit Store Branch Side-Over Drawer -->
+  <div id="branch-modal-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-end hidden">
+    <div class="bg-white dark:bg-slate-900 h-full max-w-md w-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto space-y-6 animate-slide-in-right">
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <h3 id="branch-drawer-title" class="text-lg font-bold text-slate-900 dark:text-white">Register Store Branch</h3>
+            <p class="text-xs text-slate-400">Add store location, branch manager, phone, and GST code.</p>
+          </div>
+          <button onclick="closeBranchDrawer()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs">✕</button>
+        </div>
+
+        <form id="branch-modal-form" onsubmit="saveBranchFromDrawer(event)" class="space-y-4 text-xs">
+          <input type="hidden" id="form-branch-edit-id" value="">
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Store Name *</label>
+            <input type="text" id="form-branch-name" required placeholder="e.g. Bandra Kurla Complex Express" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Code *</label>
+              <input type="text" id="form-branch-code" required placeholder="e.g. BR-BKC-05" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Type</label>
+              <select id="form-branch-type" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+                <option value="Flagship Retail">Flagship Retail Store</option>
+                <option value="Express Outlet">Express Kiosk / Mini Outlet</option>
+                <option value="Central Warehouse">Central Warehouse Hub</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Store Manager Name</label>
+              <input type="text" id="form-branch-manager" required placeholder="e.g. Sarah Jenkins" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Branch Contact Phone</label>
+              <input type="text" id="form-branch-phone" required placeholder="+91 98201 44556" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Branch Physical Address</label>
+            <textarea id="form-branch-address" required placeholder="Enter street address, city, pincode..." class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none h-20"></textarea>
+          </div>
+
+          <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <button type="button" onclick="closeBranchDrawer()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Cancel</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg shadow-blue-500/25">Save Store Branch</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Master Business Profile State & Local Storage Engine
+    let profileBranches = [
+      { id: 'br-101', name: 'Downtown Flagship', code: 'BR-DT-01', type: 'Flagship Retail', manager: 'Sarah Jenkins', phone: '+91 (022) 4988-7701', address: 'Plot 12, Main MG Road, Fort, Mumbai - 400001', isPrimary: true, printers: 3 },
+      { id: 'br-102', name: 'Suburban Outlet', code: 'BR-SUB-02', type: 'Flagship Retail', manager: 'Marcus Vance', phone: '+91 (022) 4988-7702', address: 'Shop 4-7, Hyper City Mall, Andheri West, Mumbai - 400053', isPrimary: false, printers: 2 },
+      { id: 'br-103', name: 'Airport Express Kiosk', code: 'BR-AIR-03', type: 'Express Outlet', manager: 'Priya Sharma', phone: '+91 (022) 4988-7703', address: 'Terminal 2 Departure Hall, Chhatrapati Shivaji Airport, Mumbai - 400099', isPrimary: false, printers: 1 },
+      { id: 'br-104', name: 'Central Warehouse A', code: 'WH-CEN-01', type: 'Central Warehouse', manager: 'Elena Rostova', phone: '+91 (022) 4988-7704', address: 'Bhiwandi Logistics Hub, Gate 4, Thane - 421302', isPrimary: false, printers: 1 }
+    ];
+
+    let activeProfileTab = 'general';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderBranchLocationsGrid();
+      updateLiveReceiptPreview();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    function switchProfileTab(tab, btn) {
+      activeProfileTab = tab;
+      document.querySelectorAll('.profile-tab-btn').forEach(b => {
+        b.className = 'profile-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-blue-600';
+      });
+      if (btn) {
+        btn.className = 'profile-tab-btn px-3 py-1.5 rounded-xl transition bg-blue-600 text-white font-bold shadow-md shadow-blue-500/20';
+      }
+
+      ['general', 'tax', 'branches', 'receipt', 'api'].forEach(t => {
+        const panel = document.getElementById(`profile-tab-${t}-panel`);
+        if (panel) {
+          if (t === tab) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      });
+    }
+
+    // Render Tab 3: Store Branch Cards Grid
+    function renderBranchLocationsGrid() {
+      const container = document.getElementById('branches-grid-container');
+      if (!container) return;
+
+      const badgeCount = document.getElementById('kpi-branch-count');
+      if (badgeCount) badgeCount.innerText = `${profileBranches.length} Outlets`;
+
+      let html = '';
+      profileBranches.forEach(b => {
+        html += `
+          <div class="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-4 hover:border-blue-500/50 transition">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h4 class="font-extrabold text-sm text-slate-900 dark:text-white">${b.name}</h4>
+                    ${b.isPrimary ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 text-[9px] font-extrabold">Primary HQ</span>' : ''}
+                  </div>
+                  <p class="text-[10px] font-mono text-slate-400">${b.code} • ${b.type}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">${b.printers} Printers Linked</span>
+              </div>
+
+              <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${b.address}</p>
+
+              <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                <div><span class="text-slate-400">Manager:</span> <span class="font-bold text-slate-700 dark:text-slate-200">${b.manager}</span></div>
+                <div><span class="text-slate-400">Phone:</span> <span class="font-mono font-bold text-slate-700 dark:text-slate-200">${b.phone}</span></div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+              <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Online & Syncing
+              </span>
+              <button onclick="editBranch('${b.id}')" class="px-3 py-1 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 font-bold text-[11px] border border-slate-200 dark:border-slate-700">Edit Branch</button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Render Tab 4: Live Thermal Receipt Preview
+    function updateLiveReceiptPreview() {
+      const container = document.getElementById('live-receipt-preview-content');
+      if (!container) return;
+
+      const header = document.getElementById('setting-receipt-header')?.value || 'APEX SUPERMARKET';
+      const subheader = document.getElementById('setting-receipt-subheader')?.value || 'Downtown Flagship Branch';
+      const footer = document.getElementById('setting-receipt-footer')?.value || 'Thank you for shopping at Apex!';
+      const terms = document.getElementById('setting-receipt-terms')?.value || 'Returns accepted within 7 days.';
+      const showQR = document.getElementById('setting-receipt-qr')?.value === 'true';
+
+      const now = new Date().toLocaleString();
+
+      container.innerHTML = `
+        <h3 class="font-black text-sm text-slate-900 dark:text-white uppercase">${header}</h3>
+        <p class="text-[10px] text-slate-500">${subheader}</p>
+        <p class="text-[10px] text-slate-400">GSTIN: 27AAAAA0000A1Z5</p>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+        
+        <div class="flex justify-between text-[11px] text-slate-500">
+          <span>Date: ${now}</span>
+          <span>Inv: #INV-2026-9821</span>
+        </div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+        <div class="space-y-1 text-left text-[11px]">
+          <div class="flex justify-between"><span>Organic Almond Milk 1L (x2)</span><span>₹498.00</span></div>
+          <div class="flex justify-between"><span>Extra Virgin Olive Oil (x1)</span><span>₹650.00</span></div>
+        </div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+        <div class="space-y-1 text-right text-[11px]">
+          <div class="flex justify-between"><span>Subtotal:</span><span>₹1,148.00</span></div>
+          <div class="flex justify-between"><span>GST (18%):</span><span>₹206.64</span></div>
+          <div class="flex justify-between font-black text-sm text-slate-900 dark:text-white"><span>GRAND TOTAL:</span><span>₹1,354.64</span></div>
+        </div>
+        <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+        ${showQR ? `
+          <div class="py-2">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=apexpos@icici&pn=ApexSupermarket&am=1354.64" class="w-24 h-24 mx-auto rounded bg-white p-1 border border-slate-300">
+            <p class="text-[9px] text-slate-400 mt-1">Scan UPI QR to Pay & Verify</p>
+          </div>
+          <div class="border-b border-dashed border-slate-400 my-2"></div>
+        ` : ''}
+
+        <p class="text-[10px] font-bold text-slate-700 dark:text-slate-300">${footer}</p>
+        <p class="text-[9px] text-slate-400 mt-1">${terms}</p>
+      `;
+    }
+
+    function previewThermalReceiptModal() {
+      switchProfileTab('receipt', document.querySelectorAll('.profile-tab-btn')[3]);
+      showToast('Viewing Thermal Receipt Customizer & Preview', 'info');
+    }
+
+    function handleLogoUpload(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          document.getElementById('company-logo-preview').src = evt.target.result;
+          showToast('Brand Logo updated!', 'success');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // Branch Drawer Management
+    function openBranchDrawer(branchId = null) {
+      const drawer = document.getElementById('branch-modal-drawer');
+      const title = document.getElementById('branch-drawer-title');
+      const form = document.getElementById('branch-modal-form');
+      if (!drawer || !form) return;
+
+      form.reset();
+      document.getElementById('form-branch-edit-id').value = branchId || '';
+
+      if (branchId) {
+        const b = profileBranches.find(x => x.id === branchId);
+        if (b) {
+          if (title) title.innerText = `Edit Store Branch: ${b.name}`;
+          document.getElementById('form-branch-name').value = b.name;
+          document.getElementById('form-branch-code').value = b.code;
+          document.getElementById('form-branch-type').value = b.type;
+          document.getElementById('form-branch-manager').value = b.manager;
+          document.getElementById('form-branch-phone').value = b.phone;
+          document.getElementById('form-branch-address').value = b.address;
+        }
+      } else {
+        if (title) title.innerText = 'Register New Store Branch';
+      }
+
+      drawer.classList.remove('hidden');
+    }
+
+    function closeBranchDrawer() {
+      document.getElementById('branch-modal-drawer')?.classList.add('hidden');
+    }
+
+    function saveBranchFromDrawer(e) {
+      e.preventDefault();
+      const editId = document.getElementById('form-branch-edit-id').value;
+      const name = document.getElementById('form-branch-name').value;
+      const code = document.getElementById('form-branch-code').value;
+      const type = document.getElementById('form-branch-type').value;
+      const manager = document.getElementById('form-branch-manager').value;
+      const phone = document.getElementById('form-branch-phone').value;
+      const address = document.getElementById('form-branch-address').value;
+
+      if (editId) {
+        const b = profileBranches.find(x => x.id === editId);
+        if (b) {
+          b.name = name;
+          b.code = code;
+          b.type = type;
+          b.manager = manager;
+          b.phone = phone;
+          b.address = address;
+          showToast(`Branch Store '${name}' updated!`, 'success');
+        }
+      } else {
+        profileBranches.push({
+          id: `br-${Date.now()}`,
+          name,
+          code,
+          type,
+          manager,
+          phone,
+          address,
+          isPrimary: false,
+          printers: 1
+        });
+        showToast(`New Branch Store '${name}' registered!`, 'success');
+      }
+
+      renderBranchLocationsGrid();
+      closeBranchDrawer();
+    }
+
+    function editBranch(id) {
+      openBranchDrawer(id);
+    }
+
+    function saveAllCompanySettings() {
+      const companyName = document.getElementById('setting-company-name')?.value || 'Apex Supermarket Chain';
+      const label = document.getElementById('tenant-label-text');
+      if (label) label.innerText = companyName;
+
+      showToast('Company Profile Settings & GST Rules Saved Successfully!', 'success');
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text);
+      showToast('API Key copied to clipboard!', 'info');
+    }
+  </script>
+
+  </div>
+
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div id="receipt-modal-body"></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Print Thermal Receipt</button>
+        <button onclick="closeReceiptModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="search-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" placeholder="Type a command or search term..." class="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 outline-none">
+        <button onclick="toggleSearchModal()" class="text-xs text-slate-400">ESC</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

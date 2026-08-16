@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApexPOS Enterprise - Next-Gen Multi-Tenant POS Billing & Inventory SaaS Platform</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' },
+            violet: { 600: '#7c3aed' },
+            cyan: { 500: '#06b6d4' }
+          },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+
+  <!-- Custom Design System Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans relative overflow-x-hidden selection:bg-blue-600 selection:text-white">
+
+  <!-- Ambient Glowing Radial Mesh Background (Light Theme Optimized) -->
+  <div class="fixed inset-0 pointer-events-none z-0">
+    <div class="absolute top-[-10%] left-[-10%] w-[700px] h-[700px] rounded-full bg-blue-500/10 dark:bg-blue-600/15 blur-[160px] animate-pulse"></div>
+    <div class="absolute top-[40%] right-[-10%] w-[700px] h-[700px] rounded-full bg-purple-500/10 dark:bg-purple-600/15 blur-[160px] animate-pulse" style="animation-delay: 2s;"></div>
+    <div class="absolute bottom-[-10%] left-[30%] w-[500px] h-[500px] rounded-full bg-cyan-500/10 blur-[140px]"></div>
+  </div>
+
+  <!-- Sticky Glass Navigation Header (Light Theme Glass) -->
+  <header class="sticky top-0 z-50 w-full glass-panel bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/10 px-6 lg:px-12 py-4 flex items-center justify-between shadow-lg shadow-slate-100/80 dark:shadow-2xl">
+    <a href="landing.html" class="flex items-center gap-3 group">
+      <img src="images/logo.svg" alt="ApexPOS Logo" class="h-10 group-hover:scale-105 transition-transform">
+    </a>
+
+    <!-- Desktop Navigation Links -->
+    <nav class="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600 dark:text-slate-300">
+      <a href="#features" class="hover:text-blue-600 dark:hover:text-white transition">Features</a>
+      <a href="#industries" class="hover:text-blue-600 dark:hover:text-white transition">Industry Packs</a>
+      <a href="#hardware" class="hover:text-blue-600 dark:hover:text-white transition">POS Hardware</a>
+      <a href="#pricing" class="hover:text-blue-600 dark:hover:text-white transition">Pricing Tiers</a>
+      <a href="#faq" class="hover:text-blue-600 dark:hover:text-white transition">FAQ</a>
+    </nav>
+
+    <!-- Header Right Action Buttons -->
+    <div class="flex items-center gap-3">
+      <button onclick="toggleTheme()" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition shadow-sm backdrop-blur-md">
+        <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+        <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+      </button>
+
+      <a href="login.html" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 transition">
+        Sign In
+      </a>
+
+      <a href="register.html" class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition transform hover:scale-[1.02]">
+        <span>Start Free Trial</span>
+        <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative z-10 pt-16 pb-20 px-6 lg:px-12 max-w-7xl mx-auto text-center space-y-8">
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-600/10 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 text-xs font-bold shadow-sm animate-fade-in">
+      <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+      <span>NEXT-GEN MULTI-TENANT ENTERPRISE POS SAAS</span>
+    </div>
+
+    <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.1] max-w-5xl mx-auto">
+      The World's Most Powerful Billing & <span class="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 dark:from-blue-400 dark:via-indigo-300 dark:to-cyan-400 bg-clip-text text-transparent">Inventory SaaS Platform</span>
+    </h1>
+
+    <p class="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed font-medium">
+      Engineered for retail supermarket chains, restaurants, electronics stores, pharmacy networks, and multi-branch enterprises. Experience high-speed POS billing, zero-downtime offline sync, Sunmi/PAX hardware support, and automated GST filings.
+    </p>
+
+    <!-- CTAs -->
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+      <a href="pos-touch.html" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-extrabold text-sm shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-2 transition transform hover:scale-105">
+        <i data-lucide="zap" class="w-5 h-5 fill-white"></i>
+        <span>Launch Live POS Demo</span>
+      </a>
+
+      <a href="register.html" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 transition shadow-md">
+        <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600"></i>
+        <span>Start 14-Day Free Trial</span>
+      </a>
+    </div>
+
+    <!-- Live Glass Dashboard Preview Mockup (Light Theme Glass) -->
+    <div class="pt-10 max-w-5xl mx-auto">
+      <div class="glass-card bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-white/15 rounded-3xl p-4 sm:p-6 shadow-2xl shadow-slate-200/60 dark:shadow-none relative overflow-hidden group">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span class="text-xs font-mono text-slate-500 dark:text-slate-400 ml-2">https://app.apexpos.com/dashboard</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">POS LIVE FEED</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6 text-left">
+          <div class="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">Today's Sales Revenue</span>
+            <h3 class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">₹148,920.00</h3>
+            <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">+18.4% vs yesterday</span>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">Active POS Counters</span>
+            <h3 class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">4 / 4 Online</h3>
+            <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">Zero latency sync</span>
+          </div>
+          <div class="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">Net Profit Margin</span>
+            <h3 class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">28.6%</h3>
+            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400">Target exceeded</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
+          <span>Supported Hardware: Sunmi, PAX, Thermal ESC/POS, Barcode Scanners</span>
+          <a href="dashboard.html" class="font-bold text-blue-600 dark:text-blue-400 hover:underline">Explore Full Tenant Dashboard →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Breakdown Grid Section -->
+  <section id="features" class="relative z-10 py-20 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <span class="px-3.5 py-1 rounded-full bg-purple-600/10 text-purple-600 dark:text-purple-400 text-xs font-bold border border-purple-200 dark:border-purple-500/20">ENTERPRISE SAAS FEATURES</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">Built For Unstoppable Business Growth</h2>
+      <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Every tool your business needs to bill faster, manage stock across warehouses, and automate GST tax filing.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-blue-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold">
+          <i data-lucide="zap" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Offline-First POS Engine</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Keep billing even when internet fails. Instant SQLite local storage automatically synchronizes with PostgreSQL cloud servers when connectivity is restored.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-purple-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-purple-600/10 text-purple-600 flex items-center justify-center font-bold">
+          <i data-lucide="printer" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">POS Hardware Integration</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Plug-and-play compatibility with Android POS machines (Sunmi, PAX, Verifone), thermal printers (80mm/58mm), barcode scanners, and weighing scales.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-emerald-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-600/10 text-emerald-600 flex items-center justify-center font-bold">
+          <i data-lucide="file-check-2" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Automated GST Compliance</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Instant HSN code registry, CGST/SGST/IGST calculation, GSTR-1, GSTR-2B, and GSTR-3B report generation with 1-click JSON export.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-cyan-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-600/10 text-cyan-600 flex items-center justify-center font-bold">
+          <i data-lucide="warehouse" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Multi-Store & Warehouse Racks</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Control unlimited store branches, manage inter-warehouse stock transfers, track rack locations, batch numbers, and expiry dates.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-amber-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-amber-600/10 text-amber-600 flex items-center justify-center font-bold">
+          <i data-lucide="users" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Customer CRM & Loyalty</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Track customer purchase history, manage loyalty points, issue store wallet balances, and dispatch automated WhatsApp birthday offers.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/70 p-6 rounded-3xl border border-slate-200/90 dark:border-white/10 space-y-4 shadow-lg hover:border-indigo-500/40 transition">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center font-bold">
+          <i data-lucide="smartphone" class="w-6 h-6"></i>
+        </div>
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Native Mobile Apps Suite</h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">Dedicated mobile apps for Business Owner monitoring, Cashier checkout, Store Manager stock tracking, and Delivery agent management.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 14+ Industry Specific Packs Section -->
+  <section id="industries" class="relative z-10 py-20 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <span class="px-3.5 py-1 rounded-full bg-cyan-600/10 text-cyan-600 dark:text-cyan-400 text-xs font-bold border border-cyan-200 dark:border-cyan-500/20">TAILORED SOLUTIONS</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">14+ Industry Specific Billing Packs</h2>
+      <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Pre-configured workflows, tax structures, and catalog templates for your exact retail vertical.</p>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 hover:border-blue-500 transition shadow-md">
+        <i data-lucide="shopping-basket" class="w-6 h-6 text-blue-600"></i>
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Supermarket Billing</h4>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">High-speed barcode scan & weighing machine sync.</p>
+      </div>
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 hover:border-purple-500 transition shadow-md">
+        <i data-lucide="utensils" class="w-6 h-6 text-purple-600"></i>
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Restaurant & Cafe</h4>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">Kitchen Order Tickets (KOT) & table split billing.</p>
+      </div>
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 hover:border-emerald-500 transition shadow-md">
+        <i data-lucide="pill" class="w-6 h-6 text-emerald-600"></i>
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Pharmacy & Chemist</h4>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">Batch numbers, expiry tracking, & salt search.</p>
+      </div>
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 hover:border-cyan-500 transition shadow-md">
+        <i data-lucide="tv" class="w-6 h-6 text-cyan-600"></i>
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Electronics Store</h4>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">Serial number & IMEI tracking with warranty logs.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Pricing Section -->
+  <section id="pricing" class="relative z-10 py-20 px-6 lg:px-12 max-w-7xl mx-auto space-y-12">
+    <div class="text-center space-y-3 max-w-3xl mx-auto">
+      <span class="px-3.5 py-1 rounded-full bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-200 dark:border-emerald-500/20">TRANSPARENT PRICING</span>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">Predictable SaaS Subscription Plans</h2>
+      <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-400">No hidden fees. Scale from a single store to nationwide retail chains seamlessly.</p>
+      
+      <!-- Billing Cycle Toggle -->
+      <div class="flex items-center justify-center gap-3 pt-4">
+        <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Monthly</span>
+        <button onclick="togglePricingCycle()" id="pricing-toggle" class="w-12 h-6 rounded-full bg-blue-600 p-1 flex items-center transition">
+          <div id="pricing-dot" class="w-4 h-4 rounded-full bg-white transform translate-x-6 transition"></div>
+        </button>
+        <span class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <span>Annual Billing</span>
+          <span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">20% OFF</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Pricing Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+      <!-- Starter Plan -->
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-8 rounded-3xl border border-slate-200/90 dark:border-slate-800 flex flex-col justify-between space-y-6 shadow-xl">
+        <div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white">Starter Plan</h3>
+          <p class="text-xs text-slate-500 mt-1">Ideal for single retail shops & standalone stores</p>
+          <div class="my-6">
+            <span id="price-starter" class="text-4xl font-extrabold text-slate-900 dark:text-white">₹1,599</span>
+            <span class="text-xs text-slate-500">/ month</span>
+          </div>
+          <ul class="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Single Store Location</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> 2 Billing Counter Terminals</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Offline Billing & Sync</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Basic Inventory & GST Billing</li>
+          </ul>
+        </div>
+        <a href="register.html" class="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white font-bold text-xs text-center transition">Start Free Trial</a>
+      </div>
+
+      <!-- Professional Plan (Highlighted) -->
+      <div class="glass-card bg-white dark:bg-slate-900 p-8 rounded-3xl border-2 border-blue-500 relative flex flex-col justify-between space-y-6 shadow-2xl shadow-blue-500/20">
+        <span class="absolute -top-3.5 right-8 px-3 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">MOST POPULAR</span>
+        <div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white">Professional Plan</h3>
+          <p class="text-xs text-slate-500 mt-1">For growing multi-branch businesses & supermarkets</p>
+          <div class="my-6">
+            <span id="price-pro" class="text-4xl font-extrabold text-blue-600 dark:text-blue-400">₹3,999</span>
+            <span class="text-xs text-slate-500">/ month</span>
+          </div>
+          <ul class="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Up to 5 Store Branches</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Unlimited Billing Counters</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Warehouse Rack Management</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> GSTR-1, 2B, 3B Tax Reports</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> CRM, Loyalty Wallet & Mobile Apps</li>
+          </ul>
+        </div>
+        <a href="register.html" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs text-center shadow-lg shadow-blue-500/25 transition">Start Free Trial</a>
+      </div>
+
+      <!-- Enterprise Plan -->
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-8 rounded-3xl border border-slate-200/90 dark:border-slate-800 flex flex-col justify-between space-y-6 shadow-xl">
+        <div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white">Enterprise Plan</h3>
+          <p class="text-xs text-slate-500 mt-1">For large retail chains, franchises & white label SaaS</p>
+          <div class="my-6">
+            <span id="price-enterprise" class="text-4xl font-extrabold text-purple-600 dark:text-purple-400">₹9,999</span>
+            <span class="text-xs text-slate-500">/ month</span>
+          </div>
+          <ul class="space-y-3 text-xs text-slate-600 dark:text-slate-300">
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> Unlimited Stores & Warehouses</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> White Label Custom Domain</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> REST API & Webhooks Access</li>
+            <li class="flex items-center gap-2"><i data-lucide="check" class="w-4 h-4 text-emerald-600"></i> 24/7 Dedicated Account Manager</li>
+          </ul>
+        </div>
+        <a href="register.html" class="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white font-bold text-xs text-center transition">Contact Enterprise Sales</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Accordion Section -->
+  <section id="faq" class="relative z-10 py-20 px-6 lg:px-12 max-w-4xl mx-auto space-y-8">
+    <div class="text-center space-y-3">
+      <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Frequently Asked Questions</h2>
+      <p class="text-xs text-slate-500">Everything you need to know about ApexPOS SaaS deployment</p>
+    </div>
+
+    <div class="space-y-4">
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 shadow-sm">
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">How does offline billing work if our internet fails?</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400">All billing transactions, customer profiles, and product catalogs are stored locally using high-speed SQLite. The moment your internet reconnects, our background engine automatically synchronizes all pending invoices to the cloud.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 shadow-sm">
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Can I connect my existing Sunmi/PAX Android POS machine?</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400">Yes! ApexPOS is optimized for Sunmi, PAX, Verifone, and Newland Android POS devices. You can print receipts, scan barcodes, and accept UPI/Card payments natively.</p>
+      </div>
+
+      <div class="glass-card bg-white/90 dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-2 shadow-sm">
+        <h4 class="font-bold text-sm text-slate-900 dark:text-white">Is GST compliance included automatically?</h4>
+        <p class="text-xs text-slate-600 dark:text-slate-400">Absolutely. CGST, SGST, IGST, and HSN codes are calculated in real time during checkout. You can export GSTR-1, GSTR-2B, and GSTR-3B filing JSON reports with one click.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="relative z-10 w-full px-6 lg:px-12 py-12 bg-white/80 dark:bg-slate-950 border-t border-slate-200/80 dark:border-white/10 space-y-8 text-slate-600 dark:text-slate-400 text-xs">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div class="space-y-3">
+        <img src="images/logo.svg" alt="ApexPOS Logo" class="h-9">
+        <p class="text-slate-500">World-Class Enterprise Multi-Tenant POS Billing & Inventory Management SaaS Platform.</p>
+      </div>
+      <div>
+        <h4 class="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">Platform</h4>
+        <ul class="space-y-2">
+          <li><a href="pos-touch.html" class="hover:text-blue-600 dark:hover:text-white">Touch POS Billing</a></li>
+          <li><a href="inventory-products.html" class="hover:text-blue-600 dark:hover:text-white">Inventory Engine</a></li>
+          <li><a href="gst-reports.html" class="hover:text-blue-600 dark:hover:text-white">GST Compliance</a></li>
+          <li><a href="mobile-apps.html" class="hover:text-blue-600 dark:hover:text-white">Mobile Apps Hub</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">SaaS Accounts</h4>
+        <ul class="space-y-2">
+          <li><a href="login.html" class="hover:text-blue-600 dark:hover:text-white">Tenant Login</a></li>
+          <li><a href="register.html" class="hover:text-blue-600 dark:hover:text-white">Start Free Trial</a></li>
+          <li><a href="superadmin-dashboard.html" class="hover:text-blue-600 dark:hover:text-white">Super Admin Portal</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">Security & Compliance</h4>
+        <div class="space-y-2">
+          <span class="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">PCI-DSS Level 1 Certified</span>
+          <span class="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-blue-600 dark:text-blue-400">256-Bit SSL Encrypted</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto pt-8 border-t border-slate-200 dark:border-slate-900 text-center text-slate-500">
+      &copy; 2026 ApexPOS Enterprise SaaS Inc. All rights reserved.
+    </div>
+  </footer>
+
+  <script>
+    let isAnnual = true;
+    function togglePricingCycle() {
+      isAnnual = !isAnnual;
+      const dot = document.getElementById('pricing-dot');
+      const starter = document.getElementById('price-starter');
+      const pro = document.getElementById('price-pro');
+      const enterprise = document.getElementById('price-enterprise');
+
+      if (isAnnual) {
+        dot.className = 'w-4 h-4 rounded-full bg-white transform translate-x-6 transition';
+        starter.innerText = '₹1,599';
+        pro.innerText = '₹3,999';
+        enterprise.innerText = '₹9,999';
+      } else {
+        dot.className = 'w-4 h-4 rounded-full bg-white transform translate-x-0 transition';
+        starter.innerText = '₹1,999';
+        pro.innerText = '₹4,999';
+        enterprise.innerText = '₹12,999';
+      }
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    if (window.lucide) window.lucide.createIcons();
+  </script>
+
+</body>
+</html>

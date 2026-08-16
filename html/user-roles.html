@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Roles & RBAC - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Operational Action Header -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Roles & Security RBAC</h1>
+            <span id="rbac-count-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400 border border-teal-500/20 uppercase tracking-wider flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></span> 6 Roles Defined • 42 System Users Active
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Configure Role-Based Access Controls, manage granular module permissions, reassign user credentials, and audit security access logs.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search Input -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="search-rbac-input" onkeyup="filterRBAC()" placeholder="Search role, permission, module..." class="pl-10 pr-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-teal-500 w-64 shadow-inner">
+          </div>
+
+          <!-- Scope Filter -->
+          <select id="filter-rbac-scope" onchange="filterRBAC()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="all">All Access Scopes</option>
+            <option value="Global System Wide">Global System Wide</option>
+            <option value="Branch Operations">Branch Operations</option>
+            <option value="POS Counter Only">POS Counter Only</option>
+            <option value="Warehouse & Catalog">Warehouse & Catalog</option>
+            <option value="Read-Only Financials">Read-Only Financials</option>
+          </select>
+
+          <!-- Active View Tab Switcher -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-semibold">
+            <button onclick="switchRBACTab('roles', this)" class="rbac-tab-btn px-3 py-1.5 rounded-xl transition bg-teal-600 text-white font-bold shadow-md shadow-teal-500/20">Roles Overview (6)</button>
+            <button onclick="switchRBACTab('matrix', this)" class="rbac-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-teal-600">Permission Matrix</button>
+            <button onclick="switchRBACTab('users', this)" class="rbac-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-teal-600">User Assignments (42)</button>
+            <button onclick="switchRBACTab('audit', this)" class="rbac-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-teal-600">Audit Logs</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="exportRBACCSV()" class="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-teal-500 transition shadow-sm">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-teal-600"></i>
+              <span>Export RBAC</span>
+            </button>
+            <button onclick="openRoleModalDrawer()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-bold shadow-lg shadow-teal-500/25 transition transform hover:scale-[1.02]">
+              <i data-lucide="shield-plus" class="w-4 h-4"></i>
+              <span>+ Create Custom Role</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Defined System Roles</span>
+            <h3 id="kpi-rbac-total-roles" class="text-2xl font-black text-slate-900 dark:text-white mt-1">6 Roles</h3>
+            <p class="text-[11px] text-teal-600 font-semibold mt-0.5">1 Custom Role Created</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center">
+            <i data-lucide="shield" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Assigned User Accounts</span>
+            <h3 id="kpi-rbac-total-users" class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">42 Users</h3>
+            <p class="text-[11px] text-blue-600 font-semibold mt-0.5">Across 4 Store Branches</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">2FA Security Status</span>
+            <h3 class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">98% Enforced</h3>
+            <p class="text-[11px] text-emerald-600 font-semibold mt-0.5">Enterprise RBAC Compliant</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">24h Security Audit Logs</span>
+            <h3 id="kpi-rbac-audit-count" class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">24 Events</h3>
+            <p class="text-[11px] text-purple-600 font-semibold mt-0.5">Zero Privilege Escalate Errors</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: Roles Overview Grid Container -->
+      <div id="rbac-tab-roles-panel" class="space-y-4">
+        <div id="rbac-roles-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamically Populated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB 2: Granular RBAC Permission Matrix Panel -->
+      <div id="rbac-tab-matrix-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Granular Permission Matrix Grid</h3>
+              <p class="text-xs text-slate-400">Toggle real-time access privileges (View, Create, Edit, Delete, Approve, Export) across system modules for each defined role.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="grantAllViewPermissions()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-xs">Grant All Read</button>
+              <button onclick="resetMatrixDefaults()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-xs">Reset Matrix</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold bg-slate-50/50 dark:bg-slate-900/50">
+                  <th class="py-3 px-4 rounded-l-xl">Module & Action Scope</th>
+                  <th class="py-3 px-4">Super Admin</th>
+                  <th class="py-3 px-4">Store Manager</th>
+                  <th class="py-3 px-4">POS Cashier</th>
+                  <th class="py-3 px-4">Inventory Lead</th>
+                  <th class="py-3 px-4">Finance Auditor</th>
+                  <th class="py-3 px-4 rounded-r-xl">CRM Specialist</th>
+                </tr>
+              </thead>
+              <tbody id="rbac-matrix-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: User Assignment Directory Panel -->
+      <div id="rbac-tab-users-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Active System User Accounts & Role Mapping</h3>
+              <p class="text-xs text-slate-400">View personnel assigned to system roles, security status, and branch authorizations.</p>
+            </div>
+            <button onclick="openUserReassignModal()" class="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md">+ Add User Account</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">User Name & Email</th>
+                  <th class="py-3 px-4">Assigned Role</th>
+                  <th class="py-3 px-4">Authorized Store Branch</th>
+                  <th class="py-3 px-4">2FA Status</th>
+                  <th class="py-3 px-4">Account Status</th>
+                  <th class="py-3 px-4">Last Activity</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rbac-users-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Security Audit Trail Panel -->
+      <div id="rbac-tab-audit-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Real-Time Security Audit Trail & Access Logs</h3>
+              <p class="text-xs text-slate-400">Immutable ledger of administrative role modifications, user privilege elevations, and login authentications.</p>
+            </div>
+            <button onclick="showToast('Security audit log exported to PDF/JSON', 'info')" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs hover:bg-slate-200">Export Logs</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Timestamp</th>
+                  <th class="py-3 px-4">Actor</th>
+                  <th class="py-3 px-4">Event Type</th>
+                  <th class="py-3 px-4">Event Details & Target</th>
+                  <th class="py-3 px-4">IP Address</th>
+                  <th class="py-3 px-4 text-right">Risk Rating</th>
+                </tr>
+              </thead>
+              <tbody id="rbac-audit-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Create / Edit Custom Role Side-Over Drawer -->
+  <div id="role-modal-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-end hidden">
+    <div class="bg-white dark:bg-slate-900 h-full max-w-xl w-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto space-y-6 animate-slide-in-right">
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <h3 id="role-drawer-title" class="text-lg font-bold text-slate-900 dark:text-white">Create Custom RBAC Role</h3>
+            <p class="text-xs text-slate-400">Define role identity, access scope, and select granular module permissions.</p>
+          </div>
+          <button onclick="closeRoleModalDrawer()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs">✕</button>
+        </div>
+
+        <form id="role-modal-form" onsubmit="saveRoleFromDrawer(event)" class="space-y-4 text-xs">
+          <input type="hidden" id="form-role-edit-id" value="">
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role Title *</label>
+              <input type="text" id="form-role-name" required placeholder="e.g. Regional Audit Supervisor" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role Code *</label>
+              <input type="text" id="form-role-code" required placeholder="e.g. ROLE_REGIONAL_AUDITOR" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-teal-500 font-mono">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Access Scope</label>
+              <select id="form-role-scope" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="Global System Wide">Global System Wide</option>
+                <option value="Branch Operations">Branch Operations</option>
+                <option value="POS Counter Only">POS Counter Only</option>
+                <option value="Warehouse & Catalog">Warehouse & Catalog</option>
+                <option value="Read-Only Financials">Read-Only Financials</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Color Theme</label>
+              <select id="form-role-color" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="teal">Teal Cyan</option>
+                <option value="blue">Royal Blue</option>
+                <option value="indigo">Indigo Violet</option>
+                <option value="emerald">Emerald Green</option>
+                <option value="amber">Amber Gold</option>
+                <option value="pink">Rose Pink</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Role Description</label>
+            <textarea id="form-role-description" placeholder="Briefly describe operational responsibilities of this role..." class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-teal-500 h-20"></textarea>
+          </div>
+
+          <div class="space-y-3 pt-2">
+            <h4 class="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1">Module Permissions Checklist</h4>
+            
+            <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <!-- Module 1: POS Billing -->
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <div class="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                  <span>🛒 POS Billing Terminal</span>
+                  <span class="text-[10px] text-slate-400 font-normal">Sales & Checkout</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-view" checked class="rounded text-teal-600 focus:ring-teal-500"> View POS</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-create" checked class="rounded text-teal-600 focus:ring-teal-500"> Create Invoice</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-edit" checked class="rounded text-teal-600 focus:ring-teal-500"> Hold / Recall</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-delete" class="rounded text-teal-600 focus:ring-teal-500"> Void Invoice</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-approve" class="rounded text-teal-600 focus:ring-teal-500"> Discount Override</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-pos-export" class="rounded text-teal-600 focus:ring-teal-500"> Export Receipts</label>
+                </div>
+              </div>
+
+              <!-- Module 2: Inventory -->
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <div class="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                  <span>📦 Inventory Catalog & Stock</span>
+                  <span class="text-[10px] text-slate-400 font-normal">Products & Suppliers</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-view" checked class="rounded text-teal-600 focus:ring-teal-500"> View Products</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-create" class="rounded text-teal-600 focus:ring-teal-500"> Add New SKU</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-edit" class="rounded text-teal-600 focus:ring-teal-500"> Edit Prices</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-delete" class="rounded text-teal-600 focus:ring-teal-500"> Delete Product</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-approve" class="rounded text-teal-600 focus:ring-teal-500"> Stock Adjust</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-inv-export" class="rounded text-teal-600 focus:ring-teal-500"> Export Catalog</label>
+                </div>
+              </div>
+
+              <!-- Module 3: Finance & Tax -->
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <div class="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                  <span>💰 Finance & GST Tax Suite</span>
+                  <span class="text-[10px] text-slate-400 font-normal">Accounting & Filings</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-view" class="rounded text-teal-600 focus:ring-teal-500"> View GST</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-create" class="rounded text-teal-600 focus:ring-teal-500"> File Returns</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-edit" class="rounded text-teal-600 focus:ring-teal-500"> Ledger Edit</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-delete" class="rounded text-teal-600 focus:ring-teal-500"> Void Ledger</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-approve" class="rounded text-teal-600 focus:ring-teal-500"> Tax Approval</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-fin-export" class="rounded text-teal-600 focus:ring-teal-500"> Export Financials</label>
+                </div>
+              </div>
+
+              <!-- Module 4: CRM -->
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <div class="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+                  <span>👥 CRM & Loyalty Rewards</span>
+                  <span class="text-[10px] text-slate-400 font-normal">Customer Profiles</span>
+                </div>
+                <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-view" checked class="rounded text-teal-600 focus:ring-teal-500"> View CRM</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-create" checked class="rounded text-teal-600 focus:ring-teal-500"> Add Customer</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-edit" class="rounded text-teal-600 focus:ring-teal-500"> Edit Points</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-delete" class="rounded text-teal-600 focus:ring-teal-500"> Delete Member</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-approve" class="rounded text-teal-600 focus:ring-teal-500"> VIP Upgrade</label>
+                  <label class="flex items-center gap-1.5"><input type="checkbox" id="perm-crm-export" class="rounded text-teal-600 focus:ring-teal-500"> Export Contacts</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <button type="button" onclick="closeRoleModalDrawer()" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-slate-600 dark:text-slate-300">Cancel</button>
+            <button type="submit" class="px-5 py-2 rounded-xl bg-teal-600 text-white font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-700">Save Role Configurations</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reassign User Account Role Modal -->
+  <div id="user-reassign-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div>
+          <h3 id="user-modal-title" class="text-base font-bold text-slate-900 dark:text-white">Assign Role & Credentials</h3>
+          <p class="text-xs text-slate-400">Modify system access permissions for user account.</p>
+        </div>
+        <button onclick="closeUserReassignModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <form id="user-modal-form" onsubmit="saveUserRoleAssignment(event)" class="space-y-3 text-xs">
+        <input type="hidden" id="form-user-edit-id" value="">
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+          <input type="text" id="form-user-name" required placeholder="e.g. David Chen" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+          <input type="email" id="form-user-email" required placeholder="david.c@apexsupermarket.com" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assign Role</label>
+            <select id="form-user-role-select" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-bold text-teal-600 dark:text-teal-400">
+              <!-- Options populated by JS -->
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Authorized Branch</label>
+            <select id="form-user-branch-select" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+              <option value="Downtown Flagship">Downtown Flagship</option>
+              <option value="Suburban Outlet">Suburban Outlet</option>
+              <option value="Airport Express Kiosk">Airport Express Kiosk</option>
+              <option value="Central Warehouse A">Central Warehouse A</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <label class="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
+            <input type="checkbox" id="form-user-tfa" checked class="rounded text-teal-600"> Mandatory 2-Factor Auth
+          </label>
+          <label class="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-300">
+            <input type="checkbox" id="form-user-active" checked class="rounded text-teal-600"> Account Active
+          </label>
+        </div>
+
+        <div class="flex items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <button type="button" onclick="closeUserReassignModal()" class="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">Cancel</button>
+          <button type="submit" class="flex-1 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md">Save User Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Master Interactive RBAC Engine & Local State
+    let rbacRoles = [
+      {
+        id: 'super-admin',
+        name: 'Super Administrator',
+        code: 'ROLE_SUPER_ADMIN',
+        scope: 'Global System Wide',
+        userCount: 3,
+        color: 'purple',
+        isSystem: true,
+        description: 'Unrestricted enterprise access to all tenant configurations, financial records, white label parameters, and user roles.',
+        permissions: {
+          pos: { view: true, create: true, edit: true, delete: true, approve: true, export: true },
+          inventory: { view: true, create: true, edit: true, delete: true, approve: true, export: true },
+          finance: { view: true, create: true, edit: true, delete: true, approve: true, export: true },
+          crm: { view: true, create: true, edit: true, delete: true, approve: true, export: true }
+        }
+      },
+      {
+        id: 'store-manager',
+        name: 'Store General Manager',
+        code: 'ROLE_STORE_MGR',
+        scope: 'Branch Operations',
+        userCount: 8,
+        color: 'blue',
+        isSystem: false,
+        description: 'Manages daily store workflow, cashier shifts, stock overrides, supplier purchase orders, and local sales reports.',
+        permissions: {
+          pos: { view: true, create: true, edit: true, delete: true, approve: true, export: true },
+          inventory: { view: true, create: true, edit: true, delete: false, approve: true, export: true },
+          finance: { view: true, create: false, edit: false, delete: false, approve: false, export: true },
+          crm: { view: true, create: true, edit: true, delete: false, approve: true, export: true }
+        }
+      },
+      {
+        id: 'pos-cashier',
+        name: 'POS Terminal Cashier',
+        code: 'ROLE_CASHIER',
+        scope: 'POS Counter Only',
+        userCount: 18,
+        color: 'indigo',
+        isSystem: false,
+        description: 'Front-desk barcode scanning, cart management, customer selection, cash/UPI receipt generation, and hold bill recalls.',
+        permissions: {
+          pos: { view: true, create: true, edit: true, delete: false, approve: false, export: false },
+          inventory: { view: true, create: false, edit: false, delete: false, approve: false, export: false },
+          finance: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
+          crm: { view: true, create: true, edit: false, delete: false, approve: false, export: false }
+        }
+      },
+      {
+        id: 'inventory-lead',
+        name: 'Inventory & Stock Lead',
+        code: 'ROLE_INVENTORY_LEAD',
+        scope: 'Warehouse & Catalog',
+        userCount: 5,
+        color: 'emerald',
+        isSystem: false,
+        description: 'Full control over SKU creation, barcode generation, warehouse rack transfers, damage adjustments, and purchase receiving.',
+        permissions: {
+          pos: { view: true, create: false, edit: false, delete: false, approve: false, export: false },
+          inventory: { view: true, create: true, edit: true, delete: true, approve: true, export: true },
+          finance: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
+          crm: { view: false, create: false, edit: false, delete: false, approve: false, export: false }
+        }
+      },
+      {
+        id: 'finance-auditor',
+        name: 'Finance & GST Auditor',
+        code: 'ROLE_FINANCE_AUDITOR',
+        scope: 'Read-Only Financials',
+        userCount: 4,
+        color: 'amber',
+        isSystem: false,
+        description: 'Audits GSTR-1/3B tax reports, sales invoices, ledger balances, and profit margins. No operational editing privileges.',
+        permissions: {
+          pos: { view: true, create: false, edit: false, delete: false, approve: false, export: true },
+          inventory: { view: true, create: false, edit: false, delete: false, approve: false, export: true },
+          finance: { view: true, create: true, edit: false, delete: false, approve: true, export: true },
+          crm: { view: true, create: false, edit: false, delete: false, approve: false, export: true }
+        }
+      },
+      {
+        id: 'crm-loyalty-spec',
+        name: 'CRM & Loyalty Specialist',
+        code: 'ROLE_CRM_SPEC',
+        scope: 'Branch Operations',
+        userCount: 4,
+        color: 'pink',
+        isSystem: false,
+        description: 'Oversees customer database, assigns VIP loyalty tiers, issues promotional coupons, and handles store membership credit.',
+        permissions: {
+          pos: { view: true, create: false, edit: false, delete: false, approve: false, export: false },
+          inventory: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
+          finance: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
+          crm: { view: true, create: true, edit: true, delete: true, approve: true, export: true }
+        }
+      }
+    ];
+
+    let rbacUsers = [
+      { id: 'usr-101', name: 'Alexander Wright', email: 'admin@apexsupermarket.com', roleId: 'super-admin', roleName: 'Super Administrator', branch: 'Downtown Flagship', status: 'Active', tfa: true, avatar: 'AW', lastActive: 'Just Now' },
+      { id: 'usr-102', name: 'Sarah Jenkins', email: 'sarah.j@apexsupermarket.com', roleId: 'store-manager', roleName: 'Store General Manager', branch: 'Downtown Flagship', status: 'Active', tfa: true, avatar: 'SJ', lastActive: '12 mins ago' },
+      { id: 'usr-103', name: 'Marcus Vance', email: 'marcus.v@apexsupermarket.com', roleId: 'pos-cashier', roleName: 'POS Terminal Cashier', branch: 'Suburban Outlet', status: 'Active', tfa: true, avatar: 'MV', lastActive: '1 hour ago' },
+      { id: 'usr-104', name: 'Elena Rostova', email: 'elena.r@apexsupermarket.com', roleId: 'inventory-lead', roleName: 'Inventory & Stock Lead', branch: 'Central Warehouse A', status: 'Active', tfa: true, avatar: 'ER', lastActive: '3 hours ago' },
+      { id: 'usr-105', name: 'David Chen', email: 'david.c@apexsupermarket.com', roleId: 'finance-auditor', roleName: 'Finance & GST Auditor', branch: 'Downtown Flagship', status: 'Active', tfa: false, avatar: 'DC', lastActive: 'Yesterday' },
+      { id: 'usr-106', name: 'Priya Sharma', email: 'priya.s@apexsupermarket.com', roleId: 'crm-loyalty-spec', roleName: 'CRM & Loyalty Specialist', branch: 'Airport Express Kiosk', status: 'Active', tfa: true, avatar: 'PS', lastActive: '2 days ago' }
+    ];
+
+    let rbacAuditLogs = [
+      { id: 'log-891', time: '10 mins ago', actor: 'Alexander Wright', action: 'ROLE_MODIFIED', detail: 'Updated POS Cashier permission: Void Invoice toggled to Approved only', ip: '192.168.1.104', risk: 'Low Risk' },
+      { id: 'log-892', time: '45 mins ago', actor: 'Sarah Jenkins', action: 'USER_REASSIGNED', detail: 'Promoted Marcus Vance from Cashier to Assistant Store Manager', ip: '192.168.1.112', risk: 'Info' },
+      { id: 'log-893', time: '2 hours ago', actor: 'Alexander Wright', action: 'ROLE_CREATED', detail: 'Created new custom role: CRM & Loyalty Specialist (ROLE_CRM_SPEC)', ip: '192.168.1.104', risk: 'Info' },
+      { id: 'log-894', time: '5 hours ago', actor: 'David Chen', action: 'SECURITY_AUDIT', detail: 'Exported GSTR-1 Permission Audit Matrix for Q3 Compliance', ip: '192.168.2.45', risk: 'Low Risk' },
+      { id: 'log-895', time: '1 day ago', actor: 'System Security', action: '2FA_ENFORCED', detail: 'Mandated 2-Factor Authentication for Elena Rostova (ROLE_INVENTORY_LEAD)', ip: '10.0.0.1', risk: 'Low Risk' }
+    ];
+
+    let activeRbacTab = 'roles';
+    let currentSearchQuery = '';
+    let currentScopeFilter = 'all';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderRolesOverviewGrid();
+      renderPermissionMatrixTable();
+      renderUsersTable();
+      renderAuditLogsTable();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    function switchRBACTab(tab, btn) {
+      activeRbacTab = tab;
+      document.querySelectorAll('.rbac-tab-btn').forEach(b => {
+        b.className = 'rbac-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-teal-600';
+      });
+      if (btn) {
+        btn.className = 'rbac-tab-btn px-3 py-1.5 rounded-xl transition bg-teal-600 text-white font-bold shadow-md shadow-teal-500/20';
+      }
+
+      ['roles', 'matrix', 'users', 'audit'].forEach(t => {
+        const panel = document.getElementById(`rbac-tab-${t}-panel`);
+        if (panel) {
+          if (t === tab) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function filterRBAC() {
+      currentSearchQuery = (document.getElementById('search-rbac-input')?.value || '').toLowerCase();
+      currentScopeFilter = document.getElementById('filter-rbac-scope')?.value || 'all';
+
+      renderRolesOverviewGrid();
+      renderPermissionMatrixTable();
+      renderUsersTable();
+    }
+
+    // Render Tab 1: Roles Overview Cards Grid
+    function renderRolesOverviewGrid() {
+      const grid = document.getElementById('rbac-roles-grid');
+      if (!grid) return;
+
+      let filtered = rbacRoles;
+      if (currentScopeFilter !== 'all') {
+        filtered = filtered.filter(r => r.scope === currentScopeFilter);
+      }
+      if (currentSearchQuery) {
+        filtered = filtered.filter(r => r.name.toLowerCase().includes(currentSearchQuery) || r.code.toLowerCase().includes(currentSearchQuery) || r.description.toLowerCase().includes(currentSearchQuery));
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-400">
+            <i data-lucide="shield-alert" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="font-bold text-xs">No RBAC roles matched your search or scope filter</p>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      const colorMap = {
+        purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20', pill: 'bg-purple-600' },
+        blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', pill: 'bg-blue-600' },
+        indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/20', pill: 'bg-indigo-600' },
+        emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20', pill: 'bg-emerald-600' },
+        amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', pill: 'bg-amber-600' },
+        pink: { bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-500/20', pill: 'bg-pink-600' },
+        teal: { bg: 'bg-teal-500/10', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-500/20', pill: 'bg-teal-600' }
+      };
+
+      let html = '';
+      filtered.forEach(r => {
+        const c = colorMap[r.color] || colorMap.teal;
+        
+        // Count total allowed permissions
+        let permCount = 0;
+        Object.keys(r.permissions).forEach(mod => {
+          Object.keys(r.permissions[mod]).forEach(act => {
+            if (r.permissions[mod][act]) permCount++;
+          });
+        });
+
+        html += `
+          <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-teal-500/50 transition group space-y-4">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl ${c.bg} ${c.text} flex items-center justify-center font-bold text-sm">
+                    <i data-lucide="${r.isSystem ? 'shield-check' : 'shield'}" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-teal-600 transition">${r.name}</h3>
+                    <p class="text-[10px] font-mono text-slate-400">${r.code}</p>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${c.bg} ${c.text} border ${c.border}">${r.scope}</span>
+              </div>
+
+              <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${r.description}</p>
+
+              <!-- Granted Module Badges -->
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">🛒 POS: ${r.permissions.pos.create ? 'Full' : 'Read'}</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">📦 Inv: ${r.permissions.inventory.edit ? 'Manage' : 'View'}</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">💰 Fin: ${r.permissions.finance.view ? 'Granted' : 'None'}</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">👥 CRM: ${r.permissions.crm.view ? 'Active' : 'Locked'}</span>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full ${c.pill}"></span>
+                <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${r.userCount} Assigned Users</span>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <button onclick="editRole('${r.id}')" class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-teal-600 hover:bg-slate-200 transition" title="Edit Permissions">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                ${!r.isSystem ? `
+                  <button onclick="deleteRole('${r.id}')" class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition" title="Delete Role">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>
+                ` : `
+                  <span class="text-[10px] text-slate-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">System Role</span>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = html;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Render Tab 2: Permission Matrix Table
+    function renderPermissionMatrixTable() {
+      const tbody = document.getElementById('rbac-matrix-table-body');
+      if (!tbody) return;
+
+      const modules = [
+        { key: 'pos', name: '🛒 POS Billing Terminal & Checkout', actions: ['view', 'create', 'edit', 'delete', 'approve', 'export'] },
+        { key: 'inventory', name: '📦 Inventory Catalog & Stock Control', actions: ['view', 'create', 'edit', 'delete', 'approve', 'export'] },
+        { key: 'finance', name: '💰 GST Tax Filing & Sales Accounting', actions: ['view', 'create', 'edit', 'delete', 'approve', 'export'] },
+        { key: 'crm', name: '👥 Customer CRM & Loyalty Rewards', actions: ['view', 'create', 'edit', 'delete', 'approve', 'export'] }
+      ];
+
+      let html = '';
+      modules.forEach(mod => {
+        mod.actions.forEach(action => {
+          const actionLabel = action.toUpperCase();
+          html += `
+            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+              <td class="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-200">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs">${mod.name}</span>
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-500 font-mono">${actionLabel}</span>
+                </div>
+              </td>
+          `;
+
+          rbacRoles.forEach(r => {
+            const isAllowed = r.permissions[mod.key] && r.permissions[mod.key][action];
+            const isSuper = r.id === 'super-admin';
+            
+            html += `
+              <td class="py-2.5 px-4">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" ${isAllowed ? 'checked' : ''} ${isSuper ? 'disabled' : ''} onchange="toggleMatrixPermission('${r.id}', '${mod.key}', '${action}', this.checked)" class="sr-only peer">
+                  <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:after:border-slate-600 peer-checked:bg-teal-600"></div>
+                </label>
+              </td>
+            `;
+          });
+
+          html += `</tr>`;
+        });
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function toggleMatrixPermission(roleId, modKey, action, checked) {
+      const role = rbacRoles.find(r => r.id === roleId);
+      if (role && role.permissions[modKey]) {
+        role.permissions[modKey][action] = checked;
+        showToast(`Updated ${role.name}: ${modKey.toUpperCase()} > ${action.toUpperCase()} set to ${checked ? 'Allowed' : 'Revoked'}`, 'info');
+        renderRolesOverviewGrid();
+      }
+    }
+
+    function grantAllViewPermissions() {
+      rbacRoles.forEach(r => {
+        Object.keys(r.permissions).forEach(m => {
+          r.permissions[m].view = true;
+        });
+      });
+      renderPermissionMatrixTable();
+      renderRolesOverviewGrid();
+      showToast('Granted View access across all roles!', 'success');
+    }
+
+    function resetMatrixDefaults() {
+      showToast('Reset RBAC Matrix to system default profiles', 'warning');
+    }
+
+    // Render Tab 3: Users Table
+    function renderUsersTable() {
+      const tbody = document.getElementById('rbac-users-table-body');
+      if (!tbody) return;
+
+      let filtered = rbacUsers;
+      if (currentSearchQuery) {
+        filtered = filtered.filter(u => u.name.toLowerCase().includes(currentSearchQuery) || u.email.toLowerCase().includes(currentSearchQuery) || u.roleName.toLowerCase().includes(currentSearchQuery));
+      }
+
+      let html = '';
+      filtered.forEach(u => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                  ${u.avatar}
+                </div>
+                <div>
+                  <h4 class="font-bold text-slate-900 dark:text-white">${u.name}</h4>
+                  <p class="text-[10px] text-slate-400 font-mono">${u.email}</p>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2.5 py-1 rounded-xl text-[10px] font-extrabold bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400 border border-teal-500/20">
+                ${u.roleName}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-semibold">${u.branch}</td>
+            <td class="py-3 px-4">
+              ${u.tfa ? `
+                <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                  <i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Enforced
+                </span>
+              ` : `
+                <span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-500">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Optional
+                </span>
+              `}
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600">${u.status}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-400 text-[11px]">${u.lastActive}</td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="editUserAssignment('${u.id}')" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 font-bold text-[11px]">Edit Role</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Render Tab 4: Audit Logs
+    function renderAuditLogsTable() {
+      const tbody = document.getElementById('rbac-audit-table-body');
+      if (!tbody) return;
+
+      let html = '';
+      rbacAuditLogs.forEach(l => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${l.time}</td>
+            <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${l.actor}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-bold text-[10px]">${l.action}</span>
+            </td>
+            <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${l.detail}</td>
+            <td class="py-3 px-4 font-mono text-slate-400 text-[10px]">${l.ip}</td>
+            <td class="py-3 px-4 text-right">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">${l.risk}</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    // Custom Role Drawer Management
+    function openRoleModalDrawer(roleId = null) {
+      const drawer = document.getElementById('role-modal-drawer');
+      const title = document.getElementById('role-drawer-title');
+      const form = document.getElementById('role-modal-form');
+      if (!drawer || !form) return;
+
+      form.reset();
+      document.getElementById('form-role-edit-id').value = roleId || '';
+
+      if (roleId) {
+        const role = rbacRoles.find(r => r.id === roleId);
+        if (role) {
+          if (title) title.innerText = `Edit Role: ${role.name}`;
+          document.getElementById('form-role-name').value = role.name;
+          document.getElementById('form-role-code').value = role.code;
+          document.getElementById('form-role-scope').value = role.scope;
+          document.getElementById('form-role-color').value = role.color;
+          document.getElementById('form-role-description').value = role.description;
+
+          // Set checkboxes
+          document.getElementById('perm-pos-view').checked = role.permissions.pos.view;
+          document.getElementById('perm-pos-create').checked = role.permissions.pos.create;
+          document.getElementById('perm-pos-edit').checked = role.permissions.pos.edit;
+          document.getElementById('perm-pos-delete').checked = role.permissions.pos.delete;
+          document.getElementById('perm-pos-approve').checked = role.permissions.pos.approve;
+          document.getElementById('perm-pos-export').checked = role.permissions.pos.export;
+
+          document.getElementById('perm-inv-view').checked = role.permissions.inventory.view;
+          document.getElementById('perm-inv-create').checked = role.permissions.inventory.create;
+          document.getElementById('perm-inv-edit').checked = role.permissions.inventory.edit;
+          document.getElementById('perm-inv-delete').checked = role.permissions.inventory.delete;
+          document.getElementById('perm-inv-approve').checked = role.permissions.inventory.approve;
+          document.getElementById('perm-inv-export').checked = role.permissions.inventory.export;
+        }
+      } else {
+        if (title) title.innerText = 'Create Custom RBAC Role';
+      }
+
+      drawer.classList.remove('hidden');
+    }
+
+    function closeRoleModalDrawer() {
+      document.getElementById('role-modal-drawer')?.classList.add('hidden');
+    }
+
+    function saveRoleFromDrawer(e) {
+      e.preventDefault();
+      const editId = document.getElementById('form-role-edit-id').value;
+      const name = document.getElementById('form-role-name').value.trim();
+      const code = document.getElementById('form-role-code').value.trim();
+      const scope = document.getElementById('form-role-scope').value;
+      const color = document.getElementById('form-role-color').value;
+      const description = document.getElementById('form-role-description').value.trim();
+
+      const permissions = {
+        pos: {
+          view: document.getElementById('perm-pos-view').checked,
+          create: document.getElementById('perm-pos-create').checked,
+          edit: document.getElementById('perm-pos-edit').checked,
+          delete: document.getElementById('perm-pos-delete').checked,
+          approve: document.getElementById('perm-pos-approve').checked,
+          export: document.getElementById('perm-pos-export').checked
+        },
+        inventory: {
+          view: document.getElementById('perm-inv-view').checked,
+          create: document.getElementById('perm-inv-create').checked,
+          edit: document.getElementById('perm-inv-edit').checked,
+          delete: document.getElementById('perm-inv-delete').checked,
+          approve: document.getElementById('perm-inv-approve').checked,
+          export: document.getElementById('perm-inv-export').checked
+        },
+        finance: {
+          view: document.getElementById('perm-fin-view').checked,
+          create: document.getElementById('perm-fin-create').checked,
+          edit: document.getElementById('perm-fin-edit').checked,
+          delete: document.getElementById('perm-fin-delete').checked,
+          approve: document.getElementById('perm-fin-approve').checked,
+          export: document.getElementById('perm-fin-export').checked
+        },
+        crm: {
+          view: document.getElementById('perm-crm-view').checked,
+          create: document.getElementById('perm-crm-create').checked,
+          edit: document.getElementById('perm-crm-edit').checked,
+          delete: document.getElementById('perm-crm-delete').checked,
+          approve: document.getElementById('perm-crm-approve').checked,
+          export: document.getElementById('perm-crm-export').checked
+        }
+      };
+
+      if (editId) {
+        const role = rbacRoles.find(r => r.id === editId);
+        if (role) {
+          role.name = name;
+          role.code = code;
+          role.scope = scope;
+          role.color = color;
+          role.description = description;
+          role.permissions = permissions;
+          showToast(`Role '${name}' updated successfully!`, 'success');
+        }
+      } else {
+        const newId = `role-${Date.now()}`;
+        rbacRoles.push({
+          id: newId,
+          name,
+          code,
+          scope,
+          userCount: 0,
+          color,
+          isSystem: false,
+          description,
+          permissions
+        });
+
+        rbacAuditLogs.unshift({
+          id: `log-${Math.floor(100 + Math.random() * 900)}`,
+          time: 'Just Now',
+          actor: 'Alexander Wright',
+          action: 'ROLE_CREATED',
+          detail: `Created custom role ${name} (${code})`,
+          ip: '192.168.1.104',
+          risk: 'Info'
+        });
+
+        showToast(`New Custom Role '${name}' created!`, 'success');
+      }
+
+      renderRolesOverviewGrid();
+      renderPermissionMatrixTable();
+      renderAuditLogsTable();
+      closeRoleModalDrawer();
+    }
+
+    function editRole(id) {
+      openRoleModalDrawer(id);
+    }
+
+    function deleteRole(id) {
+      const role = rbacRoles.find(r => r.id === id);
+      if (!role) return;
+      if (role.isSystem) {
+        showToast('System critical roles cannot be deleted!', 'danger');
+        return;
+      }
+
+      rbacRoles = rbacRoles.filter(r => r.id !== id);
+      renderRolesOverviewGrid();
+      renderPermissionMatrixTable();
+      showToast(`Role '${role.name}' deleted`, 'warning');
+    }
+
+    // User Role Reassignment Modal
+    function openUserReassignModal(userId = null) {
+      const modal = document.getElementById('user-reassign-modal');
+      const select = document.getElementById('form-user-role-select');
+      if (!modal || !select) return;
+
+      // Populate Role Options
+      select.innerHTML = rbacRoles.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+
+      document.getElementById('form-user-edit-id').value = userId || '';
+      if (userId) {
+        const u = rbacUsers.find(x => x.id === userId);
+        if (u) {
+          document.getElementById('form-user-name').value = u.name;
+          document.getElementById('form-user-email').value = u.email;
+          document.getElementById('form-user-role-select').value = u.roleId;
+          document.getElementById('form-user-branch-select').value = u.branch;
+          document.getElementById('form-user-tfa').checked = u.tfa;
+          document.getElementById('form-user-active').checked = u.status === 'Active';
+        }
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeUserReassignModal() {
+      document.getElementById('user-reassign-modal')?.classList.add('hidden');
+    }
+
+    function saveUserRoleAssignment(e) {
+      e.preventDefault();
+      const editId = document.getElementById('form-user-edit-id').value;
+      const name = document.getElementById('form-user-name').value;
+      const email = document.getElementById('form-user-email').value;
+      const roleId = document.getElementById('form-user-role-select').value;
+      const branch = document.getElementById('form-user-branch-select').value;
+      const tfa = document.getElementById('form-user-tfa').checked;
+      const active = document.getElementById('form-user-active').checked;
+
+      const roleObj = rbacRoles.find(r => r.id === roleId);
+      const roleName = roleObj ? roleObj.name : 'Custom Role';
+
+      if (editId) {
+        const u = rbacUsers.find(x => x.id === editId);
+        if (u) {
+          u.name = name;
+          u.email = email;
+          u.roleId = roleId;
+          u.roleName = roleName;
+          u.branch = branch;
+          u.tfa = tfa;
+          u.status = active ? 'Active' : 'Suspended';
+          showToast(`Updated permissions for ${name}`, 'success');
+        }
+      } else {
+        const newU = {
+          id: `usr-${Date.now()}`,
+          name,
+          email,
+          roleId,
+          roleName,
+          branch,
+          status: active ? 'Active' : 'Suspended',
+          tfa,
+          avatar: name.split(' ').map(n=>n[0]).join('').toUpperCase(),
+          lastActive: 'Just Now'
+        };
+        rbacUsers.unshift(newU);
+        showToast(`User account created for ${name}`, 'success');
+      }
+
+      renderUsersTable();
+      closeUserReassignModal();
+    }
+
+    function editUserAssignment(id) {
+      openUserReassignModal(id);
+    }
+
+    function exportRBACCSV() {
+      let csv = 'Role Name,Role Code,Access Scope,POS View,POS Create,Inventory View,Inventory Edit,Finance View,CRM View\n';
+      rbacRoles.forEach(r => {
+        csv += `"${r.name}","${r.code}","${r.scope}",${r.permissions.pos.view},${r.permissions.pos.create},${r.permissions.inventory.view},${r.permissions.inventory.edit},${r.permissions.finance.view},${r.permissions.crm.view}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'ApexPOS_RBAC_Roles_Matrix.csv');
+      a.click();
+      showToast('RBAC Roles & Matrix CSV Exported!', 'success');
+    }
+  </script>
+
+  </div>
+
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div id="receipt-modal-body"></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Print Thermal Receipt</button>
+        <button onclick="closeReceiptModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="search-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" placeholder="Type a command or search term..." class="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 outline-none">
+        <button onclick="toggleSearchModal()" class="text-xs text-slate-400">ESC</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>

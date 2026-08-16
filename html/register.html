@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8"><title>Start Free Trial - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 min-h-screen flex items-center justify-center p-4">
+  <div class="max-w-md w-full glass-card p-8 rounded-3xl space-y-6 shadow-2xl border bg-white/90">
+    <div class="text-center space-y-2">
+      <img src="images/logo.svg" alt="ApexPOS" class="h-10 mx-auto">
+      <h1 class="text-2xl font-extrabold">Start 14-Day Free Trial</h1>
+      <p class="text-xs text-slate-500">No credit card required. Instant POS setup.</p>
+    </div>
+    <form onsubmit="event.preventDefault(); window.location.href='dashboard.html';" class="space-y-4">
+      <div>
+        <label class="text-xs font-bold block mb-1">Business Name</label>
+        <input type="text" value="Apex Supermarket" required class="w-full p-2.5 rounded-xl border text-xs outline-none">
+      </div>
+      <div>
+        <label class="text-xs font-bold block mb-1">Work Email</label>
+        <input type="email" value="owner@apexsupermarket.com" required class="w-full p-2.5 rounded-xl border text-xs outline-none">
+      </div>
+      <button type="submit" class="w-full py-3 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-lg">Launch My POS Workspace →</button>
+    </form>
+  </div>
+  <script>if(window.lucide) window.lucide.createIcons();</script>
+</body>
+</html>

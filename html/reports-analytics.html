@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Analytics & Reports - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 bg-blue-50 dark:bg-slate-800/60 font-bold text-blue-600 dark:text-blue-400"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Quick Actions Header Bar -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-3xl border border-slate-800 shadow-2xl text-white relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="relative z-10 space-y-1">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-2xl bg-blue-600/30 border border-blue-400/30 text-blue-400 shadow-inner">
+              <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h1 class="text-2xl font-black tracking-tight text-white">Business Intelligence & Analytics Hub</h1>
+              <p class="text-xs text-slate-300 flex items-center gap-2">
+                <span>Multi-branch financial telemetry, sales velocity & GST intelligence</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping"></span>
+                <span class="text-emerald-400 font-semibold" id="last-sync-time">Live Sync: Active</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative z-10 flex flex-wrap items-center gap-2.5">
+          <button onclick="refreshData()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-400" id="refresh-icon"></i>
+            <span>Refresh</span>
+          </button>
+          
+          <button onclick="openScheduleModal()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition">
+            <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+            <span>Schedule Email</span>
+          </button>
+
+          <button onclick="exportCSVData()" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+            <span>Export CSV</span>
+          </button>
+
+          <button onclick="openExportModal()" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-500/30 transition transform hover:scale-[1.02]">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>Export PDF Report</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Filter & Date Range Selection Bar -->
+      <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4 shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
+          <!-- Date Presets -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none" id="date-presets-container">
+            <button onclick="setDatePreset('today', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-md transition">Today</button>
+            <button onclick="setDatePreset('yesterday', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Yesterday</button>
+            <button onclick="setDatePreset('last7', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Last 7 Days</button>
+            <button onclick="setDatePreset('last30', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Last 30 Days</button>
+            <button onclick="setDatePreset('thisMonth', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition">This Month</button>
+            <button onclick="setDatePreset('lastMonth', this)" class="date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition">Last Month</button>
+          </div>
+
+          <!-- Custom Date & Filters Group -->
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
+              <i data-lucide="calendar" class="w-4 h-4 ml-1 text-slate-400"></i>
+              <input type="date" id="filter-start-date" value="2026-08-01" onchange="applyCustomFilters()" class="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs">
+              <span class="text-slate-400 font-medium">to</span>
+              <input type="date" id="filter-end-date" value="2026-08-01" onchange="applyCustomFilters()" class="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs">
+            </div>
+
+            <!-- Branch Select -->
+            <select id="filter-branch" onchange="applyCustomFilters()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition">
+              <option value="all">🏬 All Branches Combined</option>
+              <option value="downtown" selected>🏬 Downtown Flagship</option>
+              <option value="westside">🏬 Westside Mall Outlet</option>
+              <option value="airport">🛫 Airport Express Kiosk</option>
+              <option value="ecom">🌐 E-Commerce Store</option>
+            </select>
+
+            <!-- Category Select -->
+            <select id="filter-category" onchange="applyCustomFilters()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition">
+              <option value="all">🏷️ All Categories</option>
+              <option value="dairy">Dairy & Fresh</option>
+              <option value="beverages">Beverages</option>
+              <option value="confectionery">Confectionery</option>
+              <option value="gourmet">Gourmet Goods</option>
+              <option value="bakery">Bakery & Snacks</option>
+            </select>
+
+            <!-- Payment Method Select -->
+            <select id="filter-payment" onchange="applyCustomFilters()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500 transition">
+              <option value="all">💳 All Payment Modes</option>
+              <option value="upi">UPI / QR Payment</option>
+              <option value="credit">Credit Card</option>
+              <option value="cash">Cash Tender</option>
+              <option value="debit">Debit Card</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Executive KPI Cards Overview Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" id="kpi-cards-grid">
+        
+        <!-- KPI 1: Gross Revenue -->
+        <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3 relative overflow-hidden group hover:border-blue-500/50 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Gross Sales</span>
+            <div class="p-2 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <i data-lucide="trending-up" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white" id="kpi-revenue">₹28,45,920</div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]" id="kpi-revenue-badge">+14.8%</span>
+              <span class="text-[10px] text-slate-400">vs prev period</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <span>Orders: <strong class="text-slate-800 dark:text-slate-200" id="kpi-orders-count">16,420</strong></span>
+            <span>Avg: <strong class="text-slate-800 dark:text-slate-200" id="kpi-aov-val">₹173.30</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Net Profit & Margin -->
+        <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3 relative overflow-hidden group hover:border-emerald-500/50 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Net Profit</span>
+            <div class="p-2 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white" id="kpi-profit">₹7,24,180</div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]" id="kpi-margin-badge">25.4% Margin</span>
+              <span class="text-[10px] text-slate-400">+3.2% growth</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400">
+            COGS: <strong class="text-slate-800 dark:text-slate-200" id="kpi-cogs">₹21,21,740</strong>
+          </div>
+        </div>
+
+        <!-- KPI 3: Total GST Collected -->
+        <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3 relative overflow-hidden group hover:border-purple-500/50 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">GST Tax Liability</span>
+            <div class="p-2 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <i data-lucide="receipt" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white" id="kpi-gst">₹4,34,015</div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-[11px]">100% Filed</span>
+              <span class="text-[10px] text-slate-400">CGST + SGST</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <span>CGST: <strong class="text-slate-800 dark:text-slate-200">₹2.17L</strong></span>
+            <span>SGST: <strong class="text-slate-800 dark:text-slate-200">₹2.17L</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 4: Customer Retention -->
+        <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3 relative overflow-hidden group hover:border-amber-500/50 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Loyalty & CRM</span>
+            <div class="p-2 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <i data-lucide="users" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white" id="kpi-repeat-rate">68.4%</div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[11px]">Repeat Rate</span>
+              <span class="text-[10px] text-slate-400">+4.1% vs avg</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400">
+            Active VIP Members: <strong class="text-slate-800 dark:text-slate-200">1,482</strong>
+          </div>
+        </div>
+
+        <!-- KPI 5: Refunds & Returns -->
+        <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-3 relative overflow-hidden group hover:border-rose-500/50 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Returns & Voids</span>
+            <div class="p-2 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div>
+            <div class="text-2xl font-black text-slate-900 dark:text-white" id="kpi-returns">₹24,120</div>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">0.84% Rate</span>
+              <span class="text-[10px] text-slate-400">Optimal Threshold</span>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 text-[11px] text-slate-500 dark:text-slate-400">
+            Refund Invoices: <strong class="text-slate-800 dark:text-slate-200">14 count</strong>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Navigation Tabs Suite -->
+      <div class="border-b border-slate-200 dark:border-slate-800 flex items-center gap-2 overflow-x-auto pb-px scrollbar-none">
+        <button onclick="switchTab('tab-sales', this)" class="tab-btn px-4 py-3 border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center gap-2 whitespace-nowrap transition">
+          <i data-lucide="line-chart" class="w-4 h-4"></i>
+          <span>Sales & Revenue Velocity</span>
+        </button>
+
+        <button onclick="switchTab('tab-products', this)" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-semibold text-xs flex items-center gap-2 whitespace-nowrap transition">
+          <i data-lucide="package-search" class="w-4 h-4"></i>
+          <span>Product & Inventory Matrix</span>
+        </button>
+
+        <button onclick="switchTab('tab-crm', this)" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-semibold text-xs flex items-center gap-2 whitespace-nowrap transition">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>Customer & Loyalty Insights</span>
+        </button>
+
+        <button onclick="switchTab('tab-cashier', this)" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-semibold text-xs flex items-center gap-2 whitespace-nowrap transition">
+          <i data-lucide="user-check" class="w-4 h-4"></i>
+          <span>Staff & Cashier Telemetry</span>
+        </button>
+
+        <button onclick="switchTab('tab-financial', this)" class="tab-btn px-4 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-semibold text-xs flex items-center gap-2 whitespace-nowrap transition">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span>P&L & Tax Audit Suite</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: SALES & REVENUE VELOCITY -->
+      <div id="tab-sales" class="tab-content space-y-6">
+        
+        <!-- Main Revenue Chart Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-blue-600"></i>
+                  <span>Revenue & Profit Performance Curve</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Historical revenue trajectory vs profit margin bounds</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                  <button onclick="setChartMetric('revenue', this)" class="chart-metric-btn px-2.5 py-1 rounded-lg font-bold bg-blue-600 text-white">Revenue</button>
+                  <button onclick="setChartMetric('profit', this)" class="chart-metric-btn px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">Profit</button>
+                  <button onclick="setChartMetric('orders', this)" class="chart-metric-btn px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">Orders</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="relative h-[320px] w-full">
+              <canvas id="salesTrendChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Payment Mode Doughnut Chart -->
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-purple-600"></i>
+                <span>Payment Method Distribution</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Share of total tender volume across channels</p>
+            </div>
+
+            <div class="relative h-[220px] w-full flex items-center justify-center">
+              <canvas id="paymentDistributionChart"></canvas>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200/60 dark:border-slate-800">
+              <div class="flex items-center justify-between p-2 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                <span class="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> UPI / QR
+                </span>
+                <span class="font-black text-slate-900 dark:text-white">48.2%</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-xl bg-purple-500/5 border border-purple-500/10">
+                <span class="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Credit Card
+                </span>
+                <span class="font-black text-slate-900 dark:text-white">28.4%</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                <span class="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Cash
+                </span>
+                <span class="font-black text-slate-900 dark:text-white">17.8%</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                <span class="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Debit Card
+                </span>
+                <span class="font-black text-slate-900 dark:text-white">5.6%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hourly Peak Billing Heatmap Section -->
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+                <span>Hourly Footfall & Billing Volume Heatmap</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Identify peak traffic hours to optimize cashier scheduling & checkout lanes</p>
+            </div>
+            <span class="px-3 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs">Peak Hour: 6:00 PM - 8:00 PM</span>
+          </div>
+
+          <div class="relative h-[240px] w-full">
+            <canvas id="peakHoursChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PRODUCT & INVENTORY INTELLIGENCE -->
+      <div id="tab-products" class="tab-content hidden space-y-6">
+        
+        <!-- Category Margin Breakdown & Fast Moving Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <i data-lucide="tags" class="w-4 h-4 text-indigo-600"></i>
+                  <span>Category-wise Gross Margin & Revenue</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Profit contribution breakdown by product vertical</p>
+              </div>
+            </div>
+            <div class="relative h-[250px] w-full">
+              <canvas id="categoryMarginChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Stock Velocity Alert Card -->
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4 flex flex-col justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
+                <span>High Velocity Reorder Alerts</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Top performing items reaching safety stock thresholds</p>
+            </div>
+
+            <div class="space-y-3">
+              <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-xs text-slate-900 dark:text-white">Organic Almond Milk 1L</h4>
+                  <span class="text-[10px] text-slate-400">SKU-8829 | 18 units left</span>
+                </div>
+                <button onclick="showToast('Reorder PO created for SKU-8829', 'success')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition">Reorder PO</button>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-xs text-slate-900 dark:text-white">Wildflower Honey 350g</h4>
+                  <span class="text-[10px] text-slate-400">SKU-6610 | 15 units left</span>
+                </div>
+                <button onclick="showToast('Reorder PO created for SKU-6610', 'success')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition">Reorder PO</button>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-xs text-slate-900 dark:text-white">Extra Virgin Olive Oil 500ml</h4>
+                  <span class="text-[10px] text-slate-400">SKU-9921 | 18 units left</span>
+                </div>
+                <button onclick="showToast('Reorder PO created for SKU-9921', 'success')" class="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition">Reorder PO</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Selling Products Table Matrix -->
+        <div class="glass-card rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xl">
+          <div class="p-6 border-b border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="trophy" class="w-4 h-4 text-amber-500"></i>
+                <span>Top Selling Products & Profitability Matrix</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Detailed sales performance, volume, turnover & margin per SKU</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div class="relative max-w-xs w-full">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                <input type="text" id="product-table-search" onkeyup="filterProductsTable()" placeholder="Search product name or SKU..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-800 dark:text-slate-100 outline-none focus:border-blue-500 transition">
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-6">Product Details</th>
+                  <th class="py-3.5 px-4 cursor-pointer hover:text-blue-500" onclick="sortTable('category')">Category</th>
+                  <th class="py-3.5 px-4 text-right cursor-pointer hover:text-blue-500" onclick="sortTable('unitsSold')">Units Sold</th>
+                  <th class="py-3.5 px-4 text-right cursor-pointer hover:text-blue-500" onclick="sortTable('revenue')">Total Revenue</th>
+                  <th class="py-3.5 px-4 text-right cursor-pointer hover:text-blue-500" onclick="sortTable('profit')">Gross Profit</th>
+                  <th class="py-3.5 px-4 text-center cursor-pointer hover:text-blue-500" onclick="sortTable('margin')">Margin %</th>
+                  <th class="py-3.5 px-4 text-center">Stock Status</th>
+                  <th class="py-3.5 px-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="products-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200 font-medium">
+                <!-- Javascript rendered rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: CUSTOMER & LOYALTY CRM -->
+      <div id="tab-crm" class="tab-content hidden space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
+              <i data-lucide="user-plus" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-bold uppercase">New Customers Acquired</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white">412 buyers</div>
+              <div class="text-[11px] text-emerald-500 font-bold mt-0.5">+18.5% this period</div>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
+              <i data-lucide="award" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-bold uppercase">Avg Customer Lifetime Value</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white">₹14,280</div>
+              <div class="text-[11px] text-blue-500 font-bold mt-0.5">Top Tier VIP cohort</div>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-lg">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400 font-bold uppercase">Loyalty Points Redeemed</div>
+              <div class="text-2xl font-black text-slate-900 dark:text-white">48,920 pts</div>
+              <div class="text-[11px] text-purple-500 font-bold mt-0.5">Value ₹48,920 credit</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIP Customer Leaderboard Table -->
+        <div class="glass-card rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xl">
+          <div class="p-6 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="crown" class="w-4 h-4 text-amber-400"></i>
+                <span>Top Spenders & VIP Customer Intelligence</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">High-frequency shoppers & loyalty tier breakdown</p>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-6">Customer Name & Contact</th>
+                  <th class="py-3.5 px-4">Loyalty Tier</th>
+                  <th class="py-3.5 px-4 text-center">Visits Count</th>
+                  <th class="py-3.5 px-4 text-right">Lifetime Spend</th>
+                  <th class="py-3.5 px-4 text-right">Avg Order Basket</th>
+                  <th class="py-3.5 px-4 text-center">Last Purchase</th>
+                  <th class="py-3.5 px-6 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="customers-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200 font-medium">
+                <!-- Javascript rendered customer rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: STAFF & CASHIER TELEMETRY -->
+      <div id="tab-cashier" class="tab-content hidden space-y-6">
+        <div class="glass-card rounded-3xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xl">
+          <div class="p-6 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i>
+                <span>Cashier & Register Velocity Leaderboard</span>
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Checkout speed, revenue per cashier, void frequency & performance rating</p>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-6">Cashier Name</th>
+                  <th class="py-3.5 px-4">Register Terminal</th>
+                  <th class="py-3.5 px-4 text-center">Invoices Handled</th>
+                  <th class="py-3.5 px-4 text-right">Revenue Generated</th>
+                  <th class="py-3.5 px-4 text-center">Avg Speed/Bill</th>
+                  <th class="py-3.5 px-4 text-center">Void/Return Count</th>
+                  <th class="py-3.5 px-4 text-center">Performance Rating</th>
+                  <th class="py-3.5 px-6 text-right">Audit</th>
+                </tr>
+              </thead>
+              <tbody id="cashiers-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200 font-medium">
+                <!-- Javascript rendered cashier rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: FINANCIAL P&L & GST AUDIT SUITE -->
+      <div id="tab-financial" class="tab-content hidden space-y-6">
+        
+        <!-- Income Statement (P&L) Summary Card -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="calculator" class="w-4 h-4 text-emerald-600"></i>
+                <span>Executive Profit & Loss Statement (P&L)</span>
+              </h3>
+              <span class="text-xs font-semibold text-slate-400">Current Period</span>
+            </div>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/50">
+                <span class="font-bold text-slate-700 dark:text-slate-300">Gross Sales Revenue</span>
+                <span class="font-black text-slate-900 dark:text-white">₹28,45,920.00</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/50 text-rose-500">
+                <span>Less: Trade Discounts & Promo Allowance</span>
+                <span class="font-semibold">-₹42,180.00</span>
+              </div>
+              <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/50 text-rose-500">
+                <span>Less: Customer Returns & Refunds</span>
+                <span class="font-semibold">-₹24,120.00</span>
+              </div>
+              <div class="flex items-center justify-between py-2 bg-blue-500/5 px-3 rounded-xl font-bold text-blue-600 dark:text-blue-400">
+                <span>NET OPERATING REVENUE</span>
+                <span class="text-sm">₹27,79,620.00</span>
+              </div>
+
+              <div class="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800/50 text-amber-600 dark:text-amber-400 pt-3">
+                <span>Less: Cost of Goods Sold (COGS)</span>
+                <span class="font-bold">-₹19,25,400.00</span>
+              </div>
+              <div class="flex items-center justify-between py-2 bg-emerald-500/5 px-3 rounded-xl font-bold text-emerald-600 dark:text-emerald-400">
+                <span>GROSS PROFIT MARGIN</span>
+                <span class="text-sm">₹8,54,220.00 (30.7%)</span>
+              </div>
+
+              <div class="space-y-1 pt-2">
+                <div class="text-[11px] font-bold text-slate-400 uppercase">Operating Overhead Expenses</div>
+                <div class="flex justify-between text-slate-500"><span>Store Rent & Lease</span><span>₹65,000.00</span></div>
+                <div class="flex justify-between text-slate-500"><span>Staff Salaries & Payroll</span><span>₹42,000.00</span></div>
+                <div class="flex justify-between text-slate-500"><span>Utilities & Electricity</span><span>₹14,040.00</span></div>
+                <div class="flex justify-between text-slate-500"><span>SaaS Software Subscriptions</span><span>₹9,000.00</span></div>
+              </div>
+
+              <div class="flex items-center justify-between py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 rounded-2xl font-black text-sm shadow-lg mt-4">
+                <span>FINAL NET OPERATING PROFIT</span>
+                <span class="text-base">₹7,24,180.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- GST Tax Slabs Compliance Table -->
+          <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+              <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i data-lucide="file-check-2" class="w-4 h-4 text-purple-600"></i>
+                <span>GST Tax Slab Summary (GSTR-1 & 3B Prep)</span>
+              </h3>
+              <a href="gst-reports.html" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline">Full GST Suite →</a>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 dark:text-slate-400 font-bold uppercase border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3">Tax Slab</th>
+                    <th class="py-2.5 px-3 text-right">Taxable Amount</th>
+                    <th class="py-2.5 px-3 text-right">CGST</th>
+                    <th class="py-2.5 px-3 text-right">SGST</th>
+                    <th class="py-2.5 px-3 text-right">Total Tax</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/60 text-slate-700 dark:text-slate-200 font-medium">
+                  <tr>
+                    <td class="py-2.5 px-3 font-bold"><span class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px]">0% Exempt</span></td>
+                    <td class="py-2.5 px-3 text-right">₹3,42,000.00</td>
+                    <td class="py-2.5 px-3 text-right text-slate-400">₹0.00</td>
+                    <td class="py-2.5 px-3 text-right text-slate-400">₹0.00</td>
+                    <td class="py-2.5 px-3 text-right font-bold">₹0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 px-3 font-bold"><span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px]">5% GST</span></td>
+                    <td class="py-2.5 px-3 text-right">₹6,80,000.00</td>
+                    <td class="py-2.5 px-3 text-right">₹17,000.00</td>
+                    <td class="py-2.5 px-3 text-right">₹17,000.00</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-blue-600 dark:text-blue-400">₹34,000.00</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 px-3 font-bold"><span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px]">12% GST</span></td>
+                    <td class="py-2.5 px-3 text-right">₹8,50,000.00</td>
+                    <td class="py-2.5 px-3 text-right">₹51,000.00</td>
+                    <td class="py-2.5 px-3 text-right">₹51,000.00</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-cyan-600 dark:text-cyan-400">₹1,02,000.00</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 px-3 font-bold"><span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px]">18% GST</span></td>
+                    <td class="py-2.5 px-3 text-right">₹9,73,920.00</td>
+                    <td class="py-2.5 px-3 text-right">₹87,652.80</td>
+                    <td class="py-2.5 px-3 text-right">₹87,652.80</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-purple-600 dark:text-purple-400">₹1,75,305.60</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 px-3 font-bold"><span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px]">28% GST</span></td>
+                    <td class="py-2.5 px-3 text-right">₹4,38,245.00</td>
+                    <td class="py-2.5 px-3 text-right">₹61,354.30</td>
+                    <td class="py-2.5 px-3 text-right">₹61,354.30</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400">₹1,22,708.60</td>
+                  </tr>
+                  <tr class="bg-slate-100/80 dark:bg-slate-900/80 font-black">
+                    <td class="py-3 px-3">TOTAL GST</td>
+                    <td class="py-3 px-3 text-right">₹32,84,165.00</td>
+                    <td class="py-3 px-3 text-right">₹2,17,007.10</td>
+                    <td class="py-3 px-3 text-right">₹2,17,007.10</td>
+                    <td class="py-3 px-3 text-right text-emerald-600 dark:text-emerald-400">₹4,34,014.20</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- MODAL 1: PRODUCT DRILLDOWN MODAL -->
+  <div id="product-drilldown-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            <i data-lucide="box" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-black text-sm text-slate-900 dark:text-white" id="modal-product-title">Product Intelligence Detail</h3>
+            <p class="text-[11px] text-slate-400" id="modal-product-sku">SKU Code</p>
+          </div>
+        </div>
+        <button onclick="closeProductModal()" class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Units Sold</div>
+          <div class="text-base font-black text-blue-600 dark:text-blue-400" id="modal-product-qty">0</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Total Revenue</div>
+          <div class="text-base font-black text-slate-900 dark:text-white" id="modal-product-rev">₹0</div>
+        </div>
+        <div class="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div class="text-[10px] text-slate-400 font-bold uppercase">Gross Margin</div>
+          <div class="text-base font-black text-emerald-500" id="modal-product-margin">0%</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+        <div class="flex justify-between text-slate-600 dark:text-slate-300"><span>Category:</span><strong id="modal-product-cat">Dairy</strong></div>
+        <div class="flex justify-between text-slate-600 dark:text-slate-300"><span>Current Stock:</span><strong id="modal-product-stock">45 units</strong></div>
+        <div class="flex justify-between text-slate-600 dark:text-slate-300"><span>Tax Rate (GST):</span><strong id="modal-product-tax">18%</strong></div>
+        <div class="flex justify-between text-slate-600 dark:text-slate-300"><span>Primary Selling Branch:</span><strong>Downtown Flagship</strong></div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeProductModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+        <button onclick="showToast('PO order draft created!', 'success'); closeProductModal();" class="px-4 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Create Supplier PO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: EXPORT REPORT MODAL -->
+  <div id="export-report-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <h3 class="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="download" class="w-4 h-4 text-blue-600"></i>
+          <span>Export Analytics Report</span>
+        </h3>
+        <button onclick="closeExportModal()" class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select Export Format</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setExportFormat('pdf')" class="export-fmt-btn p-3 rounded-2xl border-2 border-blue-600 bg-blue-500/10 font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2 justify-center">
+              <i data-lucide="file-text" class="w-4 h-4"></i> PDF Document
+            </button>
+            <button onclick="setExportFormat('excel')" class="export-fmt-btn p-3 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 justify-center">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Excel (XLSX)
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Include Modules</label>
+          <div class="space-y-1.5">
+            <label class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked class="rounded border-slate-300 text-blue-600"> Executive KPI Summary & Revenue Curves
+            </label>
+            <label class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked class="rounded border-slate-300 text-blue-600"> Top Selling SKU Profitability Table
+            </label>
+            <label class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+              <input type="checkbox" checked class="rounded border-slate-300 text-blue-600"> GSTR-1 Tax Slabs & P&L Statement
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeExportModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Cancel</button>
+        <button onclick="triggerDownloadReport()" class="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700 shadow-lg shadow-blue-500/20">Download File</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: SCHEDULE EMAIL REPORT MODAL -->
+  <div id="schedule-email-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <h3 class="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+          <span>Schedule Automated Email Report</span>
+        </h3>
+        <button onclick="closeScheduleModal()" class="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Recipient Email Address</label>
+          <input type="email" value="executive.management@apexpos.com" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Send Frequency</label>
+          <select class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold outline-none focus:border-blue-500">
+            <option>Daily at 8:00 AM (Morning Recap)</option>
+            <option>Weekly every Monday morning</option>
+            <option>Monthly on 1st day at midnight</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button onclick="closeScheduleModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Cancel</button>
+        <button onclick="showToast('Automated schedule saved successfully!', 'success'); closeScheduleModal();" class="px-5 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 shadow-lg shadow-amber-500/20">Enable Auto-Mail</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+
+  <!-- Master JavaScript Application Code -->
+  <script src="js/app.js"></script>
+  
+  <script>
+    // Master Products Dataset for Analytics
+    const productsAnalyticsData = [
+      { id: 1, name: 'Organic Almond Milk 1L', sku: 'SKU-8829', category: 'Dairy & Fresh', unitsSold: 1240, revenue: 308760, profit: 92628, margin: 30.0, stock: 18, taxRate: 18 },
+      { id: 2, name: 'Artisan Dark Chocolate 85%', sku: 'SKU-4401', category: 'Confectionery', unitsSold: 1890, revenue: 340200, profit: 119070, margin: 35.0, stock: 32, taxRate: 18 },
+      { id: 3, name: 'Extra Virgin Olive Oil 500ml', sku: 'SKU-9921', category: 'Gourmet Goods', unitsSold: 820, revenue: 533000, profit: 149240, margin: 28.0, stock: 18, taxRate: 12 },
+      { id: 4, name: 'Farm Fresh Organic Eggs 12s', sku: 'SKU-1048', category: 'Dairy & Fresh', unitsSold: 2450, revenue: 294000, profit: 58800, margin: 20.0, stock: 80, taxRate: 0 },
+      { id: 5, name: 'Greek Yogurt Plain 500g', sku: 'SKU-5520', category: 'Dairy & Fresh', unitsSold: 1420, revenue: 184600, profit: 46150, margin: 25.0, stock: 25, taxRate: 5 },
+      { id: 6, name: 'Cold Pressed Apple Juice 1L', sku: 'SKU-3390', category: 'Beverages', unitsSold: 1680, revenue: 327600, profit: 88452, margin: 27.0, stock: 40, taxRate: 12 },
+      { id: 7, name: 'Premium Arabica Coffee 250g', sku: 'SKU-8811', category: 'Beverages', unitsSold: 940, revenue: 423000, profit: 148050, margin: 35.0, stock: 22, taxRate: 18 },
+      { id: 8, name: 'Wildflower Organic Honey 350g', sku: 'SKU-6610', category: 'Gourmet Goods', unitsSold: 710, revenue: 269800, profit: 75544, margin: 28.0, stock: 15, taxRate: 5 },
+      { id: 9, name: 'Roasted Cashew Nuts 200g', sku: 'SKU-4490', category: 'Bakery & Snacks', unitsSold: 530, revenue: 169600, profit: 44096, margin: 26.0, stock: 28, taxRate: 12 }
+    ];
+
+    // Master VIP Customer Dataset
+    const customersAnalyticsData = [
+      { name: 'Sarah Jenkins', phone: '+91 98765 43210', tier: 'VIP Gold', visits: 42, spent: 124800, avgBasket: 2971, lastVisit: 'Today, 11:30 AM' },
+      { name: 'TechCorp Corporate', phone: '+91 91234 56789', tier: 'Platinum Enterprise', visits: 28, spent: 345000, avgBasket: 12321, lastVisit: 'Yesterday' },
+      { name: 'David Miller', phone: '+91 99887 76655', tier: 'VIP Gold', visits: 31, spent: 89400, avgBasket: 2883, lastVisit: '2 days ago' },
+      { name: 'Priya Sharma', phone: '+91 97766 55443', tier: 'Silver Star', visits: 19, spent: 42500, avgBasket: 2236, lastVisit: '3 days ago' },
+      { name: 'Anita Roy', phone: '+91 96655 44332', tier: 'VIP Gold', visits: 26, spent: 78900, avgBasket: 3034, lastVisit: '4 days ago' }
+    ];
+
+    // Master Cashier Staff Dataset
+    const cashiersAnalyticsData = [
+      { name: 'Alex Wong', terminal: 'POS Register #01', invoices: 4820, revenue: 842100, speed: '42 sec/bill', voids: 2, rating: '4.9 ★★★★★' },
+      { name: 'Elena Rostova', terminal: 'POS Register #02', invoices: 4120, revenue: 715400, speed: '48 sec/bill', voids: 5, rating: '4.8 ★★★★★' },
+      { name: 'Marcus Chen', terminal: 'POS Express #03', invoices: 3950, revenue: 689000, speed: '39 sec/bill', voids: 1, rating: '4.95 ★★★★★' },
+      { name: 'Sophia Gupta', terminal: 'POS Register #04', invoices: 3530, revenue: 601000, speed: '52 sec/bill', voids: 6, rating: '4.7 ★★★★☆' }
+    ];
+
+    // Chart.js Instances
+    let salesTrendChartInstance = null;
+    let paymentDistributionChartInstance = null;
+    let peakHoursChartInstance = null;
+    let categoryMarginChartInstance = null;
+
+    let activeChartMetric = 'revenue';
+    let selectedExportFormat = 'pdf';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderProductsTable(productsAnalyticsData);
+      renderCustomersTable(customersAnalyticsData);
+      renderCashiersTable(cashiersAnalyticsData);
+      initCharts();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    // Render Products Table
+    function renderProductsTable(data) {
+      const tbody = document.getElementById('products-table-body');
+      if (!tbody) return;
+
+      let html = '';
+      data.forEach(item => {
+        const stockBadge = item.stock <= 20 
+          ? `<span class="px-2 py-0.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-[10px]">Low (${item.stock} left)</span>`
+          : `<span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">In Stock (${item.stock})</span>`;
+
+        html += `
+          <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition">
+            <td class="py-3 px-6">
+              <div class="font-bold text-slate-900 dark:text-white">${item.name}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${item.sku}</div>
+            </td>
+            <td class="py-3 px-4 text-slate-600 dark:text-slate-300 font-semibold">${item.category}</td>
+            <td class="py-3 px-4 text-right font-bold">${item.unitsSold.toLocaleString()} units</td>
+            <td class="py-3 px-4 text-right font-black text-slate-900 dark:text-white">₹${item.revenue.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">₹${item.profit.toLocaleString()}</td>
+            <td class="py-3 px-4 text-center">
+              <span class="px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-[10px]">${item.margin}%</span>
+            </td>
+            <td class="py-3 px-4 text-center">${stockBadge}</td>
+            <td class="py-3 px-6 text-right">
+              <button onclick="openProductModal(${item.id})" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition">
+                View Details
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // Render Customers Table
+    function renderCustomersTable(data) {
+      const tbody = document.getElementById('customers-table-body');
+      if (!tbody) return;
+      let html = '';
+      data.forEach(c => {
+        html += `
+          <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition">
+            <td class="py-3 px-6">
+              <div class="font-bold text-slate-900 dark:text-white">${c.name}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${c.phone}</div>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-[10px] border border-amber-500/20">${c.tier}</span>
+            </td>
+            <td class="py-3 px-4 text-center font-bold">${c.visits} visits</td>
+            <td class="py-3 px-4 text-right font-black text-slate-900 dark:text-white">₹${c.spent.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right font-semibold text-blue-600 dark:text-blue-400">₹${c.avgBasket.toLocaleString()}</td>
+            <td class="py-3 px-4 text-center text-slate-400 text-[11px]">${c.lastVisit}</td>
+            <td class="py-3 px-6 text-right">
+              <button onclick="showToast('Customer profile loaded for ${c.name}', 'info')" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition">
+                CRM Profile
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // Render Cashiers Table
+    function renderCashiersTable(data) {
+      const tbody = document.getElementById('cashiers-table-body');
+      if (!tbody) return;
+      let html = '';
+      data.forEach(c => {
+        html += `
+          <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/40 transition">
+            <td class="py-3 px-6 font-bold text-slate-900 dark:text-white">${c.name}</td>
+            <td class="py-3 px-4 text-slate-500 font-medium">${c.terminal}</td>
+            <td class="py-3 px-4 text-center font-bold">${c.invoices.toLocaleString()}</td>
+            <td class="py-3 px-4 text-right font-black text-slate-900 dark:text-white">₹${c.revenue.toLocaleString()}</td>
+            <td class="py-3 px-4 text-center font-semibold text-blue-600 dark:text-blue-400">${c.speed}</td>
+            <td class="py-3 px-4 text-center font-semibold text-rose-500">${c.voids} voids</td>
+            <td class="py-3 px-4 text-center font-bold text-amber-500">${c.rating}</td>
+            <td class="py-3 px-6 text-right">
+              <button onclick="showToast('Register log requested for ${c.name}', 'info')" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition">
+                Register Log
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    // Initialize Chart.js
+    function initCharts() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+
+      // 1. Sales Trend Chart
+      const salesCtx = document.getElementById('salesTrendChart')?.getContext('2d');
+      if (salesCtx) {
+        salesTrendChartInstance = new Chart(salesCtx, {
+          type: 'line',
+          data: {
+            labels: ['Jul 25', 'Jul 26', 'Jul 27', 'Jul 28', 'Jul 29', 'Jul 30', 'Jul 31', 'Aug 01'],
+            datasets: [
+              {
+                label: 'Gross Sales (₹)',
+                data: [312000, 345000, 298000, 410000, 385000, 420000, 390000, 285920],
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                fill: true,
+                tension: 0.35,
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 7
+              },
+              {
+                label: 'Net Profit (₹)',
+                data: [78000, 86250, 74500, 102500, 96250, 105000, 97500, 71480],
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                fill: true,
+                tension: 0.35,
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: textColor, font: { family: 'Plus Jakarta Sans', weight: 'bold' } } }
+            },
+            scales: {
+              x: { grid: { color: gridColor }, ticks: { color: textColor } },
+              y: { grid: { color: gridColor }, ticks: { color: textColor } }
+            }
+          }
+        });
+      }
+
+      // 2. Payment Distribution Doughnut
+      const payCtx = document.getElementById('paymentDistributionChart')?.getContext('2d');
+      if (payCtx) {
+        paymentDistributionChartInstance = new Chart(payCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['UPI / QR', 'Credit Card', 'Cash Tender', 'Debit Card'],
+            datasets: [{
+              data: [48.2, 28.4, 17.8, 5.6],
+              backgroundColor: ['#2563eb', '#9333ea', '#10b981', '#f59e0b'],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            cutout: '72%'
+          }
+        });
+      }
+
+      // 3. Peak Hours Footfall Chart
+      const peakCtx = document.getElementById('peakHoursChart')?.getContext('2d');
+      if (peakCtx) {
+        peakHoursChartInstance = new Chart(peakCtx, {
+          type: 'bar',
+          data: {
+            labels: ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM', '7 PM', '8 PM', '9 PM'],
+            datasets: [{
+              label: 'Invoices Issued',
+              data: [120, 240, 410, 680, 890, 750, 620, 580, 710, 940, 1420, 1680, 1310, 520],
+              backgroundColor: '#f59e0b',
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: textColor } },
+              y: { grid: { color: gridColor }, ticks: { color: textColor } }
+            }
+          }
+        });
+      }
+
+      // 4. Category Margin Chart
+      const catCtx = document.getElementById('categoryMarginChart')?.getContext('2d');
+      if (catCtx) {
+        categoryMarginChartInstance = new Chart(catCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Dairy & Fresh', 'Beverages', 'Confectionery', 'Gourmet Goods', 'Bakery & Snacks'],
+            datasets: [
+              {
+                label: 'Gross Sales (₹)',
+                data: [787360, 750600, 340200, 802800, 169600],
+                backgroundColor: '#3b82f6',
+                borderRadius: 6
+              },
+              {
+                label: 'Gross Profit (₹)',
+                data: [197578, 236502, 119070, 224784, 44096],
+                backgroundColor: '#10b981',
+                borderRadius: 6
+              }
+            ]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: textColor } }
+            },
+            scales: {
+              x: { grid: { color: gridColor }, ticks: { color: textColor } },
+              y: { grid: { display: false }, ticks: { color: textColor } }
+            }
+          }
+        });
+      }
+    }
+
+    // Switch Tabs
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tabId)?.classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-4 py-3 border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-semibold text-xs flex items-center gap-2 whitespace-nowrap transition';
+      });
+
+      btn.className = 'tab-btn px-4 py-3 border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center gap-2 whitespace-nowrap transition';
+    }
+
+    // Date Preset Logic
+    function setDatePreset(preset, btn) {
+      document.querySelectorAll('.date-preset-btn').forEach(b => {
+        b.className = 'date-preset-btn px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition';
+      });
+      btn.className = 'date-preset-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-md transition';
+
+      // Update KPIs dynamically
+      let factor = 1.0;
+      if (preset === 'yesterday') factor = 0.92;
+      if (preset === 'last7') factor = 6.4;
+      if (preset === 'last30' || preset === 'thisMonth') factor = 26.5;
+
+      const revVal = Math.round(2845920 * factor);
+      const profitVal = Math.round(724180 * factor);
+      const gstVal = Math.round(434015 * factor);
+      const ordersVal = Math.round(16420 * factor);
+
+      document.getElementById('kpi-revenue').innerText = '₹' + revVal.toLocaleString();
+      document.getElementById('kpi-profit').innerText = '₹' + profitVal.toLocaleString();
+      document.getElementById('kpi-gst').innerText = '₹' + gstVal.toLocaleString();
+      document.getElementById('kpi-orders-count').innerText = ordersVal.toLocaleString();
+
+      showToast(`Analytics filtered for preset: ${preset.toUpperCase()}`, 'info');
+    }
+
+    // Custom Filters
+    function applyCustomFilters() {
+      const branch = document.getElementById('filter-branch').value;
+      const cat = document.getElementById('filter-category').value;
+      showToast(`Filter applied: Branch [${branch.toUpperCase()}], Category [${cat.toUpperCase()}]`, 'success');
+    }
+
+    // Filter Products Table Search
+    function filterProductsTable() {
+      const q = document.getElementById('product-table-search').value.toLowerCase();
+      const filtered = productsAnalyticsData.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+      renderProductsTable(filtered);
+    }
+
+    // Sort Products Table
+    let sortAsc = false;
+    function sortTable(key) {
+      sortAsc = !sortAsc;
+      productsAnalyticsData.sort((a, b) => {
+        if (a[key] < b[key]) return sortAsc ? -1 : 1;
+        if (a[key] > b[key]) return sortAsc ? 1 : -1;
+        return 0;
+      });
+      renderProductsTable(productsAnalyticsData);
+      showToast(`Sorted table by ${key.toUpperCase()}`, 'info');
+    }
+
+    // Chart metric toggles
+    function setChartMetric(metric, btn) {
+      document.querySelectorAll('.chart-metric-btn').forEach(b => {
+        b.className = 'chart-metric-btn px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800';
+      });
+      btn.className = 'chart-metric-btn px-2.5 py-1 rounded-lg font-bold bg-blue-600 text-white';
+
+      activeChartMetric = metric;
+      showToast(`Chart updated to view ${metric.toUpperCase()}`, 'info');
+    }
+
+    // Modal Control Functions
+    function openProductModal(id) {
+      const item = productsAnalyticsData.find(p => p.id === id);
+      if (!item) return;
+
+      document.getElementById('modal-product-title').innerText = item.name;
+      document.getElementById('modal-product-sku').innerText = item.sku;
+      document.getElementById('modal-product-qty').innerText = item.unitsSold.toLocaleString();
+      document.getElementById('modal-product-rev').innerText = '₹' + item.revenue.toLocaleString();
+      document.getElementById('modal-product-margin').innerText = item.margin + '%';
+      document.getElementById('modal-product-cat').innerText = item.category;
+      document.getElementById('modal-product-stock').innerText = item.stock + ' units';
+      document.getElementById('modal-product-tax').innerText = item.taxRate + '% GST';
+
+      document.getElementById('product-drilldown-modal').classList.remove('hidden');
+    }
+    function closeProductModal() {
+      document.getElementById('product-drilldown-modal').classList.add('hidden');
+    }
+
+    function openExportModal() {
+      document.getElementById('export-report-modal').classList.remove('hidden');
+    }
+    function closeExportModal() {
+      document.getElementById('export-report-modal').classList.add('hidden');
+    }
+
+    function openScheduleModal() {
+      document.getElementById('schedule-email-modal').classList.remove('hidden');
+    }
+    function closeScheduleModal() {
+      document.getElementById('schedule-email-modal').classList.add('hidden');
+    }
+
+    function setExportFormat(fmt) {
+      selectedExportFormat = fmt;
+      document.querySelectorAll('.export-fmt-btn').forEach(b => {
+        b.className = 'export-fmt-btn p-3 rounded-2xl border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 justify-center';
+      });
+      event.currentTarget.className = 'export-fmt-btn p-3 rounded-2xl border-2 border-blue-600 bg-blue-500/10 font-bold text-blue-600 dark:text-blue-400 flex items-center gap-2 justify-center';
+    }
+
+    function triggerDownloadReport() {
+      showToast(`Generating ${selectedExportFormat.toUpperCase()} report file...`, 'info');
+      setTimeout(() => {
+        showToast(`ApexPOS_Analytics_Report_${Date.now()}.${selectedExportFormat}`, 'success');
+        closeExportModal();
+      }, 1000);
+    }
+
+    // CSV Download
+    function exportCSVData() {
+      let csv = 'Product Name,SKU,Category,Units Sold,Revenue (INR),Profit (INR),Margin (%)\n';
+      productsAnalyticsData.forEach(p => {
+        csv += `"${p.name}","${p.sku}","${p.category}",${p.unitsSold},${p.revenue},${p.profit},${p.margin}\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ApexPOS_Reports_Analytics_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      showToast('CSV Report Downloaded Successfully!', 'success');
+    }
+
+    // Data Refresh Simulation
+    function refreshData() {
+      const icon = document.getElementById('refresh-icon');
+      if (icon) icon.classList.add('animate-spin');
+      showToast('Syncing real-time terminal telemetry...', 'info');
+
+      setTimeout(() => {
+        if (icon) icon.classList.remove('animate-spin');
+        document.getElementById('last-sync-time').innerText = 'Live Sync: Just now';
+        showToast('All reports and analytics updated with latest sales data!', 'success');
+      }, 800);
+    }
+  </script>
+</body>
+</html>

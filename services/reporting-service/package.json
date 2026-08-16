@@ -1,0 +1,36 @@
+{
+  "name": "@pospe/reporting-service",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reports & analytics: sales, inventory, GST, P&L, exports",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "lint": "eslint . --ext ts",
+    "test": "echo \"no tests yet\" && exit 0",
+    "clean": "rm -rf dist node_modules .turbo"
+  },
+  "dependencies": {
+    "@pospe/utilities": "*",
+    "@pospe/permissions": "*",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "helmet": "^8.0.0",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.23.8",
+    "@prisma/client": "^5.21.1",
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.15.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

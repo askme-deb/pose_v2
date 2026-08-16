@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "PosPe Manager",
+    "slug": "pospe-manager",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
+    "android": {}
+  }
+}

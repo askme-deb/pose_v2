@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tenant Management - ApexPOS Enterprise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' } },
+          fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200 overflow-x-hidden">
+  <div id="app" class="flex flex-col min-h-screen">
+    
+    <!-- Dual-Tier Sticky Top Navigation Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
+      
+      <!-- Tier 1: Main Header Bar -->
+      <div class="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+        <div class="flex items-center gap-3">
+          <!-- Mobile Drawer Hamburger Toggle Button -->
+          <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+
+          <a href="landing.html" class="flex items-center gap-2.5 group">
+            <img src="images/logo.svg" alt="ApexPOS Logo" class="h-8 md:h-9 group-hover:scale-105 transition-transform">
+          </a>
+
+          <!-- Desktop Dropdown Containers -->
+          <div class="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
+            <!-- Tenant Switcher Dropdown -->
+            <div id="tenant-dropdown-container" class="relative">
+              <button onclick="toggleTenantDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="tenant-label-text">Apex Supermarket Chain</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+
+            <!-- Branch Switcher Dropdown -->
+            <div id="branch-dropdown-container" class="relative">
+              <button onclick="toggleBranchDropdown(event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition">
+                <i data-lucide="store" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400"></i>
+                <span id="branch-label-text">Downtown Flagship</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-60"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden lg:flex items-center max-w-md w-full mx-4">
+          <button onclick="toggleSearchModal()" class="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner">
+            <div class="flex items-center gap-2">
+              <i data-lucide="search" class="w-4 h-4"></i>
+              <span>Search products, invoices, customers, SKUs...</span>
+            </div>
+            <kbd class="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">Cmd + K</kbd>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 md:gap-2.5">
+          <button onclick="toggleSearchModal()" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </button>
+          <a href="pos-touch.html" class="flex items-center gap-2 px-3 py-1.5 md:px-3.5 md:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-semibold shadow-lg shadow-blue-500/20 transition transform hover:scale-[1.02]">
+            <i data-lucide="zap" class="w-4 h-4 fill-white"></i>
+            <span class="hidden sm:inline">POS Terminal</span>
+          </a>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="sun" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+            <i data-lucide="moon" class="w-4 h-4 block dark:hidden text-indigo-600"></i>
+          </button>
+          <button onclick="showToast('You have 3 low stock alerts!', 'warning')" class="relative p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500"></span>
+          </button>
+          
+          <!-- User Profile Dropdown -->
+          <div id="profile-dropdown-container" class="relative">
+            <button onclick="toggleProfileDropdown(event)" class="flex items-center gap-2 pl-1 md:pl-2">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                AW
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tier 2: Categorized Dropdown Navigation Bar (Desktop & Tablet) -->
+      <nav class="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
+        <div class="flex items-center gap-4">
+
+          <!-- Dropdown 1: Tenant Operations -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-tenant', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-bold border border-blue-500/20 hover:bg-blue-600 hover:text-white transition">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span>Tenant Operations</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-tenant" class="absolute top-full left-0 mt-2 w-64 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layout-dashboard" class="w-4 h-4 text-blue-600"></i><span>Tenant Dashboard</span></a>
+              <a href="pos-touch.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="zap" class="w-4 h-4 text-indigo-600"></i><span>POS Billing Terminal</span></a>
+              <a href="pos-hold-suspend.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="pause-circle" class="w-4 h-4 text-amber-500"></i><span>Hold & Suspend Bills</span></a>
+              <a href="inventory-products.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="box" class="w-4 h-4 text-purple-600"></i><span>Inventory Catalog</span></a>
+              <a href="inventory-categories.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="tags" class="w-4 h-4 text-cyan-600"></i><span>Categories & Brands</span></a>
+              <a href="inventory-stock-adjust.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="sliders" class="w-4 h-4 text-rose-500"></i><span>Stock Adjustment</span></a>
+              <a href="purchase-orders.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="truck" class="w-4 h-4 text-blue-500"></i><span>Purchase & Suppliers</span></a>
+              <a href="sales-invoices.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="receipt" class="w-4 h-4 text-emerald-600"></i><span>Sales & Invoices</span></a>
+              <a href="warehouse-transfers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="warehouse" class="w-4 h-4 text-amber-600"></i><span>Warehouse & Racks</span></a>
+              <a href="crm-customers.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="users" class="w-4 h-4 text-pink-600"></i><span>CRM & Loyalty</span></a>
+              <a href="gst-reports.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i><span>GST Tax Suite</span></a>
+              <a href="reports-analytics.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="bar-chart-3" class="w-4 h-4 text-violet-600"></i><span>Analytics & Reports</span></a>
+              <a href="mobile-apps.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="smartphone" class="w-4 h-4 text-sky-500"></i><span>Mobile Apps Hub</span></a>
+              <a href="user-roles.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield" class="w-4 h-4 text-teal-600"></i><span>Roles & RBAC</span></a>
+              <a href="business-profile.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="settings" class="w-4 h-4 text-slate-500"></i><span>Company Settings</span></a>
+            </div>
+          </div>
+
+          <!-- Dropdown 2: Super Admin Portal -->
+          <div class="relative group">
+            <button onclick="toggleNavCategoryDropdown('nav-dropdown-superadmin', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 font-bold border border-purple-500/20 hover:bg-purple-600 hover:text-white transition">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>Super Admin Portal</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+            </button>
+
+            <div id="nav-dropdown-superadmin" class="absolute top-full left-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+              <a href="superadmin-dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i><span>Super Admin Overview</span></a>
+              <a href="superadmin-tenants.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="building" class="w-4 h-4 text-indigo-600"></i><span>Tenant Management</span></a>
+              <a href="superadmin-subscriptions.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="credit-card" class="w-4 h-4 text-emerald-600"></i><span>Subscriptions & Plans</span></a>
+              <a href="superadmin-whitelabel.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="palette" class="w-4 h-4 text-rose-500"></i><span>White Label Branding</span></a>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dropdown 3: Public & Design (Positioned at Right End) -->
+        <div class="relative group">
+          <button onclick="toggleNavCategoryDropdown('nav-dropdown-public', event)" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-bold border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition">
+            <i data-lucide="layers" class="w-4 h-4 text-blue-600"></i>
+            <span>Public & Design</span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 opacity-70"></i>
+          </button>
+
+          <div id="nav-dropdown-public" class="absolute top-full right-0 mt-2 w-56 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 hidden space-y-0.5 animate-scale-in">
+            <a href="landing.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="globe" class="w-4 h-4 text-blue-600"></i><span>SaaS Landing Website</span></a>
+            <a href="login.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="lock" class="w-4 h-4 text-purple-600"></i><span>Auth Portal</span></a>
+            <a href="components.html" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"><i data-lucide="layers" class="w-4 h-4 text-emerald-600"></i><span>UI Components</span></a>
+          </div>
+        </div>
+      </nav>
+    </header>
+  
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6 animate-fade-in max-w-[1600px] w-full mx-auto">
+      
+      <!-- Top Title & Operational Action Header -->
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Multi-Tenant Enterprise Management</h1>
+            <span id="tenant-console-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span> 128 Tenants Onboarded • 542 Store Outlets
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Provision SaaS business organizations, configure database schema isolation, monitor cloud storage quotas, and manage subscription billing parameters.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Search Input -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="search-tenant-console-input" onkeyup="filterTenantConsole()" placeholder="Search tenant name, domain, owner..." class="pl-10 pr-4 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-inner">
+          </div>
+
+          <!-- Plan Filter -->
+          <select id="filter-tenant-plan" onchange="filterTenantConsole()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all">All SaaS Plans</option>
+            <option value="Enterprise Ultimate">Enterprise Ultimate</option>
+            <option value="Pro Business Retail">Pro Business Retail</option>
+            <option value="Starter POS Single">Starter POS Single</option>
+          </select>
+
+          <!-- Status Filter -->
+          <select id="filter-tenant-status" onchange="filterTenantConsole()" class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Trialing">Trialing</option>
+            <option value="Past Due">Past Due</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+
+          <!-- Active View Tab Switcher -->
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900/90 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-semibold overflow-x-auto">
+            <button onclick="switchTenantConsoleTab('cards', this)" class="tc-tab-btn px-3 py-1.5 rounded-xl transition bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20">Tenant Cards</button>
+            <button onclick="switchTenantConsoleTab('table', this)" class="tc-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-indigo-600">Table View (128)</button>
+            <button onclick="switchTenantConsoleTab('db', this)" class="tc-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-indigo-600">Database Isolation</button>
+            <button onclick="switchTenantConsoleTab('logs', this)" class="tc-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-indigo-600">Audit Stream</button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="exportTenantsConsoleCSV()" class="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-indigo-500 transition shadow-sm">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Export CSV</span>
+            </button>
+            <button onclick="openTenantDrawer()" class="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition transform hover:scale-[1.02]">
+              <i data-lucide="building-plus" class="w-4 h-4"></i>
+              <span>+ Provision SaaS Tenant</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 KPI Telemetry Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- KPI 1 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Total Active Tenants</span>
+            <h3 id="kpi-tc-total-count" class="text-2xl font-black text-slate-900 dark:text-white mt-1">128 Tenants</h3>
+            <p class="text-[11px] text-indigo-600 font-semibold mt-0.5">6 Onboarded This Month</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="building" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 2 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Total Outlets Served</span>
+            <h3 class="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">542 Branches</h3>
+            <p class="text-[11px] text-blue-600 font-semibold mt-0.5">Avg 4.2 Outlets / Tenant</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+            <i data-lucide="store" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Allocated Cloud Storage</span>
+            <h3 class="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">4.8 TB Total</h3>
+            <p class="text-[11px] text-purple-600 font-semibold mt-0.5">38% Quota Utilization</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center">
+            <i data-lucide="database" class="w-5 h-5"></i>
+          </div>
+        </div>
+
+        <!-- KPI 4 -->
+        <div class="glass-card p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold uppercase text-slate-400">Monthly SaaS Revenue</span>
+            <h3 class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">₹14.85M</h3>
+            <p class="text-[11px] text-emerald-600 font-semibold mt-0.5">98.6% Auto-Billed</p>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="credit-card" class="w-5 h-5"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: Tenants Grid Cards -->
+      <div id="tc-tab-cards-panel" class="space-y-4">
+        <div id="tc-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamically Populated by JS -->
+        </div>
+      </div>
+
+      <!-- TAB 2: Table View -->
+      <div id="tc-tab-table-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Tenant Directory & Instance Table</h3>
+              <p class="text-xs text-slate-400">Granular breakdown of tenant domains, subscription billing, store limits, and instance status.</p>
+            </div>
+            <button onclick="openTenantDrawer()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow-md">+ Register Tenant</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Organization & Domain</th>
+                  <th class="py-3 px-4">SaaS Plan</th>
+                  <th class="py-3 px-4">Outlets (Used / Max)</th>
+                  <th class="py-3 px-4">Monthly Billing</th>
+                  <th class="py-3 px-4">Storage Usage</th>
+                  <th class="py-3 px-4">Tenant Status</th>
+                  <th class="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tc-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Database Isolation & Backup Status -->
+      <div id="tc-tab-db-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Database Isolation & Cloud Replica Telemetry</h3>
+              <p class="text-xs text-slate-400">Isolated database pod mapping, automated backup schedules, and storage quota limits.</p>
+            </div>
+            <button onclick="showToast('Database snapshots verified for all 128 tenant pods', 'success')" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs hover:bg-slate-200">Snapshot Backup</button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                  <th class="py-3 px-4">Tenant Organization</th>
+                  <th class="py-3 px-4">Isolated DB Instance Pod</th>
+                  <th class="py-3 px-4">Region / Data Center</th>
+                  <th class="py-3 px-4">Storage Used</th>
+                  <th class="py-3 px-4">Last Automated Backup</th>
+                  <th class="py-3 px-4 text-right">DB Health</th>
+                </tr>
+              </thead>
+              <tbody id="tc-db-table-body" class="divide-y divide-slate-200/60 dark:divide-slate-800/60 font-medium">
+                <!-- Dynamically Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: Tenant Audit Stream -->
+      <div id="tc-tab-logs-panel" class="hidden space-y-4">
+        <div class="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-4">
+            <div>
+              <h3 class="text-base font-extrabold text-slate-900 dark:text-white">Tenant Administrative Event Audit Stream</h3>
+              <p class="text-xs text-slate-400">Log ledger of tenant creation, plan upgrades, admin logins, and storage alerts.</p>
+            </div>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          </div>
+
+          <div id="tc-audit-logs-container" class="space-y-3">
+            <!-- Dynamically Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- Provision / Edit Tenant Side-Over Drawer -->
+  <div id="tenant-console-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-end hidden">
+    <div class="bg-white dark:bg-slate-900 h-full max-w-xl w-full p-6 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto space-y-6 animate-slide-in-right">
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <h3 id="tc-drawer-title" class="text-lg font-bold text-slate-900 dark:text-white">Provision SaaS Enterprise Tenant</h3>
+            <p class="text-xs text-slate-400">Set organization identity, domain binding, store outlet limits, and DB isolation.</p>
+          </div>
+          <button onclick="closeTenantDrawer()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold text-xs">✕</button>
+        </div>
+
+        <form id="tc-drawer-form" onsubmit="saveTenantFromDrawer(event)" class="space-y-4 text-xs">
+          <input type="hidden" id="form-tc-edit-id" value="">
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Organization Business Name *</label>
+            <input type="text" id="form-tc-name" required placeholder="e.g. Zenith Retail Group" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs">
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Tenant Subdomain *</label>
+            <div class="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <input type="text" id="form-tc-subdomain" required placeholder="zenith" class="w-full px-3 py-2 bg-transparent outline-none font-mono font-bold">
+              <span class="px-3 text-slate-400 font-mono text-[11px] border-l border-slate-300 dark:border-slate-700">.apexpos.com</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Owner Admin Full Name</label>
+              <input type="text" id="form-tc-owner" required placeholder="e.g. Vikramaditya Rao" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Owner Contact Email</label>
+              <input type="email" id="form-tc-email" required placeholder="owner@zenith.com" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">SaaS Subscription Plan</label>
+              <select id="form-tc-plan" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-bold text-indigo-600">
+                <option value="Enterprise Ultimate">Enterprise Ultimate (₹149,999/mo)</option>
+                <option value="Pro Business Retail">Pro Business Retail (₹49,999/mo)</option>
+                <option value="Starter POS Single">Starter POS Single (₹14,999/mo)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Max Outlets Capacity</label>
+              <input type="number" id="form-tc-stores-limit" value="15" required class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Storage Quota Limit (GB)</label>
+              <input type="number" id="form-tc-storage-limit" value="500" required class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none font-mono">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Cloud Region Data Center</label>
+              <select id="form-tc-region" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+                <option value="ap-south-1 (Mumbai)" selected>ap-south-1 (Mumbai Primary)</option>
+                <option value="us-east-1 (Virginia)">us-east-1 (N. Virginia)</option>
+                <option value="eu-central-1 (Frankfurt)">eu-central-1 (Frankfurt)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">Database Schema Isolation Strategy</label>
+            <select id="form-tc-db-strategy" class="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none">
+              <option value="Dedicated PostgreSQL Container Pod" selected>Dedicated PostgreSQL Container Pod (High Security)</option>
+              <option value="Shared Multi-Tenant Schema">Shared Multi-Tenant Schema (Standard)</option>
+            </select>
+          </div>
+
+          <div class="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
+            <button type="button" onclick="closeTenantDrawer()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">Cancel</button>
+            <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs shadow-lg shadow-indigo-500/25">Save Tenant Record</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Tenant Modal -->
+  <div id="tenant-details-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full space-y-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div id="td-modal-avatar" class="w-10 h-10 rounded-2xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
+            AP
+          </div>
+          <div>
+            <h3 id="td-modal-name" class="text-base font-extrabold text-slate-900 dark:text-white">Apex Supermarket Chain</h3>
+            <p id="td-modal-domain" class="text-xs font-mono text-slate-400">apex.apexpos.com</p>
+          </div>
+        </div>
+        <button onclick="closeTenantDetailsModal()" class="text-slate-400 hover:text-slate-600 font-bold">✕</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div class="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+          <div><span class="text-slate-400">Subscription Plan:</span> <strong id="td-modal-plan" class="block text-indigo-600">Enterprise Ultimate</strong></div>
+          <div><span class="text-slate-400">Monthly Revenue:</span> <strong id="td-modal-billing" class="block text-slate-900 dark:text-white font-mono">₹149,999/mo</strong></div>
+          <div><span class="text-slate-400">Stores Used:</span> <strong id="td-modal-stores" class="block text-slate-800 dark:text-slate-200">4 / 25 Stores</strong></div>
+          <div><span class="text-slate-400">Storage Usage:</span> <strong id="td-modal-storage" class="block text-purple-600">142 GB / 500 GB</strong></div>
+        </div>
+
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-1">Cloud Infrastructure Health</h4>
+          <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+            <div class="flex justify-between"><span class="text-slate-400">Database Pod:</span><span id="td-modal-db" class="font-mono text-slate-800 dark:text-slate-200">pg-pod-apex-01</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Cloud Region:</span><span id="td-modal-region" class="text-slate-800 dark:text-slate-200">ap-south-1 (Mumbai)</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Owner Admin:</span><span id="td-modal-owner" class="text-slate-800 dark:text-slate-200">Alexander Wright</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+        <button onclick="impersonateTenantAdmin()" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2">
+          <i data-lucide="external-link" class="w-4 h-4"></i> Impersonate Admin Login
+        </button>
+        <button onclick="closeTenantDetailsModal()" class="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Master Tenant Console Data Engine
+    let consoleTenants = [
+      { id: 'ten-101', name: 'Apex Supermarket Chain', domain: 'apex.apexpos.com', plan: 'Enterprise Ultimate', storesUsed: 4, storesLimit: 25, monthlyBilling: 149999, storageUsedGB: 142, storageLimitGB: 500, dbInstance: 'pg-pod-apex-01', status: 'Active', avatar: 'AP', owner: 'Alexander Wright', email: 'admin@apexsupermarket.com', region: 'ap-south-1 (Mumbai)' },
+      { id: 'ten-102', name: 'Metro Hypermarket Ltd', domain: 'metro.apexpos.com', plan: 'Enterprise Ultimate', storesUsed: 12, storesLimit: 50, monthlyBilling: 249999, storageUsedGB: 380, storageLimitGB: 1000, dbInstance: 'pg-pod-metro-02', status: 'Active', avatar: 'MH', owner: 'Vikramaditya Rao', email: 'v.rao@metro.com', region: 'ap-south-1 (Mumbai)' },
+      { id: 'ten-103', name: 'QuickBite Restaurant Group', domain: 'quickbite.apexpos.com', plan: 'Pro Business Retail', storesUsed: 6, storesLimit: 10, monthlyBilling: 49999, storageUsedGB: 85, storageLimitGB: 250, dbInstance: 'pg-pod-quickbite-03', status: 'Active', avatar: 'QB', owner: 'Ananya Deshmukh', email: 'ananya@quickbite.com', region: 'ap-south-1 (Mumbai)' },
+      { id: 'ten-104', name: 'Zenith Pharma Labs', domain: 'zenithpharma.apexpos.com', plan: 'Enterprise Ultimate', storesUsed: 8, storesLimit: 20, monthlyBilling: 149999, storageUsedGB: 210, storageLimitGB: 500, dbInstance: 'pg-pod-zenith-04', status: 'Active', avatar: 'ZP', owner: 'Dr. Cyrus Poonawalla', email: 'cyrus@zenith.com', region: 'us-east-1 (Virginia)' },
+      { id: 'ten-105', name: 'Luxe Fashion Retail', domain: 'luxefashion.apexpos.com', plan: 'Pro Business Retail', storesUsed: 3, storesLimit: 5, monthlyBilling: 49999, storageUsedGB: 45, storageLimitGB: 250, dbInstance: 'pg-pod-luxe-05', status: 'Active', avatar: 'LF', owner: 'Natasha Kapoor', email: 'natasha@luxe.com', region: 'eu-central-1 (Frankfurt)' },
+      { id: 'ten-106', name: 'Organic Pantry Co', domain: 'organicpantry.apexpos.com', plan: 'Starter POS Single', storesUsed: 1, storesLimit: 1, monthlyBilling: 14999, storageUsedGB: 12, storageLimitGB: 50, dbInstance: 'pg-shared-schema-06', status: 'Trialing', avatar: 'OP', owner: 'Karan Malhotra', email: 'karan@pantry.com', region: 'ap-south-1 (Mumbai)' }
+    ];
+
+    let consoleAuditLogs = [
+      { time: '5 mins ago', tenant: 'Organic Pantry Co', event: 'TRIAL_STARTED', detail: 'Initialized 14-day trial on Starter POS Single plan.' },
+      { time: '35 mins ago', tenant: 'Metro Hypermarket Ltd', event: 'STORAGE_SCALE_UP', detail: 'Increased database storage allocation from 750GB to 1TB.' },
+      { time: '2 hours ago', tenant: 'Apex Supermarket Chain', event: 'ADMIN_LOGIN', detail: 'Super Admin impersonated login for Alexander Wright.' },
+      { time: '1 day ago', tenant: 'Zenith Pharma Labs', event: 'SSL_RENEWED', detail: 'Wildcard SSL certificate auto-renewed for zenithpharma.apexpos.com.' }
+    ];
+
+    let activeConsoleTab = 'cards';
+    let currentConsoleSearch = '';
+    let currentConsolePlanFilter = 'all';
+    let currentConsoleStatusFilter = 'all';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderTenantsCards();
+      renderTenantsTable();
+      renderDatabaseIsolationTable();
+      renderConsoleAuditLogs();
+      if (window.lucide) window.lucide.createIcons();
+    });
+
+    function switchTenantConsoleTab(tab, btn) {
+      activeConsoleTab = tab;
+      document.querySelectorAll('.tc-tab-btn').forEach(b => {
+        b.className = 'tc-tab-btn px-3 py-1.5 rounded-xl transition text-slate-500 dark:text-slate-400 hover:text-indigo-600';
+      });
+      if (btn) {
+        btn.className = 'tc-tab-btn px-3 py-1.5 rounded-xl transition bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20';
+      }
+
+      ['cards', 'table', 'db', 'logs'].forEach(t => {
+        const panel = document.getElementById(`tc-tab-${t}-panel`);
+        if (panel) {
+          if (t === tab) panel.classList.remove('hidden');
+          else panel.classList.add('hidden');
+        }
+      });
+    }
+
+    function filterTenantConsole() {
+      currentConsoleSearch = (document.getElementById('search-tenant-console-input')?.value || '').toLowerCase();
+      currentConsolePlanFilter = document.getElementById('filter-tenant-plan')?.value || 'all';
+      currentConsoleStatusFilter = document.getElementById('filter-tenant-status')?.value || 'all';
+
+      renderTenantsCards();
+      renderTenantsTable();
+    }
+
+    function getFilteredTenants() {
+      let filtered = consoleTenants;
+      if (currentConsolePlanFilter !== 'all') {
+        filtered = filtered.filter(t => t.plan === currentConsolePlanFilter);
+      }
+      if (currentConsoleStatusFilter !== 'all') {
+        filtered = filtered.filter(t => t.status === currentConsoleStatusFilter);
+      }
+      if (currentConsoleSearch) {
+        filtered = filtered.filter(t => t.name.toLowerCase().includes(currentConsoleSearch) || t.domain.toLowerCase().includes(currentConsoleSearch) || t.owner.toLowerCase().includes(currentConsoleSearch));
+      }
+      return filtered;
+    }
+
+    // Render Tab 1: Cards View
+    function renderTenantsCards() {
+      const grid = document.getElementById('tc-cards-grid');
+      if (!grid) return;
+
+      const filtered = getFilteredTenants();
+      const badgeCount = document.getElementById('kpi-tc-total-count');
+      if (badgeCount) badgeCount.innerText = `${consoleTenants.length} Tenants`;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-400">
+            <i data-lucide="building-2" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+            <p class="font-bold text-xs">No SaaS tenants matched your search filter criteria</p>
+          </div>
+        `;
+        if (window.lucide) window.lucide.createIcons();
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(t => {
+        const pctStorage = Math.round((t.storageUsedGB / t.storageLimitGB) * 100);
+
+        html += `
+          <div class="glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-indigo-500/50 transition group space-y-4">
+            <div class="space-y-3">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+                    ${t.avatar}
+                  </div>
+                  <div>
+                    <h3 class="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 transition">${t.name}</h3>
+                    <p class="text-[10px] font-mono text-slate-400">${t.domain}</p>
+                  </div>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Active' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-500'}">${t.status}</span>
+              </div>
+
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-slate-400">Plan:</span><strong class="text-indigo-600">${t.plan}</strong></div>
+                <div class="flex justify-between"><span class="text-slate-400">Stores:</span><strong class="text-slate-800 dark:text-slate-200">${t.storesUsed} / ${t.storesLimit} Branches</strong></div>
+                <div class="flex justify-between"><span class="text-slate-400">Monthly Bill:</span><strong class="font-mono text-slate-900 dark:text-white">₹${t.monthlyBilling.toLocaleString('en-IN')}/mo</strong></div>
+              </div>
+
+              <!-- Storage Bar -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-[10px] font-bold text-slate-400">
+                  <span>Storage Quota</span>
+                  <span>${t.storageUsedGB} GB / ${t.storageLimitGB} GB (${pctStorage}%)</span>
+                </div>
+                <div class="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div class="h-full rounded-full bg-purple-600" style="width: ${pctStorage}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+              <span class="text-[10px] text-slate-400 font-bold">${t.owner}</span>
+              <div class="flex items-center gap-1">
+                <button onclick="openTenantDetailsModal('${t.id}')" class="px-3 py-1 rounded-xl bg-indigo-600 text-white font-bold text-[11px] hover:bg-indigo-700 shadow-sm">View Details</button>
+                <button onclick="toggleTenantConsoleStatus('${t.id}')" class="p-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900" title="Toggle Status">
+                  <i data-lucide="power" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      grid.innerHTML = html;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    // Render Tab 2: Table View
+    function renderTenantsTable() {
+      const tbody = document.getElementById('tc-table-body');
+      if (!tbody) return;
+
+      const filtered = getFilteredTenants();
+      let html = '';
+      filtered.forEach(t => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-md">
+                  ${t.avatar}
+                </div>
+                <div>
+                  <h4 class="font-bold text-slate-900 dark:text-white">${t.name}</h4>
+                  <p class="text-[10px] text-slate-400 font-mono">${t.domain}</p>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">${t.plan}</span>
+            </td>
+            <td class="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">${t.storesUsed} / ${t.storesLimit}</td>
+            <td class="py-3 px-4 font-mono font-black text-slate-900 dark:text-white">₹${t.monthlyBilling.toLocaleString('en-IN')}</td>
+            <td class="py-3 px-4 text-purple-600 font-bold">${t.storageUsedGB} GB</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'Active' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-500'}">${t.status}</span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openTenantDetailsModal('${t.id}')" class="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[11px] hover:bg-slate-200">Manage</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    // Render Tab 3: Database Isolation Table
+    function renderDatabaseIsolationTable() {
+      const tbody = document.getElementById('tc-db-table-body');
+      if (!tbody) return;
+
+      let html = '';
+      consoleTenants.forEach(t => {
+        html += `
+          <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-900/50 transition">
+            <td class="py-3 px-4 font-bold text-slate-900 dark:text-white">${t.name}</td>
+            <td class="py-3 px-4 font-mono text-indigo-600 font-bold">${t.dbInstance}</td>
+            <td class="py-3 px-4 text-slate-600 dark:text-slate-300">${t.region}</td>
+            <td class="py-3 px-4 font-mono font-bold text-purple-600">${t.storageUsedGB} GB</td>
+            <td class="py-3 px-4 text-slate-400 text-[11px]">Today at 03:00 AM</td>
+            <td class="py-3 px-4 text-right">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600">Optimal (100%)</span>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function renderConsoleAuditLogs() {
+      const container = document.getElementById('tc-audit-logs-container');
+      if (!container) return;
+
+      let html = '';
+      consoleAuditLogs.forEach(l => {
+        html += `
+          <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-900 dark:text-white">${l.tenant}</span>
+                <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono text-[9px] font-bold">${l.event}</span>
+              </div>
+              <p class="text-slate-500 text-[11px] mt-0.5">${l.detail}</p>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">${l.time}</span>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Modal & Drawer Actions
+    function openTenantDrawer(id = null) {
+      document.getElementById('tenant-console-drawer')?.classList.remove('hidden');
+    }
+
+    function closeTenantDrawer() {
+      document.getElementById('tenant-console-drawer')?.classList.add('hidden');
+    }
+
+    function saveTenantFromDrawer(e) {
+      e.preventDefault();
+      const name = document.getElementById('form-tc-name').value;
+      const subdomain = document.getElementById('form-tc-subdomain').value;
+      const owner = document.getElementById('form-tc-owner').value;
+      const email = document.getElementById('form-tc-email').value;
+      const plan = document.getElementById('form-tc-plan').value;
+      const storesLimit = parseInt(document.getElementById('form-tc-stores-limit').value || 10);
+      const storageLimitGB = parseInt(document.getElementById('form-tc-storage-limit').value || 250);
+      const region = document.getElementById('form-tc-region').value;
+
+      const newTen = {
+        id: `ten-${Date.now()}`,
+        name,
+        domain: `${subdomain}.apexpos.com`,
+        plan,
+        storesUsed: 1,
+        storesLimit,
+        monthlyBilling: plan.includes('Enterprise') ? 149999 : (plan.includes('Pro') ? 49999 : 14999),
+        storageUsedGB: 5,
+        storageLimitGB,
+        dbInstance: `pg-pod-${subdomain}-01`,
+        status: 'Active',
+        avatar: name.split(' ').map(n=>n[0]).join('').toUpperCase(),
+        owner,
+        email,
+        region
+      };
+
+      consoleTenants.unshift(newTen);
+      consoleAuditLogs.unshift({
+        time: 'Just Now',
+        tenant: name,
+        event: 'TENANT_PROVISIONED',
+        detail: `Created isolated database pod ${newTen.dbInstance} on ${region}`
+      });
+
+      renderTenantsCards();
+      renderTenantsTable();
+      renderDatabaseIsolationTable();
+      renderConsoleAuditLogs();
+      closeTenantDrawer();
+      showToast(`Provisioned Enterprise Tenant '${name}'!`, 'success');
+    }
+
+    function openTenantDetailsModal(id) {
+      const t = consoleTenants.find(x => x.id === id);
+      if (!t) return;
+
+      document.getElementById('td-modal-avatar').innerText = t.avatar;
+      document.getElementById('td-modal-name').innerText = t.name;
+      document.getElementById('td-modal-domain').innerText = t.domain;
+      document.getElementById('td-modal-plan').innerText = t.plan;
+      document.getElementById('td-modal-billing').innerText = `₹${t.monthlyBilling.toLocaleString('en-IN')}/mo`;
+      document.getElementById('td-modal-stores').innerText = `${t.storesUsed} / ${t.storesLimit} Stores`;
+      document.getElementById('td-modal-storage').innerText = `${t.storageUsedGB} GB / ${t.storageLimitGB} GB`;
+      document.getElementById('td-modal-db').innerText = t.dbInstance;
+      document.getElementById('td-modal-region').innerText = t.region;
+      document.getElementById('td-modal-owner').innerText = `${t.owner} (${t.email})`;
+
+      document.getElementById('tenant-details-modal')?.classList.remove('hidden');
+    }
+
+    function closeTenantDetailsModal() {
+      document.getElementById('tenant-details-modal')?.classList.add('hidden');
+    }
+
+    function impersonateTenantAdmin() {
+      closeTenantDetailsModal();
+      const label = document.getElementById('tenant-label-text');
+      if (label) label.innerText = document.getElementById('td-modal-name')?.innerText || 'Apex Supermarket Chain';
+      showToast('Switched Session: Super Admin Impersonating Tenant Admin', 'success');
+    }
+
+    function toggleTenantConsoleStatus(id) {
+      const t = consoleTenants.find(x => x.id === id);
+      if (t) {
+        t.status = t.status === 'Active' ? 'Suspended' : 'Active';
+        renderTenantsCards();
+        renderTenantsTable();
+        showToast(`Tenant '${t.name}' status set to ${t.status}`, 'warning');
+      }
+    }
+
+    function exportTenantsConsoleCSV() {
+      let csv = 'Organization Name,Subdomain,SaaS Plan,Stores Used,Stores Limit,Monthly Billing (INR),Storage Used GB,DB Instance,Status\n';
+      consoleTenants.forEach(t => {
+        csv += `"${t.name}","${t.domain}","${t.plan}",${t.storesUsed},${t.storesLimit},${t.monthlyBilling},${t.storageUsedGB},"${t.dbInstance}",${t.status}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'ApexPOS_MultiTenant_Directory.csv');
+      a.click();
+      showToast('Multi-Tenant Directory Exported to CSV!', 'success');
+    }
+  </script>
+
+  </div>
+
+  <div id="receipt-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in">
+      <div id="receipt-modal-body"></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button onclick="window.print()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700">Print Thermal Receipt</button>
+        <button onclick="closeReceiptModal()" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="search-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 p-4 hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-4 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+      <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+        <input type="text" placeholder="Type a command or search term..." class="w-full bg-transparent text-xs text-slate-800 dark:text-slate-100 outline-none">
+        <button onclick="toggleSearchModal()" class="text-xs text-slate-400">ESC</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>
