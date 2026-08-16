@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Search,
@@ -32,23 +32,119 @@ import {
   useToast,
 } from '@pospe/ui-library';
 import {
-  roles as defaultRoles,
-  accessScopeOptions,
-  colorThemeOptions,
-  rbacModules,
-  rbacActions,
-  RbacRole,
+  listRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  grantAllRead,
+  resetMatrix,
+  listRbacUsers,
+  createRbacUser,
+  updateRbacUser,
+  listAuditLogs,
+  LiveRole,
+  LiveRbacUser,
+  LiveAuditLogEntry,
   RbacPermissions,
   RbacModuleKey,
   RbacAction,
-  RbacColorTheme,
-} from '../../services/mockData/roles';
-import { users as defaultUsers, branchOptions, RbacUser } from '../../services/mockData/users';
-import { auditLogs as defaultAuditLogs, AuditLogEntry } from '../../services/mockData/auditLogs';
+} from '../../services/api/rbac';
+import { listBranches, LiveBranch } from '../../services/api/businessProfile';
 import { formatDateTime } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 
 type RbacTab = 'roles' | 'matrix' | 'users' | 'audit';
+type RbacColorTheme = 'purple' | 'blue' | 'indigo' | 'emerald' | 'amber' | 'pink' | 'teal';
+
+interface RbacModuleMeta {
+  key: RbacModuleKey;
+  icon: string;
+  matrixLabel: string;
+  drawerLabel: string;
+  drawerGroup: string;
+  actionLabels: Record<RbacAction, string>;
+}
+
+const rbacActions: RbacAction[] = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+
+const rbacModules: RbacModuleMeta[] = [
+  {
+    key: 'pos',
+    icon: '🛒',
+    matrixLabel: 'POS Billing Terminal & Checkout',
+    drawerLabel: 'POS Billing Terminal',
+    drawerGroup: 'Sales & Checkout',
+    actionLabels: { view: 'View POS', create: 'Create Invoice', edit: 'Hold / Recall', delete: 'Void Invoice', approve: 'Discount Override', export: 'Export Receipts' },
+  },
+  {
+    key: 'inventory',
+    icon: '📦',
+    matrixLabel: 'Inventory Catalog & Stock Control',
+    drawerLabel: 'Inventory Catalog & Stock',
+    drawerGroup: 'Products & Suppliers',
+    actionLabels: { view: 'View Products', create: 'Add New SKU', edit: 'Edit Prices', delete: 'Delete Product', approve: 'Stock Adjust', export: 'Export Catalog' },
+  },
+  {
+    key: 'finance',
+    icon: '💰',
+    matrixLabel: 'GST Tax Filing & Sales Accounting',
+    drawerLabel: 'Finance & GST Tax Suite',
+    drawerGroup: 'Accounting & Filings',
+    actionLabels: { view: 'View GST', create: 'File Returns', edit: 'Ledger Edit', delete: 'Void Ledger', approve: 'Tax Approval', export: 'Export Financials' },
+  },
+  {
+    key: 'crm',
+    icon: '👥',
+    matrixLabel: 'Customer CRM & Loyalty Rewards',
+    drawerLabel: 'CRM & Loyalty Rewards',
+    drawerGroup: 'Customer Profiles',
+    actionLabels: { view: 'View CRM', create: 'Add Customer', edit: 'Edit Points', delete: 'Delete Member', approve: 'VIP Upgrade', export: 'Export Contacts' },
+  },
+];
+
+const accessScopeOptions = [
+  { value: 'Global System Wide', label: 'Global System Wide' },
+  { value: 'Branch Operations', label: 'Branch Operations' },
+  { value: 'POS Counter Only', label: 'POS Counter Only' },
+  { value: 'Warehouse & Catalog', label: 'Warehouse & Catalog' },
+  { value: 'Read-Only Financials', label: 'Read-Only Financials' },
+];
+
+const colorThemeOptions: { value: RbacColorTheme; label: string }[] = [
+  { value: 'teal', label: 'Teal Cyan' },
+  { value: 'blue', label: 'Royal Blue' },
+  { value: 'indigo', label: 'Indigo Violet' },
+  { value: 'emerald', label: 'Emerald Green' },
+  { value: 'amber', label: 'Amber Gold' },
+  { value: 'pink', label: 'Rose Pink' },
+];
+
+const colorMap: Record<string, { bg: string; text: string; border: string; dot: string }> = {
+  purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20', dot: 'bg-purple-600' },
+  blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', dot: 'bg-blue-600' },
+  indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/20', dot: 'bg-indigo-600' },
+  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20', dot: 'bg-emerald-600' },
+  amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-600' },
+  pink: { bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-500/20', dot: 'bg-pink-600' },
+  teal: { bg: 'bg-teal-500/10', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-500/20', dot: 'bg-teal-600' },
+};
+
+const riskBadgeColor: Record<LiveAuditLogEntry['riskRating'], 'emerald' | 'amber' | 'red'> = {
+  LOW: 'emerald',
+  MEDIUM: 'amber',
+  HIGH: 'red',
+};
+
+const defaultNewRolePermissions: RbacPermissions = {
+  pos: { view: true, create: true, edit: true, delete: false, approve: false, export: false },
+  inventory: { view: true, create: false, edit: false, delete: false, approve: false, export: false },
+  finance: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
+  crm: { view: true, create: true, edit: false, delete: false, approve: false, export: false },
+};
+
+function clonePermissions(p: RbacPermissions): RbacPermissions {
+  return { pos: { ...p.pos }, inventory: { ...p.inventory }, finance: { ...p.finance }, crm: { ...p.crm } };
+}
 
 interface RoleFormState {
   title: string;
@@ -68,7 +164,7 @@ interface UserFormState {
   fullName: string;
   email: string;
   roleId: string;
-  branch: string;
+  branchId: string;
   twoFaEnabled: boolean;
   active: boolean;
 }
@@ -76,38 +172,6 @@ interface UserFormState {
 interface UserFormErrors {
   fullName?: string;
   email?: string;
-}
-
-const colorMap: Record<RbacColorTheme, { bg: string; text: string; border: string; dot: string }> = {
-  purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20', dot: 'bg-purple-600' },
-  blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', dot: 'bg-blue-600' },
-  indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/20', dot: 'bg-indigo-600' },
-  emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/20', dot: 'bg-emerald-600' },
-  amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-600' },
-  pink: { bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-500/20', dot: 'bg-pink-600' },
-  teal: { bg: 'bg-teal-500/10', text: 'text-teal-600 dark:text-teal-400', border: 'border-teal-500/20', dot: 'bg-teal-600' },
-};
-
-const riskBadgeColor: Record<AuditLogEntry['riskRating'], 'emerald' | 'amber' | 'red'> = {
-  low: 'emerald',
-  medium: 'amber',
-  high: 'red',
-};
-
-const defaultNewRolePermissions: RbacPermissions = {
-  pos: { view: true, create: true, edit: true, delete: false, approve: false, export: false },
-  inventory: { view: true, create: false, edit: false, delete: false, approve: false, export: false },
-  finance: { view: false, create: false, edit: false, delete: false, approve: false, export: false },
-  crm: { view: true, create: true, edit: false, delete: false, approve: false, export: false },
-};
-
-function clonePermissions(p: RbacPermissions): RbacPermissions {
-  return {
-    pos: { ...p.pos },
-    inventory: { ...p.inventory },
-    finance: { ...p.finance },
-    crm: { ...p.crm },
-  };
 }
 
 const emptyRoleForm: RoleFormState = {
@@ -119,16 +183,7 @@ const emptyRoleForm: RoleFormState = {
   permissions: clonePermissions(defaultNewRolePermissions),
 };
 
-const emptyUserForm: UserFormState = {
-  fullName: '',
-  email: '',
-  roleId: defaultRoles[0]?.id ?? '',
-  branch: branchOptions[0]?.value ?? '',
-  twoFaEnabled: true,
-  active: true,
-};
-
-function permSummary(role: RbacRole) {
+function permSummary(role: LiveRole) {
   return {
     pos: role.permissions.pos.create ? 'Full' : role.permissions.pos.view ? 'Read' : 'None',
     inventory: role.permissions.inventory.edit ? 'Manage' : role.permissions.inventory.view ? 'View' : 'None',
@@ -140,9 +195,12 @@ function permSummary(role: RbacRole) {
 export default function UserRolesPage() {
   const { showToast } = useToast();
 
-  const [rolesState, setRolesState] = useState<RbacRole[]>(() => defaultRoles.map((r) => ({ ...r, permissions: clonePermissions(r.permissions) })));
-  const [usersState, setUsersState] = useState<RbacUser[]>(() => defaultUsers.map((u) => ({ ...u })));
-  const [auditState, setAuditState] = useState<AuditLogEntry[]>(() => defaultAuditLogs.map((l) => ({ ...l })));
+  const [rolesState, setRolesState] = useState<LiveRole[]>([]);
+  const [usersState, setUsersState] = useState<LiveRbacUser[]>([]);
+  const [auditState, setAuditState] = useState<LiveAuditLogEntry[]>([]);
+  const [branches, setBranches] = useState<LiveBranch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [activeTab, setActiveTab] = useState<RbacTab>('roles');
   const [search, setSearch] = useState('');
@@ -155,12 +213,39 @@ export default function UserRolesPage() {
 
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [userForm, setUserForm] = useState<UserFormState>(emptyUserForm);
+  const [userForm, setUserForm] = useState<UserFormState>({
+    fullName: '',
+    email: '',
+    roleId: '',
+    branchId: '',
+    twoFaEnabled: true,
+    active: true,
+  });
   const [userFormErrors, setUserFormErrors] = useState<UserFormErrors>({});
 
-  const defaultRoleIds = useMemo(() => new Set(defaultRoles.map((r) => r.id)), []);
+  async function reload() {
+    setLoading(true);
+    try {
+      const [roles, users, logs, brs] = await Promise.all([listRoles(), listRbacUsers(), listAuditLogs(), listBranches()]);
+      setRolesState(roles);
+      setUsersState(users);
+      setAuditState(logs);
+      setBranches(brs);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load RBAC data from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const roleTitleById = useMemo(() => new Map(rolesState.map((r) => [r.id, r.title])), [rolesState]);
   const roleSelectOptions = useMemo(() => rolesState.map((r) => ({ value: r.id, label: r.title })), [rolesState]);
+  const branchSelectOptions = useMemo(() => branches.map((b) => ({ value: b.id, label: b.name })), [branches]);
   const assignedCountByRole = useMemo(() => {
     const map = new Map<string, number>();
     usersState.forEach((u) => map.set(u.roleId, (map.get(u.roleId) ?? 0) + 1));
@@ -183,27 +268,20 @@ export default function UserRolesPage() {
     const q = search.trim().toLowerCase();
     if (!q) return usersState;
     return usersState.filter(
-      (u) =>
-        u.fullName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (roleTitleById.get(u.roleId) ?? '').toLowerCase().includes(q),
+      (u) => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || (roleTitleById.get(u.roleId) ?? '').toLowerCase().includes(q),
     );
   }, [usersState, search, roleTitleById]);
 
-  // KPI calculations
-  const customRoleCount = rolesState.filter((r) => !defaultRoleIds.has(r.id)).length;
+  const customRoleCount = rolesState.filter((r) => !r.isSystem).length;
   const activeUserCount = usersState.filter((u) => u.active).length;
   const branchCount = new Set(usersState.map((u) => u.branch)).size;
   const twoFaPct = usersState.length ? Math.round((usersState.filter((u) => u.twoFaEnabled).length / usersState.length) * 100) : 0;
-  const latestAuditTime = useMemo(
-    () => auditState.reduce((max, l) => Math.max(max, new Date(l.timestamp).getTime()), 0),
-    [auditState],
-  );
+  const latestAuditTime = useMemo(() => auditState.reduce((max, l) => Math.max(max, new Date(l.timestamp).getTime()), 0), [auditState]);
   const audit24hCount = useMemo(
     () => auditState.filter((l) => latestAuditTime - new Date(l.timestamp).getTime() <= 24 * 60 * 60 * 1000).length,
     [auditState, latestAuditTime],
   );
-  const highRiskCount = auditState.filter((l) => l.riskRating === 'high').length;
+  const highRiskCount = auditState.filter((l) => l.riskRating === 'HIGH').length;
 
   const tabOptions = useMemo(
     () => [
@@ -215,15 +293,14 @@ export default function UserRolesPage() {
     [rolesState.length, usersState.length, auditState.length],
   );
 
-  // Role drawer handlers
-  function openRoleDrawer(role?: RbacRole) {
+  function openRoleDrawer(role?: LiveRole) {
     if (role) {
       setEditingRoleId(role.id);
       setRoleForm({
         title: role.title,
         code: role.code,
         accessScope: role.accessScope,
-        colorTheme: role.colorTheme,
+        colorTheme: (role.colorTheme as RbacColorTheme) || 'teal',
         description: role.description,
         permissions: clonePermissions(role.permissions),
       });
@@ -240,13 +317,10 @@ export default function UserRolesPage() {
   }
 
   function toggleFormPermission(moduleKey: RbacModuleKey, action: RbacAction, checked: boolean) {
-    setRoleForm((f) => ({
-      ...f,
-      permissions: { ...f.permissions, [moduleKey]: { ...f.permissions[moduleKey], [action]: checked } },
-    }));
+    setRoleForm((f) => ({ ...f, permissions: { ...f.permissions, [moduleKey]: { ...f.permissions[moduleKey], [action]: checked } } }));
   }
 
-  function handleSaveRole(e: FormEvent) {
+  async function handleSaveRole(e: FormEvent) {
     e.preventDefault();
     const title = roleForm.title.trim();
     const code = roleForm.code.trim();
@@ -258,116 +332,100 @@ export default function UserRolesPage() {
       return;
     }
 
-    if (editingRoleId) {
-      setRolesState((prev) =>
-        prev.map((r) =>
-          r.id === editingRoleId
-            ? {
-                ...r,
-                title,
-                code,
-                accessScope: roleForm.accessScope,
-                colorTheme: roleForm.colorTheme,
-                description: roleForm.description.trim(),
-                permissions: roleForm.permissions,
-              }
-            : r,
-        ),
-      );
-      showToast(`Role '${title}' updated successfully!`, 'success');
-    } else {
-      const newRole: RbacRole = {
-        id: `role-${Date.now()}`,
-        title,
-        code,
-        accessScope: roleForm.accessScope,
-        colorTheme: roleForm.colorTheme,
-        description: roleForm.description.trim(),
-        isSystem: false,
-        permissions: roleForm.permissions,
-      };
-      setRolesState((prev) => [...prev, newRole]);
-      setAuditState((prev) => [
-        {
-          id: `log-${Date.now()}`,
-          timestamp: new Date().toISOString(),
-          actor: 'Aarav Sharma',
-          eventType: 'ROLE_CREATED',
-          details: `Created custom role ${title} (${code})`,
-          ipAddress: '192.168.1.104',
-          riskRating: 'low',
-        },
-        ...prev,
-      ]);
-      showToast(`New Custom Role '${title}' created!`, 'success');
+    setSaving(true);
+    try {
+      if (editingRoleId) {
+        await updateRole(editingRoleId, {
+          title,
+          code,
+          accessScope: roleForm.accessScope,
+          colorTheme: roleForm.colorTheme,
+          description: roleForm.description.trim(),
+          permissions: roleForm.permissions,
+        });
+        showToast(`Role '${title}' updated successfully!`, 'success');
+      } else {
+        await createRole({
+          title,
+          code,
+          accessScope: roleForm.accessScope,
+          colorTheme: roleForm.colorTheme,
+          description: roleForm.description.trim(),
+          permissions: roleForm.permissions,
+        });
+        showToast(`New Custom Role '${title}' created!`, 'success');
+      }
+      await reload();
+      closeRoleDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save role', 'danger');
+    } finally {
+      setSaving(false);
     }
-    closeRoleDrawer();
   }
 
-  function handleDeleteRole(role: RbacRole) {
+  async function handleDeleteRole(role: LiveRole) {
     if (role.isSystem) {
       showToast('System critical roles cannot be deleted!', 'danger');
       return;
     }
-    setRolesState((prev) => prev.filter((r) => r.id !== role.id));
-    showToast(`Role '${role.title}' deleted`, 'warning');
-  }
-
-  // Permission matrix handlers
-  function handleToggleMatrix(roleId: string, moduleKey: RbacModuleKey, action: RbacAction, checked: boolean) {
-    const role = rolesState.find((r) => r.id === roleId);
-    setRolesState((prev) =>
-      prev.map((r) =>
-        r.id === roleId
-          ? { ...r, permissions: { ...r.permissions, [moduleKey]: { ...r.permissions[moduleKey], [action]: checked } } }
-          : r,
-      ),
-    );
-    if (role) {
-      showToast(`Updated ${role.title}: ${moduleKey.toUpperCase()} > ${action.toUpperCase()} set to ${checked ? 'Allowed' : 'Revoked'}`, 'info');
+    try {
+      await deleteRole(role.id);
+      await reload();
+      showToast(`Role '${role.title}' deleted`, 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete role', 'danger');
     }
   }
 
-  function handleGrantAllRead() {
-    setRolesState((prev) =>
-      prev.map((r) => ({
-        ...r,
-        permissions: {
-          pos: { ...r.permissions.pos, view: true },
-          inventory: { ...r.permissions.inventory, view: true },
-          finance: { ...r.permissions.finance, view: true },
-          crm: { ...r.permissions.crm, view: true },
-        },
-      })),
-    );
-    showToast('Granted View access across all roles!', 'success');
+  async function handleToggleMatrix(roleId: string, moduleKey: RbacModuleKey, action: RbacAction, checked: boolean) {
+    const role = rolesState.find((r) => r.id === roleId);
+    if (!role) return;
+    const nextPermissions = { ...role.permissions, [moduleKey]: { ...role.permissions[moduleKey], [action]: checked } };
+    setRolesState((prev) => prev.map((r) => (r.id === roleId ? { ...r, permissions: nextPermissions } : r)));
+    try {
+      await updateRole(roleId, { permissions: nextPermissions });
+      showToast(`Updated ${role.title}: ${moduleKey.toUpperCase()} > ${action.toUpperCase()} set to ${checked ? 'Allowed' : 'Revoked'}`, 'info');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update permission', 'danger');
+      await reload();
+    }
   }
 
-  function handleResetMatrix() {
-    setRolesState((prev) =>
-      prev.map((r) => {
-        const def = defaultRoles.find((d) => d.id === r.id);
-        return def ? { ...r, permissions: clonePermissions(def.permissions) } : r;
-      }),
-    );
-    showToast('Reset RBAC Matrix to system default profiles', 'warning');
+  async function handleGrantAllRead() {
+    try {
+      const roles = await grantAllRead();
+      setRolesState(roles);
+      showToast('Granted View access across all roles!', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not update permissions', 'danger');
+    }
   }
 
-  // User modal handlers
-  function openUserModal(user?: RbacUser) {
+  async function handleResetMatrix() {
+    try {
+      const roles = await resetMatrix();
+      setRolesState(roles);
+      showToast('Reset RBAC Matrix to system default profiles', 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not reset matrix', 'danger');
+    }
+  }
+
+  function openUserModal(user?: LiveRbacUser) {
     if (user) {
       setEditingUserId(user.id);
       setUserForm({
         fullName: user.fullName,
         email: user.email,
         roleId: user.roleId,
-        branch: user.branch,
+        branchId: user.branchId,
         twoFaEnabled: user.twoFaEnabled,
         active: user.active,
       });
     } else {
       setEditingUserId(null);
-      setUserForm({ ...emptyUserForm, roleId: rolesState[0]?.id ?? '' });
+      setUserForm({ fullName: '', email: '', roleId: rolesState[0]?.id ?? '', branchId: branches[0]?.id ?? '', twoFaEnabled: true, active: true });
     }
     setUserFormErrors({});
     setUserModalOpen(true);
@@ -377,7 +435,7 @@ export default function UserRolesPage() {
     setUserModalOpen(false);
   }
 
-  function handleSaveUser(e: FormEvent) {
+  async function handleSaveUser(e: FormEvent) {
     e.preventDefault();
     const fullName = userForm.fullName.trim();
     const email = userForm.email.trim();
@@ -389,33 +447,38 @@ export default function UserRolesPage() {
       return;
     }
 
-    if (editingUserId) {
-      setUsersState((prev) =>
-        prev.map((u) =>
-          u.id === editingUserId
-            ? { ...u, fullName, email, roleId: userForm.roleId, branch: userForm.branch, twoFaEnabled: userForm.twoFaEnabled, active: userForm.active }
-            : u,
-        ),
-      );
-      showToast(`Updated permissions for ${fullName}`, 'success');
-    } else {
-      const newUser: RbacUser = {
-        id: `usr-${Date.now()}`,
-        fullName,
-        email,
-        roleId: userForm.roleId,
-        branch: userForm.branch,
-        twoFaEnabled: userForm.twoFaEnabled,
-        active: userForm.active,
-        lastActivityAt: new Date().toISOString(),
-      };
-      setUsersState((prev) => [newUser, ...prev]);
-      showToast(`User account created for ${fullName}`, 'success');
+    setSaving(true);
+    try {
+      if (editingUserId) {
+        await updateRbacUser(editingUserId, {
+          name: fullName,
+          email,
+          rbacRoleId: userForm.roleId,
+          storeId: userForm.branchId,
+          twoFaEnabled: userForm.twoFaEnabled,
+          isActive: userForm.active,
+        });
+        showToast(`Updated permissions for ${fullName}`, 'success');
+      } else {
+        await createRbacUser({
+          name: fullName,
+          email,
+          rbacRoleId: userForm.roleId,
+          storeId: userForm.branchId,
+          twoFaEnabled: userForm.twoFaEnabled,
+          isActive: userForm.active,
+        });
+        showToast(`User account created for ${fullName}`, 'success');
+      }
+      await reload();
+      closeUserModal();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save user', 'danger');
+    } finally {
+      setSaving(false);
     }
-    closeUserModal();
   }
 
-  // Exports
   function handleExportRBAC() {
     downloadCSV(
       'ApexPOS_RBAC_Roles_Matrix.csv',
@@ -439,12 +502,12 @@ export default function UserRolesPage() {
     downloadCSV(
       'ApexPOS_RBAC_Audit_Logs.csv',
       ['Timestamp', 'Actor', 'Event Type', 'Details', 'IP Address', 'Risk Rating'],
-      auditState.map((l) => [formatDateTime(l.timestamp), l.actor, l.eventType, l.details, l.ipAddress, l.riskRating.toUpperCase()]),
+      auditState.map((l) => [formatDateTime(l.timestamp), l.actor, l.eventType, l.details, l.ipAddress, l.riskRating]),
     );
     showToast('Security audit log exported to CSV', 'success');
   }
 
-  const userColumns: ColumnDef<RbacUser, any>[] = [
+  const userColumns: ColumnDef<LiveRbacUser, any>[] = [
     {
       header: 'User Name & Email',
       accessorKey: 'fullName',
@@ -497,7 +560,10 @@ export default function UserRolesPage() {
     {
       header: 'Last Activity',
       accessorKey: 'lastActivityAt',
-      cell: ({ getValue }) => <span className="text-slate-400 text-[11px]">{formatDateTime(getValue() as string)}</span>,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return <span className="text-slate-400 text-[11px]">{v ? formatDateTime(v) : 'Never'}</span>;
+      },
     },
     {
       header: 'Actions',
@@ -513,7 +579,7 @@ export default function UserRolesPage() {
     },
   ];
 
-  const auditColumns: ColumnDef<AuditLogEntry, any>[] = [
+  const auditColumns: ColumnDef<LiveAuditLogEntry, any>[] = [
     {
       header: 'Timestamp',
       accessorKey: 'timestamp',
@@ -549,7 +615,7 @@ export default function UserRolesPage() {
       accessorKey: 'riskRating',
       cell: ({ row }) => (
         <Badge color={riskBadgeColor[row.original.riskRating]} pill>
-          {row.original.riskRating.toUpperCase()} RISK
+          {row.original.riskRating} RISK
         </Badge>
       ),
     },
@@ -636,14 +702,14 @@ export default function UserRolesPage() {
       {/* TAB 1: Roles Overview */}
       {activeTab === 'roles' && (
         <div className="space-y-4">
-          {filteredRoles.length === 0 ? (
+          {!loading && filteredRoles.length === 0 ? (
             <GlassCard>
               <EmptyState icon={ShieldAlert} title="No RBAC roles matched your search or scope filter" />
             </GlassCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredRoles.map((role) => {
-                const c = colorMap[role.colorTheme];
+                const c = colorMap[role.colorTheme] ?? colorMap.teal;
                 const summary = permSummary(role);
                 const assigned = assignedCountByRole.get(role.id) ?? 0;
                 return (
@@ -773,7 +839,7 @@ export default function UserRolesPage() {
                       </td>
                       {rolesState.map((role) => {
                         const checked = role.permissions[mod.key][action];
-                        const disabled = role.id === 'super-admin';
+                        const disabled = role.code === 'ROLE_SUPER_ADMIN';
                         return (
                           <td key={role.id} className="py-2.5 px-4">
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -814,7 +880,7 @@ export default function UserRolesPage() {
             </button>
           </div>
 
-          <DataTable columns={userColumns} data={filteredUsers} emptyTitle="No users found" emptyDescription="Try adjusting your search terms." />
+          <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyTitle="No users found" emptyDescription="Try adjusting your search terms." />
         </GlassCard>
       )}
 
@@ -836,7 +902,7 @@ export default function UserRolesPage() {
             </button>
           </div>
 
-          <DataTable columns={auditColumns} data={auditState} emptyTitle="No audit events" emptyDescription="Security events will appear here as they occur." />
+          <DataTable columns={auditColumns} data={auditState} loading={loading} emptyTitle="No audit events" emptyDescription="Security events will appear here as they occur." />
         </GlassCard>
       )}
 
@@ -859,9 +925,10 @@ export default function UserRolesPage() {
             <button
               form="role-drawer-form"
               type="submit"
-              className="px-5 py-2 rounded-xl bg-teal-600 text-white font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-700 text-xs transition"
+              disabled={saving}
+              className="px-5 py-2 rounded-xl bg-teal-600 text-white font-bold shadow-lg shadow-teal-500/20 hover:bg-teal-700 text-xs transition disabled:opacity-50"
             >
-              Save Role Configurations
+              {saving ? 'Saving…' : 'Save Role Configurations'}
             </button>
           </>
         }
@@ -958,9 +1025,10 @@ export default function UserRolesPage() {
             <button
               form="user-modal-form"
               type="submit"
-              className="flex-1 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md text-xs transition"
+              disabled={saving}
+              className="flex-1 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-md text-xs transition disabled:opacity-50"
             >
-              Save User Assignment
+              {saving ? 'Saving…' : 'Save User Assignment'}
             </button>
           </>
         }
@@ -993,9 +1061,9 @@ export default function UserRolesPage() {
             />
             <Select
               label="Authorized Branch"
-              options={branchOptions}
-              value={userForm.branch}
-              onChange={(e) => setUserForm((f) => ({ ...f, branch: e.target.value }))}
+              options={branchSelectOptions}
+              value={userForm.branchId}
+              onChange={(e) => setUserForm((f) => ({ ...f, branchId: e.target.value }))}
             />
           </div>
           <div className="flex items-center justify-between pt-2">

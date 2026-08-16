@@ -49,6 +49,8 @@ model Tenant {
   warehouses       Warehouse[]
   warehouseTransfers WarehouseTransfer[]
   gstReturns       GstReturn[]
+  rbacRoles        RbacRole[]
+  auditLogs        AuditLog[]
 
   @@map("tenants")
 }
@@ -64,20 +66,68 @@ enum UserRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  storeId      String?
-  store        Store?   @relation(fields: [storeId], references: [id])
-  name         String
-  email        String
-  passwordHash String
-  role         UserRole
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  id             String    @id @default(cuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  storeId        String?
+  store          Store?    @relation(fields: [storeId], references: [id])
+  // The custom RBAC role built on the Roles & Security page — richer than the
+  // fixed UserRole enum below (which stays for coarse-grained checks
+  // elsewhere), since the whole point of that page is tenant-defined roles
+  // with a per-module permission matrix.
+  rbacRoleId     String?
+  rbacRole       RbacRole? @relation(fields: [rbacRoleId], references: [id])
+  name           String
+  email          String
+  passwordHash   String
+  role           UserRole
+  twoFaEnabled   Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
 
   @@unique([tenantId, email])
   @@map("users")
+}
+
+model RbacRole {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  title       String
+  code        String
+  accessScope String
+  colorTheme  String   @default("teal")
+  description String?
+  isSystem    Boolean  @default(false)
+  // { pos: {view,create,edit,delete,approve,export}, inventory: {...}, finance: {...}, crm: {...} }
+  permissions Json
+  createdAt   DateTime @default(now())
+
+  users User[]
+
+  @@unique([tenantId, code])
+  @@map("rbac_roles")
+}
+
+enum AuditRiskRating {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  tenantId   String
+  tenant     Tenant          @relation(fields: [tenantId], references: [id])
+  timestamp  DateTime        @default(now())
+  actor      String
+  eventType  String
+  details    String
+  ipAddress  String?
+  riskRating AuditRiskRating @default(LOW)
+
+  @@map("audit_logs")
 }
 
 // ---------- Store / Warehouse ----------

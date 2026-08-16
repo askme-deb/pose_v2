@@ -4,6 +4,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import healthRouter from './routes/health';
+import rolesRouter from './routes/roles';
+import usersRouter from './routes/users';
+import auditLogsRouter from './routes/auditLogs';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'authentication';
 
@@ -16,6 +19,9 @@ app.use(express.json());
 app.use(pinoHttp());
 
 app.use('/', healthRouter);
+app.use('/', rolesRouter);
+app.use('/', usersRouter);
+app.use('/', auditLogsRouter);
 
 app.listen(PORT, () => {
   console.log(`[authentication] listening on port ${PORT}`);

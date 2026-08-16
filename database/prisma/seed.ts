@@ -419,8 +419,91 @@ async function main() {
     }
   }
 
+  const allBranches = await prisma.store.findMany({ where: { tenantId: tenant.id } });
+  const branchIdByName: Record<string, string> = Object.fromEntries(allBranches.map((b) => [b.name, b.id]));
+
+  const rbacPerms = (pos: boolean[], inv: boolean[], fin: boolean[], crm: boolean[]) => {
+    const keys = ['view', 'create', 'edit', 'delete', 'approve', 'export'] as const;
+    const zip = (vals: boolean[]) => Object.fromEntries(keys.map((k, i) => [k, vals[i]]));
+    return { pos: zip(pos), inventory: zip(inv), finance: zip(fin), crm: zip(crm) };
+  };
+
+  const roleDefs = [
+    { code: 'ROLE_SUPER_ADMIN', title: 'Super Administrator', accessScope: 'Global System Wide', colorTheme: 'purple', isSystem: true, description: 'Unrestricted enterprise access to all tenant configurations, financial records, white label parameters, and user roles.', permissions: rbacPerms([true, true, true, true, true, true], [true, true, true, true, true, true], [true, true, true, true, true, true], [true, true, true, true, true, true]) },
+    { code: 'ROLE_STORE_MGR', title: 'Store General Manager', accessScope: 'Branch Operations', colorTheme: 'blue', isSystem: false, description: 'Manages daily store workflow, cashier shifts, stock overrides, supplier purchase orders, and local sales reports.', permissions: rbacPerms([true, true, true, true, true, true], [true, true, true, false, true, true], [true, false, false, false, false, true], [true, true, true, false, true, true]) },
+    { code: 'ROLE_CASHIER', title: 'POS Terminal Cashier', accessScope: 'POS Counter Only', colorTheme: 'indigo', isSystem: false, description: 'Front-desk barcode scanning, cart management, customer selection, cash/UPI receipt generation, and hold bill recalls.', permissions: rbacPerms([true, true, true, false, false, false], [true, false, false, false, false, false], [false, false, false, false, false, false], [true, true, false, false, false, false]) },
+    { code: 'ROLE_INVENTORY_LEAD', title: 'Inventory & Stock Lead', accessScope: 'Warehouse & Catalog', colorTheme: 'emerald', isSystem: false, description: 'Full control over SKU creation, barcode generation, warehouse rack transfers, damage adjustments, and purchase receiving.', permissions: rbacPerms([true, false, false, false, false, false], [true, true, true, true, true, true], [false, false, false, false, false, false], [false, false, false, false, false, false]) },
+    { code: 'ROLE_FINANCE_AUDITOR', title: 'Finance & GST Auditor', accessScope: 'Read-Only Financials', colorTheme: 'amber', isSystem: false, description: 'Audits GSTR-1/3B tax reports, sales invoices, ledger balances, and profit margins. No operational editing privileges.', permissions: rbacPerms([true, false, false, false, false, true], [true, false, false, false, false, true], [true, true, false, false, true, true], [true, false, false, false, false, true]) },
+    { code: 'ROLE_CRM_SPEC', title: 'CRM & Loyalty Specialist', accessScope: 'Branch Operations', colorTheme: 'pink', isSystem: false, description: 'Oversees customer database, assigns VIP loyalty tiers, issues promotional coupons, and handles store membership credit.', permissions: rbacPerms([true, false, false, false, false, false], [false, false, false, false, false, false], [false, false, false, false, false, false], [true, true, true, true, true, true]) },
+  ];
+
+  const roleIdByCode: Record<string, string> = {};
+  for (const r of roleDefs) {
+    const existing = await prisma.rbacRole.findFirst({ where: { tenantId: tenant.id, code: r.code } });
+    const role = existing ?? (await prisma.rbacRole.create({ data: { tenantId: tenant.id, ...r } }));
+    roleIdByCode[r.code] = role.id;
+  }
+
+  const userDefs = [
+    { name: 'Aarav Sharma', email: 'aarav.sharma@apexsupermarket.com', roleCode: 'ROLE_SUPER_ADMIN', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T09:20:00+05:30' },
+    { name: 'Priya Nair', email: 'priya.nair@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T08:55:00+05:30' },
+    { name: 'Rohan Verma', email: 'rohan.verma@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T19:40:00+05:30' },
+    { name: 'Simran Kaur', email: 'simran.kaur@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T07:15:00+05:30' },
+    { name: 'Karthik Iyer', email: 'karthik.iyer@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Airport Express Kiosk', twoFaEnabled: false, isActive: false, lastActivityAt: '2026-08-10T13:05:00+05:30' },
+    { name: 'Ananya Reddy', email: 'ananya.reddy@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T06:30:00+05:30' },
+    { name: 'Vikram Desai', email: 'vikram.desai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T22:10:00+05:30' },
+    { name: 'Meera Pillai', email: 'meera.pillai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-14T17:45:00+05:30' },
+    { name: 'Rajesh Khanna', email: 'rajesh.khanna@apexsupermarket.com', roleCode: 'ROLE_FINANCE_AUDITOR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T11:25:00+05:30' },
+    { name: 'Divya Menon', email: 'divya.menon@apexsupermarket.com', roleCode: 'ROLE_CRM_SPEC', branch: 'Airport Express Kiosk', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-13T09:50:00+05:30' },
+  ];
+
+  for (const u of userDefs) {
+    const existing = await prisma.user.findFirst({ where: { tenantId: tenant.id, email: u.email } });
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          tenantId: tenant.id,
+          name: u.name,
+          email: u.email,
+          rbacRoleId: roleIdByCode[u.roleCode],
+          storeId: branchIdByName[u.branch],
+          twoFaEnabled: u.twoFaEnabled,
+          isActive: u.isActive,
+          lastActivityAt: new Date(u.lastActivityAt),
+          role: 'CASHIER',
+          passwordHash: 'seed-placeholder-hash',
+        },
+      });
+    }
+  }
+
+  const auditLogDefs = [
+    { timestamp: '2026-08-16T09:15:00+05:30', actor: 'Aarav Sharma', eventType: 'ROLE_MODIFIED', details: 'Updated POS Terminal Cashier permission: Void Invoice toggled to Approved only', ipAddress: '192.168.1.104', riskRating: 'MEDIUM' as const },
+    { timestamp: '2026-08-16T08:40:00+05:30', actor: 'Priya Nair', eventType: 'USER_REASSIGNED', details: 'Promoted Simran Kaur from POS Cashier to Assistant Store Manager candidate', ipAddress: '192.168.1.112', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-16T07:20:00+05:30', actor: 'System Security', eventType: '2FA_ENFORCED', details: 'Mandated 2-Factor Authentication for Ananya Reddy (ROLE_CASHIER)', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-16T06:05:00+05:30', actor: 'Aarav Sharma', eventType: 'LOGIN_SUCCESS', details: 'Super Administrator authenticated via hardware security key from Downtown Flagship', ipAddress: '192.168.1.104', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-15T22:30:00+05:30', actor: 'Aarav Sharma', eventType: 'ROLE_CREATED', details: 'Created new custom role: CRM & Loyalty Specialist (ROLE_CRM_SPEC)', ipAddress: '192.168.1.104', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-15T19:45:00+05:30', actor: 'Rohan Verma', eventType: 'LOGIN_SUCCESS', details: 'Store General Manager authenticated from Suburban Outlet terminal', ipAddress: '192.168.4.22', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-15T16:10:00+05:30', actor: 'Rajesh Khanna', eventType: 'PERMISSION_ESCALATION_ATTEMPT', details: 'Attempted to access Ledger Edit without Finance Auditor approval scope, request blocked', ipAddress: '192.168.2.45', riskRating: 'HIGH' as const },
+    { timestamp: '2026-08-15T14:30:00+05:30', actor: 'Rajesh Khanna', eventType: 'SECURITY_AUDIT', details: 'Exported GSTR-1 Permission Audit Matrix for Q2 Compliance review', ipAddress: '192.168.2.45', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-15T11:25:00+05:30', actor: 'Vikram Desai', eventType: 'USER_REASSIGNED', details: 'Transferred Meera Pillai branch authorization to Central Warehouse A', ipAddress: '192.168.5.11', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-14T20:15:00+05:30', actor: 'System Security', eventType: 'ACCOUNT_SUSPENDED', details: 'Auto-suspended Karthik Iyer account after 5 failed login attempts, 2FA disabled flag raised', ipAddress: '10.0.0.1', riskRating: 'HIGH' as const },
+    { timestamp: '2026-08-14T17:50:00+05:30', actor: 'Priya Nair', eventType: 'ROLE_MODIFIED', details: 'Granted Inventory & Stock Lead role Stock Adjust approval privilege', ipAddress: '192.168.1.112', riskRating: 'MEDIUM' as const },
+    { timestamp: '2026-08-13T18:05:00+05:30', actor: 'Divya Menon', eventType: 'LOGIN_SUCCESS', details: 'CRM & Loyalty Specialist authenticated from Airport Express Kiosk', ipAddress: '192.168.6.30', riskRating: 'LOW' as const },
+    { timestamp: '2026-08-12T12:40:00+05:30', actor: 'Aarav Sharma', eventType: 'TENANT_SETTINGS_CHANGED', details: 'Updated white label branding parameters and enforced org-wide password rotation policy', ipAddress: '192.168.1.104', riskRating: 'MEDIUM' as const },
+    { timestamp: '2026-08-11T09:55:00+05:30', actor: 'System Security', eventType: 'LOGIN_FAILED', details: 'Three consecutive failed login attempts detected for account rajesh.khanna@apexsupermarket.com', ipAddress: '203.0.113.77', riskRating: 'HIGH' as const },
+    { timestamp: '2026-08-10T15:20:00+05:30', actor: 'Aarav Sharma', eventType: 'ROLE_DELETED', details: 'Removed deprecated custom role Weekend Shift Supervisor (ROLE_WEEKEND_SUP)', ipAddress: '192.168.1.104', riskRating: 'MEDIUM' as const },
+  ];
+
+  for (const l of auditLogDefs) {
+    const existing = await prisma.auditLog.findFirst({ where: { tenantId: tenant.id, details: l.details } });
+    if (!existing) {
+      await prisma.auditLog.create({ data: { tenantId: tenant.id, ...l, timestamp: new Date(l.timestamp) } });
+    }
+  }
+
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, and ${gstReturnDefs.length} GST returns.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, ${gstReturnDefs.length} GST returns, ${roleDefs.length} RBAC roles, ${userDefs.length} users, and ${auditLogDefs.length} audit logs.`,
   );
 }
 
