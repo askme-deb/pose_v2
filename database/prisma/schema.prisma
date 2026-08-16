@@ -38,6 +38,7 @@ model Tenant {
   updatedAt    DateTime          @updatedAt
 
   stores           Store[]
+  profile          TenantProfile?
   users            User[]
   products         Product[]
   brands           Brand[]
@@ -81,21 +82,73 @@ model User {
 
 // ---------- Store / Warehouse ----------
 
+enum BranchType {
+  FLAGSHIP
+  EXPRESS
+  CENTRAL_WAREHOUSE
+}
+
 model Store {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
   name      String
+  code      String?
+  type      BranchType @default(FLAGSHIP)
+  manager   String?
+  phone     String?
+  isPrimary Boolean    @default(false)
+  printers  Int        @default(1)
   address   String?
   gstin     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
 
   users      User[]
   invoices   Invoice[]
   stockItems StockItem[]
 
   @@map("stores")
+}
+
+// ---------- Tenant business profile / settings ----------
+// Split out from Tenant rather than adding ~20 columns directly to it — Tenant
+// is queried by every service (resolveTenantId), while this is purely
+// display/config data for the settings page. One row per tenant.
+
+model TenantProfile {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  registeredName      String
+  tagline             String?
+  logoUrl             String?
+  retailCategory      String   @default("supermarket")
+  cin                 String?
+  yearEstablished     Int?
+  supportEmail        String?
+  helplinePhone       String?
+  hqAddress           String?
+  gstin               String?
+  pan                 String?
+  stateCode           String?
+  defaultTaxSlab      Int      @default(18)
+  invoicePrefix       String   @default("INV-")
+  nextInvoiceNumber   Int      @default(1)
+  currencySymbol      String   @default("₹")
+  financialYearStart  String   @default("April")
+  ewayBillThreshold   Int      @default(50000)
+  receiptHeader       String?
+  receiptSubHeader    String?
+  receiptFooter       String?
+  receiptReturnPolicy String?
+  receiptPaperWidth   String   @default("80mm")
+  receiptShowUpiQr    Boolean  @default(true)
+  razorpayKeyId       String?
+  whatsappPhoneId     String?
+  updatedAt           DateTime @updatedAt
+
+  @@map("tenant_profiles")
 }
 
 // ---------- Inventory ----------

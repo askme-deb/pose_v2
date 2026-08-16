@@ -7,6 +7,8 @@ import healthRouter from './routes/health';
 import invoicesRouter from './routes/invoices';
 import customersRouter from './routes/customers';
 import gstRouter from './routes/gst';
+import businessProfileRouter from './routes/businessProfile';
+import branchesRouter from './routes/branches';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'sales-service';
 
@@ -22,6 +24,8 @@ app.use('/', healthRouter);
 app.use('/', invoicesRouter);
 app.use('/', customersRouter);
 app.use('/', gstRouter);
+app.use('/', businessProfileRouter);
+app.use('/', branchesRouter);
 
 app.listen(PORT, () => {
   console.log(`[sales-service] listening on port ${PORT}`);

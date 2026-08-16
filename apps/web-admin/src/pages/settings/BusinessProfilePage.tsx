@@ -1,19 +1,17 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Store, FileCheck, Printer, CloudLightning, Camera, Save, Eye, CreditCard, MessageSquare } from 'lucide-react';
 import { Badge, Button, Checkbox, Drawer, GlassCard, Input, KpiCard, PillTabs, Select, Textarea, useToast } from '@pospe/ui-library';
 import { formatINR } from '../../utils/format';
 import {
-  Branch,
+  getBusinessProfile,
+  updateBusinessProfile,
+  listBranches,
+  createBranch,
+  updateBranch,
+  LiveBusinessProfile,
+  LiveBranch,
   BranchType,
-  branches as initialBranches,
-  branchTypeOptions,
-  businessProfile,
-  financialYearStartOptions,
-  paperWidthOptions,
-  retailCategoryOptions,
-  stateCodeOptions,
-  taxSlabOptions,
-} from '../../services/mockData/businessProfile';
+} from '../../services/api/businessProfile';
 
 type ProfileTab = 'general' | 'tax' | 'branches' | 'receipt' | 'api';
 
@@ -23,6 +21,45 @@ const tabOptions: { value: ProfileTab; label: string }[] = [
   { value: 'branches', label: 'Branch Locations' },
   { value: 'receipt', label: 'Thermal Receipt' },
   { value: 'api', label: 'API & Cloud' },
+];
+
+const branchTypeOptions: { value: BranchType; label: string }[] = [
+  { value: 'FLAGSHIP', label: 'Flagship Retail Store' },
+  { value: 'EXPRESS', label: 'Express Kiosk / Mini Outlet' },
+  { value: 'CENTRAL_WAREHOUSE', label: 'Central Warehouse Hub' },
+];
+
+const retailCategoryOptions = [
+  { value: 'supermarket', label: 'Supermarket / Grocery Chain' },
+  { value: 'apparel', label: 'Apparel & Fashion Boutique' },
+  { value: 'restaurant', label: 'Restaurant & QSR Food Chain' },
+  { value: 'pharmacy', label: 'Pharmacy & Healthcare' },
+  { value: 'electronics', label: 'Electronics & Appliances' },
+];
+
+const stateCodeOptions = [
+  { value: '27', label: '27 - Maharashtra' },
+  { value: '07', label: '07 - Delhi NCR' },
+  { value: '29', label: '29 - Karnataka' },
+  { value: '33', label: '33 - Tamil Nadu' },
+  { value: '09', label: '09 - Uttar Pradesh' },
+];
+
+const taxSlabOptions = [
+  { value: '18', label: '18% GST (Standard Retail)' },
+  { value: '12', label: '12% GST (Processed Foods)' },
+  { value: '5', label: '5% GST (Essential Commodities)' },
+  { value: '0', label: '0% GST (Exempted Fresh Goods)' },
+];
+
+const financialYearStartOptions = [
+  { value: 'April', label: 'April (1st April - 31st March)' },
+  { value: 'January', label: 'January (1st Jan - 31st Dec)' },
+];
+
+const paperWidthOptions = [
+  { value: '80mm', label: '80mm (Standard Desktop POS)' },
+  { value: '58mm', label: '58mm (Handheld Mobile Bluetooth)' },
 ];
 
 type BranchFormState = {
@@ -37,7 +74,7 @@ type BranchFormState = {
 const emptyBranchForm: BranchFormState = {
   name: '',
   code: '',
-  type: 'Flagship',
+  type: 'FLAGSHIP',
   manager: '',
   phone: '',
   address: '',
@@ -50,21 +87,41 @@ const sampleReceiptItems = [
 
 export default function BusinessProfilePage() {
   const { showToast } = useToast();
-  const [profile, setProfile] = useState(businessProfile);
+  const [profile, setProfile] = useState<LiveBusinessProfile | null>(null);
+  const [branchList, setBranchList] = useState<LiveBranch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProfileTab>('general');
-  const [branchList, setBranchList] = useState<Branch[]>(initialBranches);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [branchDrawerOpen, setBranchDrawerOpen] = useState(false);
   const [branchEditId, setBranchEditId] = useState<string | null>(null);
   const [branchForm, setBranchForm] = useState<BranchFormState>(emptyBranchForm);
 
+  async function reload() {
+    setLoading(true);
+    try {
+      const [prof, branches] = await Promise.all([getBusinessProfile(), listBranches()]);
+      setProfile(prof);
+      setBranchList(branches);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load business profile from the server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const totalPrinters = branchList.reduce((s, b) => s + b.printers, 0);
   const primaryBranch = branchList.find((b) => b.isPrimary) ?? branchList[0];
 
-  function setField<K extends keyof typeof profile>(key: K, value: (typeof profile)[K]) {
-    setProfile((p) => ({ ...p, [key]: value }));
+  function setField<K extends keyof LiveBusinessProfile>(key: K, value: LiveBusinessProfile[K]) {
+    setProfile((p) => (p ? { ...p, [key]: value } : p));
   }
 
   function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -78,7 +135,7 @@ export default function BusinessProfilePage() {
     reader.readAsDataURL(file);
   }
 
-  function openBranchDrawer(branch?: Branch) {
+  function openBranchDrawer(branch?: LiveBranch) {
     if (branch) {
       setBranchEditId(branch.id);
       setBranchForm({
@@ -100,25 +157,31 @@ export default function BusinessProfilePage() {
     setBranchDrawerOpen(false);
   }
 
-  function saveBranch() {
+  async function saveBranch() {
     if (!branchForm.name.trim() || !branchForm.code.trim() || !branchForm.manager.trim() || !branchForm.phone.trim()) {
       showToast('Branch name, code, manager, and phone are required', 'danger');
       return;
     }
-    if (branchEditId) {
-      setBranchList((prev) => prev.map((b) => (b.id === branchEditId ? { ...b, ...branchForm } : b)));
-      showToast(`Branch Store '${branchForm.name}' updated!`, 'success');
-    } else {
-      setBranchList((prev) => [
-        ...prev,
-        { id: `br-${Date.now()}`, ...branchForm, isPrimary: false, printers: 1 },
-      ]);
-      showToast(`New Branch Store '${branchForm.name}' registered!`, 'success');
+    setSaving(true);
+    try {
+      if (branchEditId) {
+        await updateBranch(branchEditId, branchForm);
+        showToast(`Branch Store '${branchForm.name}' updated!`, 'success');
+      } else {
+        await createBranch(branchForm);
+        showToast(`New Branch Store '${branchForm.name}' registered!`, 'success');
+      }
+      await reload();
+      closeBranchDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save branch', 'danger');
+    } finally {
+      setSaving(false);
     }
-    closeBranchDrawer();
   }
 
   function copyRazorpayKey() {
+    if (!profile) return;
     navigator.clipboard.writeText(profile.razorpayKeyId);
     showToast('API Key copied to clipboard!', 'info');
   }
@@ -127,8 +190,18 @@ export default function BusinessProfilePage() {
     showToast('WhatsApp Test Message Sent!', 'success');
   }
 
-  function saveAllSettings() {
-    showToast('Company Profile Settings & GST Rules Saved Successfully!', 'success');
+  async function saveAllSettings() {
+    if (!profile) return;
+    setSaving(true);
+    try {
+      const updated = await updateBusinessProfile(profile);
+      setProfile(updated);
+      showToast('Company Profile Settings & GST Rules Saved Successfully!', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save settings', 'danger');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function goToReceiptPreview() {
@@ -137,9 +210,22 @@ export default function BusinessProfilePage() {
   }
 
   const receiptSubtotal = sampleReceiptItems.reduce((s, i) => s + i.amount, 0);
-  const receiptTax = useMemo(() => Math.round(((receiptSubtotal * profile.defaultTaxSlab) / 100) * 100) / 100, [receiptSubtotal, profile.defaultTaxSlab]);
+  const receiptTax = useMemo(
+    () => Math.round(((receiptSubtotal * (profile?.defaultTaxSlab ?? 0)) / 100) * 100) / 100,
+    [receiptSubtotal, profile?.defaultTaxSlab],
+  );
   const receiptTotal = Math.round((receiptSubtotal + receiptTax) * 100) / 100;
   const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=apexpos@icici%26pn=ApexSupermarket%26am=${receiptTotal}`;
+
+  if (loading || !profile) {
+    return (
+      <div className="space-y-8">
+        <GlassCard>
+          <p className="text-center text-xs text-slate-400 py-10">Loading business profile…</p>
+        </GlassCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -164,9 +250,9 @@ export default function BusinessProfilePage() {
               <Printer className="w-3.5 h-3.5 text-blue-600" />
               Receipt Preview
             </Button>
-            <Button onClick={saveAllSettings}>
+            <Button onClick={saveAllSettings} disabled={saving}>
               <Save className="w-4 h-4" />
-              Save Profile Settings
+              {saving ? 'Saving…' : 'Save Profile Settings'}
             </Button>
           </div>
         </div>
@@ -480,7 +566,9 @@ export default function BusinessProfilePage() {
             <Button variant="secondary" onClick={closeBranchDrawer}>
               Cancel
             </Button>
-            <Button onClick={saveBranch}>Save Store Branch</Button>
+            <Button onClick={saveBranch} disabled={saving}>
+              {saving ? 'Saving…' : 'Save Store Branch'}
+            </Button>
           </>
         }
       >

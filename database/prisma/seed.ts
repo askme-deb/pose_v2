@@ -138,17 +138,56 @@ async function main() {
     }
   }
 
-  const existingStore = await prisma.store.findFirst({ where: { tenantId: tenant.id, name: 'Downtown Flagship' } });
-  const store =
-    existingStore ??
-    (await prisma.store.create({
-      data: {
-        tenantId: tenant.id,
-        name: 'Downtown Flagship',
-        address: '142 MG Road, Bengaluru, Karnataka 560001',
-        gstin: '27AAACA1234F1Z9',
-      },
-    }));
+  const branchDefs = [
+    { name: 'Downtown Flagship', code: 'BR-DT-01', type: 'FLAGSHIP' as const, manager: 'Sarah Jenkins', phone: '+91 (022) 4988-7701', address: 'Plot 12, Main MG Road, Fort, Mumbai - 400001', gstin: '27AAACA1234F1Z9', isPrimary: true, printers: 3 },
+    { name: 'Suburban Outlet', code: 'BR-SUB-02', type: 'FLAGSHIP' as const, manager: 'Marcus Vance', phone: '+91 (022) 4988-7702', address: 'Shop 4-7, Hyper City Mall, Andheri West, Mumbai - 400053', gstin: null, isPrimary: false, printers: 2 },
+    { name: 'Airport Express Kiosk', code: 'BR-AIR-03', type: 'EXPRESS' as const, manager: 'Priya Sharma', phone: '+91 (022) 4988-7703', address: 'Terminal 2 Departure Hall, Chhatrapati Shivaji Airport, Mumbai - 400099', gstin: null, isPrimary: false, printers: 1 },
+    { name: 'Central Warehouse A', code: 'WH-CEN-01', type: 'CENTRAL_WAREHOUSE' as const, manager: 'Elena Rostova', phone: '+91 (022) 4988-7704', address: 'Bhiwandi Logistics Hub, Gate 4, Thane - 421302', gstin: null, isPrimary: false, printers: 1 },
+  ];
+
+  for (const b of branchDefs) {
+    const existing = await prisma.store.findFirst({ where: { tenantId: tenant.id, name: b.name } });
+    if (existing) {
+      await prisma.store.update({ where: { id: existing.id }, data: b });
+    } else {
+      await prisma.store.create({ data: { ...b, tenantId: tenant.id } });
+    }
+  }
+  // Invoice/StockAdjustment seeding below bills against the primary branch.
+  const store = await prisma.store.findFirstOrThrow({ where: { tenantId: tenant.id, isPrimary: true } });
+
+  const tenantProfileData = {
+    registeredName: 'Apex Supermarket Chain Pvt Ltd',
+    tagline: 'Fresh Organic Produce & Daily Essentials',
+    retailCategory: 'supermarket',
+    cin: 'U52100MH2021PTC368920',
+    yearEstablished: 2021,
+    supportEmail: 'support@apexsupermarket.com',
+    helplinePhone: '+91 (022) 4988-7700',
+    hqAddress: 'Apex Tower, 4th Floor, Commercial Zone 9, BKC, Bandra East, Mumbai - 400051, Maharashtra, India',
+    gstin: '27AAAAA0000A1Z5',
+    pan: 'AAAAA0000A',
+    stateCode: '27',
+    defaultTaxSlab: 18,
+    invoicePrefix: 'INV-2026-',
+    nextInvoiceNumber: 9833,
+    currencySymbol: '₹',
+    financialYearStart: 'April',
+    ewayBillThreshold: 50000,
+    receiptHeader: 'APEX SUPERMARKET',
+    receiptSubHeader: 'Downtown Flagship Branch • Call: 022-49887700',
+    receiptFooter: 'Thank you for shopping at Apex Supermarket! Visit again soon.',
+    receiptReturnPolicy: 'Returns accepted within 7 days with original invoice receipt. Perishables non-returnable.',
+    receiptPaperWidth: '80mm',
+    receiptShowUpiQr: true,
+    razorpayKeyId: 'rzp_live_98820199481729',
+    whatsappPhoneId: '+91 98201 99887',
+  };
+  await prisma.tenantProfile.upsert({
+    where: { tenantId: tenant.id },
+    update: tenantProfileData,
+    create: { tenantId: tenant.id, ...tenantProfileData },
+  });
 
   // Same people who appear on the invoices below (tenantId+name is how they're
   // linked at seed time) — one customer list shared between CRM and the sales
@@ -381,7 +420,7 @@ async function main() {
   }
 
   console.log(
-    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, 1 store, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, and ${gstReturnDefs.length} GST returns.`,
+    `Seeded tenant "${tenant.name}" with ${categoryDefs.length} categories, ${brandDefs.length} brands, ${products.length} products, ${adjustmentDefs.length} stock adjustments, ${branchDefs.length} branches, 1 business profile, ${customerDefs.length} customers, ${invoiceDefs.length} invoices, ${supplierDefs.length} suppliers, ${poDefs.length} purchase orders, ${warehouseDefs.length} warehouses, ${transferDefs.length} warehouse transfers, and ${gstReturnDefs.length} GST returns.`,
   );
 }
 
