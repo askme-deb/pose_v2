@@ -1,18 +1,50 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
-import { Button, useToast } from '@pospe/ui-library';
+import { Button } from '@pospe/ui-library';
+import { useAuthStore } from '../../store/useAuthStore';
+import { apiClient } from '../../services/api/client';
+import type { Role } from '@pospe/permissions';
+
+interface LocationState {
+  pendingToken?: string;
+}
 
 export default function TwoFactorPage() {
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const location = useLocation();
+  const login = useAuthStore((s) => s.login);
+
+  const pendingToken = (location.state as LocationState | null)?.pendingToken;
 
   const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // No pending login session to verify against (e.g. a direct hit on /2fa)
+    // — nothing to do here but go back and start over.
+    if (!pendingToken) navigate('/login', { replace: true });
+  }, [pendingToken, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('Two-factor authentication verified.', 'success');
-    navigate('/dashboard');
+    if (!pendingToken || code.length !== 6) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await apiClient.post<{ token: string; user: { name: string; email: string; role: Role } }>(
+        '/api/auth/login/2fa-verify',
+        { pendingToken, token: code },
+      );
+      login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
+      navigate('/dashboard');
+    } catch {
+      setError('Invalid or expired code — try again.');
+      setCode('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -26,7 +58,7 @@ export default function TwoFactorPage() {
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
           Two-Factor Authentication
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">Enter code from Google Authenticator app.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">Enter the code from your authenticator app.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -34,14 +66,16 @@ export default function TwoFactorPage() {
           type="text"
           inputMode="numeric"
           maxLength={6}
-          placeholder="123 456"
+          placeholder="123456"
           value={code}
           onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
           required
+          autoFocus
           className="w-full p-2.5 text-center font-mono text-lg tracking-[0.4em] rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
         />
-        <Button type="submit" className="w-full !rounded-xl py-3">
-          Authenticate
+        {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
+        <Button type="submit" className="w-full !rounded-xl py-3" disabled={submitting || code.length !== 6}>
+          {submitting ? 'Verifying…' : 'Authenticate'}
         </Button>
       </form>
 

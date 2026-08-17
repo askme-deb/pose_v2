@@ -36,10 +36,13 @@ export default function LoginPage() {
     setLoginError(null);
     setSubmitting(true);
     try {
-      const res = await apiClient.post<{ token: string; user: { name: string; email: string; role: Role } }>(
-        '/api/auth/login',
-        { email, password },
-      );
+      const res = await apiClient.post<
+        { requiresTwoFactor: true; pendingToken: string } | { token: string; user: { name: string; email: string; role: Role } }
+      >('/api/auth/login', { email, password });
+      if ('requiresTwoFactor' in res) {
+        navigate('/2fa', { state: { pendingToken: res.pendingToken } });
+        return;
+      }
       login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
       navigate('/dashboard');
     } catch {

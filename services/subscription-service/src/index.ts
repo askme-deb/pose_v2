@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import { metricsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
 import tenantsRouter from './routes/tenants';
 import platformInvoicesRouter from './routes/platformInvoices';
@@ -18,6 +19,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(pinoHttp());
+metricsMiddleware(app, 'subscription-service');
 
 app.use('/', healthRouter);
 app.use('/', tenantsRouter);

@@ -8,3 +8,5 @@ export const calcGst = (amount: number, ratePercent: number) => {
 
 export const generateInvoiceNumber = (prefix: string, seq: number): string =>
   `${prefix}-${String(seq).padStart(6, '0')}`;
+
+export { metricsMiddleware } from './metrics';

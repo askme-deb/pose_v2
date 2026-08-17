@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import { metricsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'synchronization-service';
@@ -14,6 +15,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(pinoHttp());
+metricsMiddleware(app, 'synchronization-service');
 
 app.use('/', healthRouter);
 

@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.turbo
+.git
+**/.env
+**/*.log
+apps/desktop-pos/dist-electron
+apps/desktop-pos/release

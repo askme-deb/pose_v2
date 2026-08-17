@@ -33,9 +33,17 @@ services:
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
-      - "9201:9200"
+      - "9200:9200"
     volumes:
       - es_data:/usr/share/elasticsearch/data
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: pospe-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   nginx:
     image: nginx:alpine
@@ -49,7 +57,36 @@ services:
       - postgres
       - redis
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: pospe-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: pospe-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   redis_data:
   es_data:
+  prometheus_data:
+  grafana_data:

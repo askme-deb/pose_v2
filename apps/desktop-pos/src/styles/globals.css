@@ -1,0 +1,127 @@
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/plus-jakarta-sans/800.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Inter', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Dual-tier header / dropdown panels */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Section / KPI cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+}
+.dark .glass-card {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
+}
+
+/* Ambient Radial Glow */
+.bg-gradient-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.15), transparent 70%),
+              radial-gradient(circle at 100% 50%, rgba(124, 58, 237, 0.1), transparent 60%);
+}
+.dark .bg-gradient-glow {
+  background: radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.25), transparent 70%),
+              radial-gradient(circle at 100% 50%, rgba(124, 58, 237, 0.2), transparent 60%);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.7); }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+.animate-fade-in { animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-scale-in { animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* POS Thermal Receipt print styles */
+@media print {
+  body * { visibility: hidden; }
+  #receipt-modal-body, #receipt-modal-body * { visibility: visible; }
+  #receipt-modal-body {
+    position: absolute; left: 0; top: 0; width: 80mm; margin: 0; padding: 10px;
+    background: white !important; color: black !important;
+  }
+}
+
+/* POS Grid Card Elevation */
+.pos-product-card { transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+.pos-product-card:hover { transform: translateY(-3px); box-shadow: 0 12px 24px -8px rgba(37, 99, 235, 0.25); }
+.pos-product-card:active { transform: translateY(0); }
+
+/* Custom date input calendar-picker icon */
+input[type='date'] { position: relative; font-family: var(--font-sans); cursor: pointer; }
+input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; filter: invert(0.4); transition: transform 0.2s ease, filter 0.2s ease; }
+.dark input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8) sepia(1) saturate(5) hue-rotate(185deg); }
+input[type='date']:hover::-webkit-calendar-picker-indicator { transform: scale(1.15); }
+
+/* Custom Floating ApexPOS Calendar Popover */
+#apex-calendar-popover {
+  z-index: 9999; width: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 20px 40px -15px rgba(37, 99, 235, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 1.5rem; padding: 1.25rem;
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.dark #apex-calendar-popover {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.calendar-day-btn {
+  width: 2.25rem; height: 2.25rem; display: flex; align-items: center; justify-content: center;
+  border-radius: 0.75rem; font-weight: 700; font-size: 0.75rem;
+  transition: all 0.15s ease; user-select: none; cursor: pointer;
+}
+.calendar-day-btn:hover:not(.empty):not(.selected) {
+  background-color: rgba(59, 130, 246, 0.15); color: #2563eb; transform: scale(1.08);
+}
+.calendar-day-btn.selected {
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px -4px rgba(37, 99, 235, 0.5);
+  transform: scale(1.1);
+}
+.calendar-day-btn.today { border: 2px solid #3b82f6; }

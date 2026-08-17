@@ -1,0 +1,27 @@
+# Non-secret, cluster-internal config shared across services. Credentials
+# (DB/JWT/payment/SMTP creds) live in secret.example.yaml instead — this
+# is safe to commit as-is.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pospe-config
+  namespace: pospe
+data:
+  NODE_ENV: "production"
+  ELASTICSEARCH_URL: "http://elasticsearch:9200"
+  SMTP_HOST: "smtp"
+  SMTP_PORT: "1025"
+
+  # Gateway → downstream-service routing (services/api-gateway/src/routes/proxy.ts).
+  # Targets are this namespace's ClusterIP Service names — every non-gateway
+  # service below is internal-only, reached exclusively through the gateway.
+  AUTH_SERVICE_URL: "http://authentication:4001"
+  BILLING_SERVICE_URL: "http://billing-service:4002"
+  INVENTORY_SERVICE_URL: "http://inventory-service:4003"
+  PURCHASE_SERVICE_URL: "http://purchase-service:4004"
+  SALES_SERVICE_URL: "http://sales-service:4005"
+  PAYMENT_SERVICE_URL: "http://payment-service:4006"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:4007"
+  SUBSCRIPTION_SERVICE_URL: "http://subscription-service:4008"
+  REPORTING_SERVICE_URL: "http://reporting-service:4009"
+  SYNCHRONIZATION_SERVICE_URL: "http://synchronization-service:4010"

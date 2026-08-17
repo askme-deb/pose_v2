@@ -24,6 +24,7 @@ import CustomersPage from './pages/crm/CustomersPage';
 import GstReportsPage from './pages/gst/GstReportsPage';
 import ReportsAnalyticsPage from './pages/reports/ReportsAnalyticsPage';
 import BusinessProfilePage from './pages/settings/BusinessProfilePage';
+import SecuritySettingsPage from './pages/settings/SecuritySettingsPage';
 import UserRolesPage from './pages/roles/UserRolesPage';
 import MobileAppsPage from './pages/mobile/MobileAppsPage';
 
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/gst/reports" element={<GstReportsPage />} />
             <Route path="/reports/analytics" element={<ReportsAnalyticsPage />} />
             <Route path="/settings/business-profile" element={<BusinessProfilePage />} />
+            <Route path="/settings/security" element={<SecuritySettingsPage />} />
             <Route path="/roles" element={<UserRolesPage />} />
             <Route path="/mobile-apps" element={<MobileAppsPage />} />
 

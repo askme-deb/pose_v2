@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import { metricsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
 import dashboardRouter from './routes/dashboard';
 
@@ -15,6 +16,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(pinoHttp());
+metricsMiddleware(app, 'reporting-service');
 
 app.use('/', healthRouter);
 app.use('/', dashboardRouter);

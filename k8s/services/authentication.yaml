@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authentication
+  namespace: pospe
+  labels:
+    app: authentication
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authentication
+  template:
+    metadata:
+      labels:
+        app: authentication
+    spec:
+      containers:
+        - name: authentication
+          image: pospe/authentication:latest
+          ports:
+            - containerPort: 4001
+          envFrom:
+            - configMapRef:
+                name: pospe-config
+            - secretRef:
+                name: pospe-secrets
+          env:
+            - name: PORT
+              value: "4001"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authentication
+  namespace: pospe
+spec:
+  selector:
+    app: authentication
+  ports:
+    - port: 4001
+      targetPort: 4001
+  type: ClusterIP

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscription-service
+  namespace: pospe
+  labels:
+    app: subscription-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subscription-service
+  template:
+    metadata:
+      labels:
+        app: subscription-service
+    spec:
+      containers:
+        - name: subscription-service
+          image: pospe/subscription-service:latest
+          ports:
+            - containerPort: 4008
+          envFrom:
+            - configMapRef:
+                name: pospe-config
+            - secretRef:
+                name: pospe-secrets
+          env:
+            - name: PORT
+              value: "4008"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4008
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4008
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscription-service
+  namespace: pospe
+spec:
+  selector:
+    app: subscription-service
+  ports:
+    - port: 4008
+      targetPort: 4008
+  type: ClusterIP

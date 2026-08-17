@@ -261,7 +261,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         </div>
         <div>
-          <div className="text-[10px] opacity-80">Today's Mobile Revenue</div>
+          <div className="text-[10px] opacity-80">Today&apos;s Mobile Revenue</div>
           <div className="text-2xl font-black font-mono">{formatINR(142890)}</div>
         </div>
         <div className="pt-2 border-t border-white/20 flex justify-between text-[10px] opacity-90">
@@ -988,7 +988,7 @@ export default function MobileAppsPage() {
                 <Smartphone className="w-4 h-4 text-sky-600" /> iOS Safari Instructions
               </h4>
               <p className="text-slate-500 dark:text-slate-400">
-                Tap the Share icon in Safari's bottom bar, then select <strong className="text-sky-600">"Add to Home Screen"</strong>.
+                Tap the Share icon in Safari&apos;s bottom bar, then select <strong className="text-sky-600">&quot;Add to Home Screen&quot;</strong>.
               </p>
             </div>
 
@@ -997,7 +997,7 @@ export default function MobileAppsPage() {
                 <Globe className="w-4 h-4 text-emerald-600" /> Android Chrome Instructions
               </h4>
               <p className="text-slate-500 dark:text-slate-400">
-                Tap the 3-dot menu in Chrome's top-right corner, then tap <strong className="text-emerald-600">"Install app"</strong>.
+                Tap the 3-dot menu in Chrome&apos;s top-right corner, then tap <strong className="text-emerald-600">&quot;Install app&quot;</strong>.
               </p>
             </div>
           </div>

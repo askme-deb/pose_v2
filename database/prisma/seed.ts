@@ -550,16 +550,19 @@ async function main() {
   }
 
   const userDefs = [
-    { name: 'Aarav Sharma', email: 'aarav.sharma@apexsupermarket.com', roleCode: 'ROLE_SUPER_ADMIN', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T09:20:00+05:30' },
-    { name: 'Priya Nair', email: 'priya.nair@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T08:55:00+05:30' },
-    { name: 'Rohan Verma', email: 'rohan.verma@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T19:40:00+05:30' },
-    { name: 'Simran Kaur', email: 'simran.kaur@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T07:15:00+05:30', pin: '1234' },
+    // twoFaEnabled starts false for everyone — a flag with no stored TOTP
+    // secret would otherwise be an unusable lock now that login actually
+    // enforces it. Enroll a real account by hand (POST /2fa/setup) to test.
+    { name: 'Aarav Sharma', email: 'aarav.sharma@apexsupermarket.com', roleCode: 'ROLE_SUPER_ADMIN', branch: 'Downtown Flagship', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-16T09:20:00+05:30' },
+    { name: 'Priya Nair', email: 'priya.nair@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Downtown Flagship', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-16T08:55:00+05:30' },
+    { name: 'Rohan Verma', email: 'rohan.verma@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Suburban Outlet', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-15T19:40:00+05:30' },
+    { name: 'Simran Kaur', email: 'simran.kaur@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Suburban Outlet', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-16T07:15:00+05:30', pin: '1234' },
     { name: 'Karthik Iyer', email: 'karthik.iyer@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Airport Express Kiosk', twoFaEnabled: false, isActive: false, lastActivityAt: '2026-08-10T13:05:00+05:30', pin: '9999' },
-    { name: 'Ananya Reddy', email: 'ananya.reddy@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T06:30:00+05:30', pin: '5678' },
-    { name: 'Vikram Desai', email: 'vikram.desai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T22:10:00+05:30' },
-    { name: 'Meera Pillai', email: 'meera.pillai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-14T17:45:00+05:30' },
-    { name: 'Rajesh Khanna', email: 'rajesh.khanna@apexsupermarket.com', roleCode: 'ROLE_FINANCE_AUDITOR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T11:25:00+05:30' },
-    { name: 'Divya Menon', email: 'divya.menon@apexsupermarket.com', roleCode: 'ROLE_CRM_SPEC', branch: 'Airport Express Kiosk', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-13T09:50:00+05:30' },
+    { name: 'Ananya Reddy', email: 'ananya.reddy@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Downtown Flagship', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-16T06:30:00+05:30', pin: '5678' },
+    { name: 'Vikram Desai', email: 'vikram.desai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-15T22:10:00+05:30' },
+    { name: 'Meera Pillai', email: 'meera.pillai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-14T17:45:00+05:30' },
+    { name: 'Rajesh Khanna', email: 'rajesh.khanna@apexsupermarket.com', roleCode: 'ROLE_FINANCE_AUDITOR', branch: 'Downtown Flagship', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-15T11:25:00+05:30' },
+    { name: 'Divya Menon', email: 'divya.menon@apexsupermarket.com', roleCode: 'ROLE_CRM_SPEC', branch: 'Airport Express Kiosk', twoFaEnabled: false, isActive: true, lastActivityAt: '2026-08-13T09:50:00+05:30' },
   ];
 
   const demoPasswordHash = await bcrypt.hash(DEMO_PASSWORD, 10);

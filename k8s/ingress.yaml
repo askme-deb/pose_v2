@@ -1,0 +1,24 @@
+# The only externally-reachable route into the cluster — every other
+# service in k8s/services/ is ClusterIP-only and reached exclusively through
+# api-gateway's own proxy routing (services/api-gateway/src/routes/proxy.ts),
+# same architecture as local dev.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pospe-ingress
+  namespace: pospe
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.pospe.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 4000

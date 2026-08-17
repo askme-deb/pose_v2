@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { notifyLowStock } from '@pospe/notifications';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
+
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:4007';
 
 const adjustmentInput = z.object({
   productId: z.string().min(1),
@@ -53,6 +56,17 @@ router.post('/stock-adjustments', async (req, res) => {
       data: { stockQty: { increment: signedQty } },
     }),
   ]);
+
+  const newQty = product.stockQty + signedQty;
+  if (product.stockQty > product.minThreshold && newQty <= product.minThreshold) {
+    notifyLowStock(NOTIFICATION_SERVICE_URL, {
+      tenantId,
+      productName: product.name,
+      sku: product.sku,
+      stockQty: newQty,
+      minThreshold: product.minThreshold,
+    });
+  }
 
   res.status(201).json(adjustment);
 });

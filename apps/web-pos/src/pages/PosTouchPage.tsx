@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Scan,
@@ -15,10 +15,15 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { Button, Input, Select, Drawer, EmptyState, useToast } from '@pospe/ui-library';
-import { useCartStore, cartTotals, type CartItem } from '../store/useCartStore';
+import { useCartStore, cartTotals } from '../store/useCartStore';
 import { usePosSessionStore } from '../store/usePosSessionStore';
-import { posCategories, posProducts } from '../services/mockData/posProducts';
-import { posCustomerOptions, getCustomerDiscountPercent, getCustomerTier } from '../services/mockData/posCustomers';
+import { useSyncStatusStore } from '../store/useSyncStatusStore';
+import { listProducts, type LiveProduct } from '../services/api/products';
+import { listCategories, type LiveCategory } from '../services/api/categories';
+import { listCustomers, type LiveCustomer, type CustomerTier } from '../services/api/customers';
+import { createInvoice, parseCheckoutError, isNetworkError, type ApiInvoice, type ApiPaymentMethod } from '../services/api/invoices';
+import { cacheCatalog, getCachedCatalog, decrementCachedStock, queueSale } from '../db/offlineDb';
+import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { formatINR } from '../utils/format';
 
 type PayMethod = 'cash' | 'upi' | 'card' | 'split';
@@ -30,24 +35,66 @@ const methodLabels: Record<PayMethod, string> = {
   split: 'Split Payment',
 };
 
+const payMethodToApi: Record<PayMethod, ApiPaymentMethod> = {
+  cash: 'CASH',
+  upi: 'UPI',
+  card: 'CARD',
+  split: 'SPLIT',
+};
+
+// Real Customer records have no discountPercent field — this is a POS-side
+// placeholder tier benefit until a real pricing/promotions module exists.
+const TIER_DISCOUNT: Record<CustomerTier, number> = {
+  STANDARD: 0,
+  SILVER: 5,
+  GOLD: 10,
+  VIP_DIAMOND: 15,
+};
+
+const CATEGORY_EMOJI: [string, string][] = [
+  ['dairy', '🥛'], ['milk', '🥛'], ['confection', '🍫'], ['sweet', '🍬'],
+  ['gourmet', '🫒'], ['oil', '🫒'], ['beverage', '🥤'], ['drink', '🥤'],
+  ['bakery', '🍞'], ['bread', '🍞'], ['nut', '🥜'], ['fresh', '🥚'],
+  ['fruit', '🍎'], ['vegetable', '🥦'],
+];
+
+function categoryEmoji(categoryName: string): string {
+  const lower = categoryName.toLowerCase();
+  return CATEGORY_EMOJI.find(([keyword]) => lower.includes(keyword))?.[1] ?? '🛒';
+}
+
 interface ReceiptSnapshot {
-  items: CartItem[];
-  customer: string;
-  subtotal: number;
-  gst: number;
-  discount: number;
-  total: number;
+  invoice: ApiInvoice;
   method: string;
   tendered?: number;
   change?: number;
-  paidAt: string;
+  offline?: boolean;
 }
 
 export default function PosTouchPage() {
-  const { items, customer, couponCode, heldBills, addToCart, updateQty, removeItem, setCustomer, applyCoupon, holdCurrentBill, recallHeldBill, voidHeldBill, clearCart } =
-    useCartStore();
+  const {
+    items,
+    customerId,
+    customerName,
+    couponCode,
+    heldBills,
+    addToCart,
+    updateQty,
+    removeItem,
+    setCustomer,
+    applyCoupon,
+    holdCurrentBill,
+    recallHeldBill,
+    voidHeldBill,
+    clearCart,
+  } = useCartStore();
   const { session } = usePosSessionStore();
+  const { refreshCounts } = useSyncStatusStore();
   const { showToast } = useToast();
+
+  const [products, setProducts] = useState<LiveProduct[]>([]);
+  const [categories, setCategories] = useState<LiveCategory[]>([]);
+  const [customers, setCustomers] = useState<LiveCustomer[]>([]);
 
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
@@ -57,32 +104,79 @@ export default function PosTouchPage() {
   const [cashTendered, setCashTendered] = useState('');
   const [splitA, setSplitA] = useState('');
   const [splitB, setSplitB] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
   const [heldBillsOpen, setHeldBillsOpen] = useState(false);
   const [holdModalOpen, setHoldModalOpen] = useState(false);
   const [holdLabel, setHoldLabel] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
 
-  const discountPercent = getCustomerDiscountPercent(customer) + (couponCode === 'SAVE10' ? 10 : 0);
+  useEffect(() => {
+    Promise.all([listProducts(), listCategories(), listCustomers()])
+      .then(([p, c, cu]) => {
+        setProducts(p);
+        setCategories(c);
+        setCustomers(cu);
+        cacheCatalog(p, c, cu);
+      })
+      .catch((err) => {
+        if (!isNetworkError(err)) {
+          showToast('Failed to load POS catalog', 'danger');
+          return;
+        }
+        // Offline at startup — fall back to whatever was cached from the last
+        // time this terminal was online, so the cashier can keep working.
+        getCachedCatalog().then(({ products: cp, categories: cc, customers: ccu }) => {
+          if (cp.length === 0) {
+            showToast('Offline and no cached catalog yet — connect once before going offline', 'danger');
+            return;
+          }
+          setProducts(cp);
+          setCategories(cc);
+          setCustomers(ccu);
+          showToast('Offline — showing last synced catalog', 'warning');
+        });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
+  const discountPercent =
+    (selectedCustomer ? TIER_DISCOUNT[selectedCustomer.tier] : 0) + (couponCode === 'SAVE10' ? 10 : 0);
   const totals = useMemo(() => cartTotals(items, discountPercent), [items, discountPercent]);
   const cartCount = items.reduce((sum, i) => sum + i.qty, 0);
-  const customerTier = getCustomerTier(customer);
+  const customerTier = selectedCustomer?.tier ?? null;
 
-  const filteredProducts = posProducts.filter((p) => {
-    const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
+  const customerOptions = [
+    { value: '', label: '👤 Walk-in Customer' },
+    ...customers.map((c) => ({
+      value: c.id,
+      label: `${c.tier === 'STANDARD' ? '👤' : '⭐'} ${c.name} (${c.tier} - ${c.loyaltyPoints} pts)`,
+    })),
+  ];
+
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory = activeCategory === 'all' || p.categoryId === activeCategory;
     const q = search.trim().toLowerCase();
-    const matchesSearch = q === '' || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
+    const matchesSearch =
+      q === '' || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.barcode.toLowerCase().includes(q);
     return matchesCategory && matchesSearch;
   });
 
-  function handleAddProduct(p: (typeof posProducts)[number]) {
+  function handleAddProduct(p: LiveProduct) {
     addToCart({ id: p.id, name: p.name, price: p.price, gstRate: p.gstRate });
   }
 
-  function handleScanBarcode() {
-    const p = posProducts[Math.floor(Math.random() * posProducts.length)];
-    handleAddProduct(p);
-    showToast(`Scanned: ${p.name}`, 'success');
+  function handleBarcodeDetected(code: string) {
+    setScannerOpen(false);
+    const product = products.find((p) => p.barcode && p.barcode === code);
+    if (!product) {
+      showToast(`No product matches scanned code "${code}"`, 'danger');
+      return;
+    }
+    handleAddProduct(product);
+    showToast(`Scanned: ${product.name}`, 'success');
   }
 
   function handleApplyCoupon() {
@@ -117,26 +211,84 @@ export default function PosTouchPage() {
   const splitValid = splitAmountA > 0 && splitAmountB > 0 && Math.abs(splitAmountA + splitAmountB - totals.total) < 0.5;
 
   const confirmDisabled =
-    payMethod === 'cash' ? tenderedAmount < totals.total : payMethod === 'split' ? !splitValid : false;
+    submitting || (payMethod === 'cash' ? tenderedAmount < totals.total : payMethod === 'split' ? !splitValid : false);
 
-  function confirmQuickPay() {
+  async function confirmQuickPay() {
     if (!payMethod || confirmDisabled) return;
-    const snapshot: ReceiptSnapshot = {
-      items,
-      customer,
-      subtotal: totals.subtotal,
-      gst: totals.gst,
-      discount: totals.discount,
-      total: totals.total,
-      method: methodLabels[payMethod],
-      tendered: payMethod === 'cash' ? tenderedAmount : undefined,
-      change: payMethod === 'cash' ? changeDue : undefined,
-      paidAt: new Date().toISOString(),
+    setSubmitting(true);
+    const invoiceInput = {
+      customerId: customerId ?? undefined,
+      paymentMethod: payMethodToApi[payMethod],
+      items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
+      discountPercent,
     };
-    setReceipt(snapshot);
-    clearCart();
-    setPayMethod(null);
-    showToast('Payment successful', 'success');
+    // Generated up front, not just on failure — if this exact request DID
+    // reach the server but the response never made it back, the retried sync
+    // later reuses this same key instead of risking a double-sale.
+    const idempotencyKey = crypto.randomUUID();
+    try {
+      const invoice = await createInvoice(invoiceInput, idempotencyKey);
+      setReceipt({
+        invoice,
+        method: methodLabels[payMethod],
+        tendered: payMethod === 'cash' ? tenderedAmount : undefined,
+        change: payMethod === 'cash' ? changeDue : undefined,
+      });
+      clearCart();
+      setPayMethod(null);
+      showToast('Payment successful', 'success');
+      // Stock just moved server-side — refresh so the catalog reflects it.
+      listProducts().then(setProducts).catch(() => {});
+    } catch (err) {
+      if (!isNetworkError(err)) {
+        showToast(parseCheckoutError(err), 'danger');
+        return;
+      }
+
+      // No network — queue it. The sale is real to the cashier and the
+      // customer right now; it just hasn't reached the server yet.
+      await queueSale(invoiceInput, idempotencyKey);
+      for (const item of items) await decrementCachedStock(item.id, item.qty);
+      setProducts((prev) =>
+        prev.map((p) => {
+          const item = items.find((i) => i.id === p.id);
+          return item ? { ...p, stockQty: Math.max(0, p.stockQty - item.qty) } : p;
+        }),
+      );
+      await refreshCounts();
+
+      const offlineInvoice: ApiInvoice = {
+        id: idempotencyKey,
+        invoiceNumber: `OFFLINE-${idempotencyKey.slice(0, 8).toUpperCase()}`,
+        status: 'PENDING_SYNC',
+        paymentMethod: payMethodToApi[payMethod],
+        customerName,
+        subtotal: totals.subtotal.toFixed(2),
+        taxTotal: totals.gst.toFixed(2),
+        total: totals.total.toFixed(2),
+        createdAt: new Date().toISOString(),
+        items: items.map((i) => ({
+          productId: i.id,
+          quantity: i.qty,
+          price: i.price.toFixed(2),
+          gstRate: i.gstRate.toFixed(2),
+          total: (i.price * i.qty).toFixed(2),
+          product: { id: i.id, name: i.name },
+        })),
+      };
+      setReceipt({
+        invoice: offlineInvoice,
+        method: methodLabels[payMethod],
+        tendered: payMethod === 'cash' ? tenderedAmount : undefined,
+        change: payMethod === 'cash' ? changeDue : undefined,
+        offline: true,
+      });
+      clearCart();
+      setPayMethod(null);
+      showToast('Offline — sale queued, will sync when back online', 'warning');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleHoldBill() {
@@ -144,8 +296,8 @@ export default function PosTouchPage() {
       showToast('Cart is empty — add items before holding', 'warning');
       return;
     }
-    const label = holdLabel.trim() || `Order for ${customer}`;
-    holdCurrentBill(label);
+    const label = holdLabel.trim() || `Order for ${customerName}`;
+    holdCurrentBill(label, discountPercent);
     showToast('Bill held successfully', 'success');
     setHoldLabel('');
     setHoldModalOpen(false);
@@ -190,7 +342,7 @@ export default function PosTouchPage() {
               />
             </div>
             <button
-              onClick={handleScanBarcode}
+              onClick={() => setScannerOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition"
             >
               <Scan className="w-4 h-4" />
@@ -207,9 +359,9 @@ export default function PosTouchPage() {
                   : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
               }`}
             >
-              All Items ({posProducts.length})
+              All Items ({products.length})
             </button>
-            {posCategories.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
@@ -219,7 +371,7 @@ export default function PosTouchPage() {
                     : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                 }`}
               >
-                {cat.emoji} {cat.label}
+                {categoryEmoji(cat.name)} {cat.name}
               </button>
             ))}
           </div>
@@ -234,11 +386,13 @@ export default function PosTouchPage() {
               <button
                 key={p.id}
                 onClick={() => handleAddProduct(p)}
-                className="pos-product-card flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center"
+                disabled={p.stockQty <= 0}
+                className="pos-product-card flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center disabled:opacity-40 disabled:pointer-events-none"
               >
-                <span className="text-3xl leading-none">{p.emoji}</span>
+                <span className="text-3xl leading-none">{categoryEmoji(p.categoryName)}</span>
                 <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2">{p.name}</span>
                 <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(p.price)}</span>
+                {p.stockQty <= 0 && <span className="text-[9px] font-bold text-red-500 uppercase">Out of stock</span>}
               </button>
             ))}
           </div>
@@ -248,9 +402,13 @@ export default function PosTouchPage() {
         <div className="lg:col-span-5 glass-card p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4 overflow-hidden">
           <div className="space-y-3">
             <Select
-              value={customer}
-              onChange={(e) => setCustomer(e.target.value)}
-              options={posCustomerOptions}
+              value={customerId ?? ''}
+              onChange={(e) => {
+                const id = e.target.value || null;
+                const name = id ? (customers.find((c) => c.id === id)?.name ?? 'Walk-in Customer') : 'Walk-in Customer';
+                setCustomer(id, name);
+              }}
+              options={customerOptions}
             />
 
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
@@ -260,8 +418,8 @@ export default function PosTouchPage() {
                   <span>Active POS Order Cart</span>
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Customer: <span className="font-bold text-slate-700 dark:text-slate-300">{customer}</span>
-                  {customerTier && customerTier !== 'Standard' && ` (${customerTier} Member${discountPercent > 0 ? ` - ${discountPercent}% Discount` : ''})`}
+                  Customer: <span className="font-bold text-slate-700 dark:text-slate-300">{customerName}</span>
+                  {customerTier && customerTier !== 'STANDARD' && ` (${customerTier} Member${discountPercent > 0 ? ` - ${discountPercent}% Discount` : ''})`}
                 </p>
               </div>
               <span className="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 font-extrabold text-xs">
@@ -401,7 +559,7 @@ export default function PosTouchPage() {
               Cancel
             </Button>
             <Button variant="primary" onClick={confirmQuickPay} disabled={confirmDisabled}>
-              Confirm Payment & Print
+              {submitting ? 'Processing…' : 'Confirm Payment & Print'}
             </Button>
           </>
         }
@@ -481,40 +639,40 @@ export default function PosTouchPage() {
       >
         {receipt && (
           <div id="receipt-modal-body" className="space-y-3 font-mono text-[11px] text-slate-800 dark:text-slate-100">
+            {receipt.offline && (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-center text-[10px] font-bold uppercase tracking-wide">
+                Offline — queued, will sync automatically
+              </div>
+            )}
             <div className="text-center space-y-0.5">
               <p className="text-sm font-black">ApexPOS Enterprise</p>
               <p>Downtown Flagship Store</p>
+              <p className="font-bold">{receipt.invoice.invoiceNumber}</p>
               <p>{session?.registerName ?? 'Register 02'} &middot; Cashier: {session?.cashierName ?? 'Cashier'}</p>
-              <p>{new Date(receipt.paidAt).toLocaleString('en-IN')}</p>
+              <p>{new Date(receipt.invoice.createdAt).toLocaleString('en-IN')}</p>
             </div>
             <div className="border-t border-dashed border-slate-400 pt-2 space-y-1">
-              {receipt.items.map((item) => (
-                <div key={item.id} className="flex justify-between gap-2">
+              {receipt.invoice.items.map((item) => (
+                <div key={item.productId} className="flex justify-between gap-2">
                   <span className="truncate">
-                    {item.name} x{item.qty}
+                    {item.product.name} x{item.quantity}
                   </span>
-                  <span>{formatINR(item.price * item.qty)}</span>
+                  <span>{formatINR(Number(item.price) * item.quantity)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t border-dashed border-slate-400 pt-2 space-y-1">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>{formatINR(receipt.subtotal)}</span>
+                <span>{formatINR(Number(receipt.invoice.subtotal))}</span>
               </div>
               <div className="flex justify-between">
                 <span>GST</span>
-                <span>{formatINR(receipt.gst)}</span>
+                <span>{formatINR(Number(receipt.invoice.taxTotal))}</span>
               </div>
-              {receipt.discount > 0 && (
-                <div className="flex justify-between">
-                  <span>Discount</span>
-                  <span>-{formatINR(receipt.discount)}</span>
-                </div>
-              )}
               <div className="flex justify-between font-black text-sm border-t border-slate-400 pt-1">
                 <span>TOTAL</span>
-                <span>{formatINR(receipt.total)}</span>
+                <span>{formatINR(Number(receipt.invoice.total))}</span>
               </div>
               <div className="flex justify-between">
                 <span>Paid via</span>
@@ -534,7 +692,7 @@ export default function PosTouchPage() {
               )}
               <div className="flex justify-between">
                 <span>Customer</span>
-                <span className="truncate">{receipt.customer}</span>
+                <span className="truncate">{receipt.invoice.customerName}</span>
               </div>
             </div>
             <p className="text-center pt-2 border-t border-dashed border-slate-400">Thank you for shopping with us!</p>
@@ -547,7 +705,7 @@ export default function PosTouchPage() {
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {heldBills.length === 0 && <EmptyState icon={PauseCircle} title="No held bills" description="Bills you hold will appear here for quick recall." />}
           {heldBills.map((bill) => {
-            const billTotals = cartTotals(bill.items, getCustomerDiscountPercent(bill.customer));
+            const billTotals = cartTotals(bill.items, bill.discountPercent);
             return (
               <div
                 key={bill.id}
@@ -558,7 +716,7 @@ export default function PosTouchPage() {
                   <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(billTotals.total)}</span>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  {bill.customer} &middot; {bill.items.length} item{bill.items.length === 1 ? '' : 's'} &middot; {new Date(bill.heldAt).toLocaleTimeString('en-IN')}
+                  {bill.customerName} &middot; {bill.items.length} item{bill.items.length === 1 ? '' : 's'} &middot; {new Date(bill.heldAt).toLocaleTimeString('en-IN')}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -601,10 +759,12 @@ export default function PosTouchPage() {
           label="Label / Reference"
           value={holdLabel}
           onChange={(e) => setHoldLabel(e.target.value)}
-          placeholder={`Order for ${customer}`}
+          placeholder={`Order for ${customerName}`}
           hint="Used to identify this bill in the Held Bills queue."
         />
       </Drawer>
+
+      <BarcodeScannerModal open={scannerOpen} onClose={() => setScannerOpen(false)} onDetected={handleBarcodeDetected} />
     </div>
   );
 }

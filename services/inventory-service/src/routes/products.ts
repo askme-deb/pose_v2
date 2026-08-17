@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma, resolveTenantId } from '../lib/prisma';
+import { indexProduct, deleteProductFromIndex } from '../lib/elasticsearch';
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router.post('/products', async (req, res) => {
     data: { ...parsed.data, tenantId },
     include: { category: true },
   });
+  indexProduct({ ...product, categoryName: product.category?.name });
   res.status(201).json(product);
 });
 
@@ -55,6 +57,7 @@ router.put('/products/:id', async (req, res) => {
     data: parsed.data,
     include: { category: true },
   });
+  indexProduct({ ...product, categoryName: product.category?.name });
   res.json(product);
 });
 
@@ -64,6 +67,7 @@ router.delete('/products/:id', async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Product not found' });
 
   await prisma.product.delete({ where: { id: req.params.id } });
+  deleteProductFromIndex(req.params.id);
   res.status(204).end();
 });
 

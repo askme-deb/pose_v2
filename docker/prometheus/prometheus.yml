@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+
+# Every target's own /metrics output already carries a "service" label on
+# each app-level metric (packages/utilities/src/metrics.ts) — Prometheus's
+# built-in "instance" label (host:port below) is enough to tell scrape
+# targets apart here, so no relabeling needed.
+scrape_configs:
+  - job_name: pospe-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - host.docker.internal:4000 # api-gateway
+          - host.docker.internal:4001 # authentication
+          - host.docker.internal:4002 # billing-service
+          - host.docker.internal:4003 # inventory-service
+          - host.docker.internal:4004 # purchase-service
+          - host.docker.internal:4005 # sales-service
+          - host.docker.internal:4006 # payment-service
+          - host.docker.internal:4007 # notification-service
+          - host.docker.internal:4008 # subscription-service
+          - host.docker.internal:4009 # reporting-service
+          - host.docker.internal:4010 # synchronization-service

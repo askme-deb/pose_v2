@@ -25,8 +25,8 @@ export class ApiClient {
     return this.request<T>(path);
   }
 
-  post<T>(path: string, body: unknown) {
-    return this.request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+  post<T>(path: string, body: unknown, init: RequestInit = {}) {
+    return this.request<T>(path, { ...init, method: 'POST', body: JSON.stringify(body) });
   }
 
   put<T>(path: string, body: unknown) {

@@ -23,7 +23,8 @@
     "pino-http": "^10.3.0",
     "zod": "^3.23.8",
     "http-proxy-middleware": "^3.0.3",
-    "express-rate-limit": "^7.4.1"
+    "express-rate-limit": "^7.4.1",
+    "@elastic/elasticsearch": "^8.15.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

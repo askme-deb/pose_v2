@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma, resolveTenantId } from '../lib/prisma';
+import { indexCustomer, deleteCustomerFromIndex } from '../lib/elasticsearch';
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.post('/customers', async (req, res) => {
 
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const customer = await prisma.customer.create({ data: { ...parsed.data, tenantId } });
+  indexCustomer(customer);
   const [withStatsResult] = await withStats([customer]);
   res.status(201).json(withStatsResult);
 });
@@ -61,6 +63,7 @@ router.put('/customers/:id', async (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
   const customer = await prisma.customer.update({ where: { id: req.params.id }, data: parsed.data });
+  indexCustomer(customer);
   const [withStatsResult] = await withStats([customer]);
   res.json(withStatsResult);
 });
@@ -76,6 +79,7 @@ router.delete('/customers/:id', async (req, res) => {
     prisma.invoice.updateMany({ where: { customerId: req.params.id }, data: { customerId: null } }),
     prisma.customer.delete({ where: { id: req.params.id } }),
   ]);
+  deleteCustomerFromIndex(req.params.id);
   res.status(204).end();
 });
 
@@ -96,6 +100,7 @@ router.post('/customers/:id/bonus-points', async (req, res) => {
     where: { id: req.params.id },
     data: { loyaltyPoints: { increment: parsed.data.amount } },
   });
+  indexCustomer(customer);
   const [withStatsResult] = await withStats([customer]);
   res.json(withStatsResult);
 });

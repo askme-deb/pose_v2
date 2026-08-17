@@ -248,6 +248,7 @@ export default function AppShell() {
                 <p className="font-bold text-slate-900 dark:text-white">{user?.name ?? 'Guest User'}</p>
                 <p className="text-[10px] text-slate-400">{user?.email}</p>
               </div>
+              <DropdownMenuItem onClick={() => navigate('/settings/security')}>Security</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/settings/business-profile')}>Company Settings</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/roles')}>Roles & RBAC</DropdownMenuItem>
               <DropdownMenuItem
@@ -276,7 +277,7 @@ export default function AppShell() {
         </nav>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 animate-fade-in max-w-[1600px] w-full mx-auto">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 animate-fade-in w-full">
         <Outlet />
       </main>
 

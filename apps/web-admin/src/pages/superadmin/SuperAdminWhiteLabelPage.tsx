@@ -289,7 +289,7 @@ export default function SuperAdminWhiteLabelPage() {
                 <Badge color="red" pill>LIVE CANVAS</Badge>
               </div>
               <p className="text-xs text-slate-400">
-                Visual representation of how the header and buttons render inside the tenant's POS billing terminal.
+                Visual representation of how the header and buttons render inside the tenant&apos;s POS billing terminal.
               </p>
 
               <div

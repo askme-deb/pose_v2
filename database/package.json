@@ -9,11 +9,13 @@
     "migrate": "prisma migrate dev --schema prisma/schema.prisma",
     "migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
     "studio": "prisma studio --schema prisma/schema.prisma",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "reindex": "tsx prisma/reindexSearch.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.21.1",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "@elastic/elasticsearch": "^8.15.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
