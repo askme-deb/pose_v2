@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Menu,
   X,
@@ -21,23 +21,34 @@ import { tenantOperationsLinks, superAdminLinks, publicLinks, type NavLink } fro
 import SearchModal from '../components/layout/SearchModal';
 import MobileDrawer from '../components/layout/MobileDrawer';
 
-function NavDropdown({ label, links, badgeColor, align = 'left', width = 'w-64' }: {
+function NavDropdown({ label, links, badgeColor, align = 'left', columns = 3 }: {
   label: string;
   links: NavLink[];
   badgeColor: 'blue' | 'purple' | 'slate';
   align?: 'left' | 'right';
-  width?: string;
+  columns?: 1 | 2 | 3;
 }) {
+  const location = useLocation();
+
   const badgeClasses = {
     blue: 'bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20',
     purple: 'bg-purple-600/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20',
     slate: 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300',
   }[badgeColor];
 
+  const iconBg = {
+    blue: 'bg-blue-50 dark:bg-blue-500/10',
+    purple: 'bg-purple-50 dark:bg-purple-500/10',
+    slate: 'bg-slate-100 dark:bg-slate-800',
+  }[badgeColor];
+
+  const widthClass = { 1: 'w-56', 2: 'w-[420px]', 3: 'w-[640px]' }[columns];
+  const gridColsClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3' }[columns];
+
   return (
     <DropdownMenu
       align={align}
-      width={width}
+      width={widthClass}
       trigger={({ toggle }) => (
         <button
           onClick={toggle}
@@ -48,17 +59,30 @@ function NavDropdown({ label, links, badgeColor, align = 'left', width = 'w-64' 
         </button>
       )}
     >
-      <div className="px-3 py-1.5 font-bold uppercase text-[10px] text-slate-400">{label}</div>
-      {links.map((link) => (
-        <Link
-          key={link.href}
-          to={link.href}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold"
-        >
-          <link.icon className={`w-3.5 h-3.5 ${link.color}`} />
-          {link.label}
-        </Link>
-      ))}
+      <div className="px-2.5 py-1.5 mb-1 font-bold uppercase text-[10px] tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+        {label}
+      </div>
+      <div className={`grid ${gridColsClass} gap-0.5 p-0.5`}>
+        {links.map((link) => {
+          const active = location.pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              to={link.href}
+              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
+                active
+                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <span className={`w-7 h-7 shrink-0 rounded-lg flex items-center justify-center ${iconBg}`}>
+                <link.icon className={`w-3.5 h-3.5 ${link.color}`} />
+              </span>
+              <span className="truncate">{link.label}</span>
+            </Link>
+          );
+        })}
+      </div>
     </DropdownMenu>
   );
 }
@@ -207,10 +231,10 @@ export default function AppShell() {
 
         <nav className="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
           <div className="flex items-center gap-2">
-            <NavDropdown label="Tenant Operations" links={tenantOperationsLinks} badgeColor="blue" />
-            <NavDropdown label="Super Admin Portal" links={superAdminLinks} badgeColor="purple" />
+            <NavDropdown label="Tenant Operations" links={tenantOperationsLinks} badgeColor="blue" columns={3} />
+            <NavDropdown label="Super Admin Portal" links={superAdminLinks} badgeColor="purple" columns={2} />
           </div>
-          <NavDropdown label="Public & Design" links={publicLinks} badgeColor="slate" align="right" width="w-56" />
+          <NavDropdown label="Public & Design" links={publicLinks} badgeColor="slate" align="right" columns={1} />
         </nav>
       </header>
 
