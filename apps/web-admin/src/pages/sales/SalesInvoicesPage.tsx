@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Search, Receipt, FileCheck, ShoppingCart, BarChart2, Download, Zap, Printer, RotateCcw } from 'lucide-react';
-import { Badge, Button, DataTable, GlassCard, KpiCard, Modal, useToast } from '@pospe/ui-library';
+import { Badge, Button, DataTable, Drawer, GlassCard, KpiCard, useToast } from '@pospe/ui-library';
 
 import { formatINR, formatDateTime } from '../../utils/format';
 import { listInvoices, refundInvoice, LiveInvoice, PaymentMethod } from '../../services/api/salesInvoices';
@@ -262,10 +262,12 @@ export default function SalesInvoicesPage() {
         />
       </GlassCard>
 
-      <Modal
+      <Drawer
         open={!!receiptInvoice}
         onClose={() => setReceiptInvoice(null)}
-        maxWidth="sm"
+        title="Thermal Receipt"
+        subtitle={receiptInvoice ? receiptInvoice.invoiceNumber : undefined}
+        width="sm"
         footer={
           <>
             <Button variant="primary" className="flex-1" onClick={() => window.print()}>
@@ -322,7 +324,7 @@ export default function SalesInvoicesPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 }

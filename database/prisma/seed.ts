@@ -1,6 +1,20 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+// Uniform demo password for every seeded user, now that /login actually
+// verifies it — see services/authentication/src/routes/auth.ts.
+const DEMO_PASSWORD = 'Demo@12345';
+
+const roleCodeToUserRole = {
+  ROLE_SUPER_ADMIN: 'TENANT_OWNER',
+  ROLE_STORE_MGR: 'STORE_MANAGER',
+  ROLE_CASHIER: 'CASHIER',
+  ROLE_INVENTORY_LEAD: 'INVENTORY_MANAGER',
+  ROLE_FINANCE_AUDITOR: 'ACCOUNTANT',
+  ROLE_CRM_SPEC: 'SALES_EXECUTIVE',
+} as const;
 
 async function main() {
   const apexPlatformFields = {
@@ -539,32 +553,36 @@ async function main() {
     { name: 'Aarav Sharma', email: 'aarav.sharma@apexsupermarket.com', roleCode: 'ROLE_SUPER_ADMIN', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T09:20:00+05:30' },
     { name: 'Priya Nair', email: 'priya.nair@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T08:55:00+05:30' },
     { name: 'Rohan Verma', email: 'rohan.verma@apexsupermarket.com', roleCode: 'ROLE_STORE_MGR', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T19:40:00+05:30' },
-    { name: 'Simran Kaur', email: 'simran.kaur@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T07:15:00+05:30' },
-    { name: 'Karthik Iyer', email: 'karthik.iyer@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Airport Express Kiosk', twoFaEnabled: false, isActive: false, lastActivityAt: '2026-08-10T13:05:00+05:30' },
-    { name: 'Ananya Reddy', email: 'ananya.reddy@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T06:30:00+05:30' },
+    { name: 'Simran Kaur', email: 'simran.kaur@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Suburban Outlet', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T07:15:00+05:30', pin: '1234' },
+    { name: 'Karthik Iyer', email: 'karthik.iyer@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Airport Express Kiosk', twoFaEnabled: false, isActive: false, lastActivityAt: '2026-08-10T13:05:00+05:30', pin: '9999' },
+    { name: 'Ananya Reddy', email: 'ananya.reddy@apexsupermarket.com', roleCode: 'ROLE_CASHIER', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-16T06:30:00+05:30', pin: '5678' },
     { name: 'Vikram Desai', email: 'vikram.desai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T22:10:00+05:30' },
     { name: 'Meera Pillai', email: 'meera.pillai@apexsupermarket.com', roleCode: 'ROLE_INVENTORY_LEAD', branch: 'Central Warehouse A', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-14T17:45:00+05:30' },
     { name: 'Rajesh Khanna', email: 'rajesh.khanna@apexsupermarket.com', roleCode: 'ROLE_FINANCE_AUDITOR', branch: 'Downtown Flagship', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-15T11:25:00+05:30' },
     { name: 'Divya Menon', email: 'divya.menon@apexsupermarket.com', roleCode: 'ROLE_CRM_SPEC', branch: 'Airport Express Kiosk', twoFaEnabled: true, isActive: true, lastActivityAt: '2026-08-13T09:50:00+05:30' },
   ];
 
-  for (const u of userDefs) {
+  const demoPasswordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+
+  for (const u of userDefs as Array<(typeof userDefs)[number] & { pin?: string }>) {
+    const data = {
+      tenantId: tenant.id,
+      name: u.name,
+      email: u.email,
+      rbacRoleId: roleIdByCode[u.roleCode],
+      storeId: branchIdByName[u.branch],
+      twoFaEnabled: u.twoFaEnabled,
+      isActive: u.isActive,
+      lastActivityAt: new Date(u.lastActivityAt),
+      role: roleCodeToUserRole[u.roleCode as keyof typeof roleCodeToUserRole],
+      passwordHash: demoPasswordHash,
+      pinHash: u.pin ? await bcrypt.hash(u.pin, 10) : null,
+    };
     const existing = await prisma.user.findFirst({ where: { tenantId: tenant.id, email: u.email } });
-    if (!existing) {
-      await prisma.user.create({
-        data: {
-          tenantId: tenant.id,
-          name: u.name,
-          email: u.email,
-          rbacRoleId: roleIdByCode[u.roleCode],
-          storeId: branchIdByName[u.branch],
-          twoFaEnabled: u.twoFaEnabled,
-          isActive: u.isActive,
-          lastActivityAt: new Date(u.lastActivityAt),
-          role: 'CASHIER',
-          passwordHash: 'seed-placeholder-hash',
-        },
-      });
+    if (existing) {
+      await prisma.user.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.user.create({ data });
     }
   }
 

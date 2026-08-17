@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, KeyRound, Eye, EyeOff, ShieldCheck, ShieldAlert, Globe, Building, Delete } from 'lucide-react';
+import { Mail, KeyRound, Eye, EyeOff, ShieldCheck, ShieldAlert, Globe, Building, Delete, AlertCircle } from 'lucide-react';
 import { Button, Checkbox } from '@pospe/ui-library';
 import { useAuthStore } from '../../store/useAuthStore';
+import { apiClient } from '../../services/api/client';
+import type { Role } from '@pospe/permissions';
 
 type LoginRole = 'tenant' | 'cashier' | 'superadmin';
 
@@ -15,10 +17,12 @@ export default function LoginPage() {
   const [role, setRole] = useState<LoginRole>('tenant');
 
   // Tenant Admin form state
-  const [email, setEmail] = useState('admin@apexsupermarket.com');
-  const [password, setPassword] = useState('SuperSecure@123');
+  const [email, setEmail] = useState('aarav.sharma@apexsupermarket.com');
+  const [password, setPassword] = useState('Demo@12345');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Cashier PIN state
   const [pin, setPin] = useState('');
@@ -27,10 +31,22 @@ export default function LoginPage() {
   const [masterAdminId, setMasterAdminId] = useState('superadmin@apexpos.com');
   const [otpCode, setOtpCode] = useState('892-041');
 
-  const handleTenantSubmit = (e: React.FormEvent) => {
+  const handleTenantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login({ name: 'Alexander Wright', email, role: 'tenant_owner' });
-    navigate('/dashboard');
+    setLoginError(null);
+    setSubmitting(true);
+    try {
+      const res = await apiClient.post<{ token: string; user: { name: string; email: string; role: Role } }>(
+        '/api/auth/login',
+        { email, password },
+      );
+      login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
+      navigate('/dashboard');
+    } catch {
+      setLoginError('Invalid email or password.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSuperAdminSubmit = (e: React.FormEvent) => {
@@ -164,8 +180,15 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <Button type="submit" className="w-full !rounded-xl py-3">
-            Sign In to Workspace
+          {loginError && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              {loginError}
+            </div>
+          )}
+
+          <Button type="submit" disabled={submitting} className="w-full !rounded-xl py-3 disabled:opacity-60">
+            {submitting ? 'Signing in...' : 'Sign In to Workspace'}
           </Button>
 
           {/* Social SSO Buttons */}

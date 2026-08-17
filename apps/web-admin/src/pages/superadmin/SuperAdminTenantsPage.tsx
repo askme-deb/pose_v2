@@ -10,7 +10,6 @@ import {
   GlassCard,
   Input,
   KpiCard,
-  Modal,
   PillTabs,
   Select,
   useToast,
@@ -625,20 +624,45 @@ export default function SuperAdminTenantsPage() {
         />
       </Drawer>
 
-      <Modal open={!!detailsTenant} onClose={() => setDetailsTenant(null)} maxWidth="lg">
+      <Drawer
+        open={!!detailsTenant}
+        onClose={() => setDetailsTenant(null)}
+        title={detailsTenant?.organizationName ?? 'Tenant Details'}
+        subtitle={detailsTenant ? tenantDomain(detailsTenant) : undefined}
+        width="lg"
+        footer={
+          detailsTenant && (
+            <>
+              <button
+                onClick={impersonate}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" /> Impersonate Admin Login
+              </button>
+              <button
+                onClick={() => {
+                  openEditDrawer(detailsTenant);
+                  setDetailsTenant(null);
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700"
+              >
+                Edit
+              </button>
+              <button onClick={() => setDetailsTenant(null)} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">
+                Close
+              </button>
+            </>
+          )
+        }
+      >
         {detailsTenant && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <Avatar name={detailsTenant.organizationName} size="lg" />
-                <div>
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{detailsTenant.organizationName}</h3>
-                  <p className="text-xs font-mono text-slate-400">{tenantDomain(detailsTenant)}</p>
-                </div>
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+              <Avatar name={detailsTenant.organizationName} size="lg" />
+              <div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Organization</span>
+                <p className="text-sm font-bold text-slate-900 dark:text-white">{detailsTenant.organizationName}</p>
               </div>
-              <button onClick={() => setDetailsTenant(null)} className="text-slate-400 hover:text-slate-600 font-bold">
-                ✕
-              </button>
             </div>
 
             <div className="space-y-4 text-xs">
@@ -689,30 +713,9 @@ export default function SuperAdminTenantsPage() {
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-              <button
-                onClick={impersonate}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" /> Impersonate Admin Login
-              </button>
-              <button
-                onClick={() => {
-                  openEditDrawer(detailsTenant);
-                  setDetailsTenant(null);
-                }}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 dark:hover:bg-slate-700"
-              >
-                Edit
-              </button>
-              <button onClick={() => setDetailsTenant(null)} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">
-                Close
-              </button>
-            </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 }

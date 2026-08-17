@@ -37,9 +37,9 @@ import {
 import {
   Badge,
   Button,
+  Drawer,
   GlassCard,
   KpiCard,
-  Modal,
   Select,
   Input,
   DataTable,
@@ -907,17 +907,18 @@ export default function MobileAppsPage() {
         </GlassCard>
       </div>
 
-      {/* Device Detail Modal */}
-      <Modal open={!!selectedDevice} onClose={() => setSelectedDevice(null)} maxWidth="md">
+      {/* Device Detail Offcanvas */}
+      <Drawer
+        open={!!selectedDevice}
+        onClose={() => setSelectedDevice(null)}
+        title={selectedDevice?.deviceName ?? 'Device Details'}
+        subtitle={selectedDevice ? `${selectedDevice.id} • ${selectedDevice.serial}` : undefined}
+        width="md"
+      >
         {selectedDevice && (
           <div className="space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{selectedDevice.deviceName}</h3>
-                <p className="text-[11px] text-slate-400 font-mono">
-                  {selectedDevice.id} • {selectedDevice.serial}
-                </p>
-              </div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Device Status</span>
               <Badge color={STATUS_BADGE[selectedDevice.status].color} pill>
                 {STATUS_BADGE[selectedDevice.status].label}
               </Badge>
@@ -970,12 +971,16 @@ export default function MobileAppsPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
-      {/* PWA Install Modal */}
-      <Modal open={pwaModalOpen} onClose={() => setPwaModalOpen(false)} title="Install ApexPOS PWA App" maxWidth="md">
-        <p className="text-xs text-slate-400 -mt-2">Run the native POS client app on iOS, Android, or Desktop.</p>
-
+      {/* PWA Install Offcanvas */}
+      <Drawer
+        open={pwaModalOpen}
+        onClose={() => setPwaModalOpen(false)}
+        title="Install ApexPOS PWA App"
+        subtitle="Run the native POS client app on iOS, Android, or Desktop."
+        width="md"
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-3 text-xs">
             <div className="p-4 rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 space-y-1">
@@ -1014,17 +1019,20 @@ export default function MobileAppsPage() {
         >
           Launch One-Click PWA Installation
         </button>
-      </Modal>
+      </Drawer>
 
-      {/* QR Download Modal */}
-      <Modal open={qrModalOpen} onClose={() => setQrModalOpen(false)} title="Scan Mobile App QR" maxWidth="sm">
-        <p className="text-xs text-slate-400 -mt-2 text-center">
-          Scan with your smartphone camera to download the ApexPOS Mobile APK or launch the PWA instance instantly.
-        </p>
+      {/* QR Download Offcanvas */}
+      <Drawer
+        open={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        title="Scan Mobile App QR"
+        subtitle="Scan with your smartphone camera to download the ApexPOS Mobile APK or launch the PWA instance instantly."
+        width="sm"
+      >
         <div className="w-48 h-48 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 flex items-center justify-center border border-slate-200 dark:border-slate-700">
           <QrCode className="w-36 h-36 text-slate-900 dark:text-white" />
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

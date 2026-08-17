@@ -21,7 +21,6 @@ import {
   GlassCard,
   Input,
   KpiCard,
-  Modal,
   Select,
   useToast,
 } from '@pospe/ui-library';
@@ -557,11 +556,13 @@ export default function ProductsPage() {
         </form>
       </Drawer>
 
-      {/* Barcode Label Generator Modal */}
-      <Modal
+      {/* Barcode Label Generator Offcanvas */}
+      <Drawer
         open={!!barcodeProduct}
         onClose={() => setBarcodeProduct(null)}
-        maxWidth="sm"
+        title={barcodeProduct?.name ?? 'Barcode Label'}
+        subtitle={barcodeProduct?.sku}
+        width="sm"
         footer={
           <>
             <button
@@ -581,8 +582,6 @@ export default function ProductsPage() {
       >
         {barcodeProduct && (
           <div className="text-center space-y-3">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{barcodeProduct.name}</p>
-            <p className="text-[11px] font-mono text-slate-400">{barcodeProduct.sku}</p>
             <div className="mx-auto flex items-end justify-center gap-[1.5px] h-16 bg-white p-3 rounded-xl border border-slate-200">
               {barcodeBars(barcodeProduct.barcode).map((w, i) => (
                 <span key={i} className={`h-full bg-slate-900 ${w}`} />
@@ -592,7 +591,7 @@ export default function ProductsPage() {
             <p className="text-sm font-black text-slate-900 dark:text-white">{formatINR(barcodeProduct.sellingPrice)}</p>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 }

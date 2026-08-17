@@ -3,24 +3,53 @@ import { useNavigate } from 'react-router-dom';
 import { Delete } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { usePosSessionStore } from '../store/usePosSessionStore';
+import { apiClient } from '../services/api/client';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'go'];
 
+interface PinLoginResponse {
+  token: string;
+  user: { name: string };
+  store: { name: string } | null;
+}
+
 export default function PosLoginPage() {
   const [pin, setPin] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const login = usePosSessionStore((s) => s.login);
 
-  const press = (key: string) => {
-    if (key === 'clear') return setPin('');
+  const press = async (key: string) => {
+    if (submitting) return;
+    if (key === 'clear') {
+      setPin('');
+      setError(null);
+      return;
+    }
     if (key === 'go') {
-      if (pin.length === 4) {
-        login({ cashierName: 'Priya Sharma', registerName: 'Register 02', shiftLabel: 'Morning Shift' });
+      if (pin.length !== 4) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        const res = await apiClient.post<PinLoginResponse>('/api/auth/login/pin', { pin });
+        login(
+          { cashierName: res.user.name, registerName: res.store?.name ?? 'Register 02', shiftLabel: 'Morning Shift' },
+          res.token,
+        );
         navigate('/pos');
+      } catch {
+        setError('Invalid PIN');
+        setPin('');
+      } finally {
+        setSubmitting(false);
       }
       return;
     }
-    if (pin.length < 4) setPin((p) => p + key);
+    if (pin.length < 4) {
+      setError(null);
+      setPin((p) => p + key);
+    }
   };
 
   return (
@@ -40,6 +69,8 @@ export default function PosLoginPage() {
             />
           ))}
         </div>
+
+        <p className="text-xs font-semibold text-red-500 h-4">{error ?? (submitting ? 'Checking...' : '')}</p>
 
         <div className="grid grid-cols-3 gap-2.5">
           {KEYS.map((key) => (

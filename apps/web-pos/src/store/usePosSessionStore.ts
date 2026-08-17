@@ -9,7 +9,8 @@ export interface CashierSession {
 
 interface PosSessionState {
   session: CashierSession | null;
-  login: (session: CashierSession) => void;
+  token: string | null;
+  login: (session: CashierSession, token?: string) => void;
   logout: () => void;
 }
 
@@ -17,8 +18,9 @@ export const usePosSessionStore = create<PosSessionState>()(
   persist(
     (set) => ({
       session: null,
-      login: (session) => set({ session }),
-      logout: () => set({ session: null }),
+      token: null,
+      login: (session, token) => set({ session, token: token ?? null }),
+      logout: () => set({ session: null, token: null }),
     }),
     { name: 'pospe-pos-session' },
   ),

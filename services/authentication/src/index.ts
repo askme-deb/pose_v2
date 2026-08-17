@@ -7,6 +7,7 @@ import healthRouter from './routes/health';
 import rolesRouter from './routes/roles';
 import usersRouter from './routes/users';
 import auditLogsRouter from './routes/auditLogs';
+import authRouter from './routes/auth';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'authentication';
 
@@ -22,6 +23,7 @@ app.use('/', healthRouter);
 app.use('/', rolesRouter);
 app.use('/', usersRouter);
 app.use('/', auditLogsRouter);
+app.use('/', authRouter);
 
 app.listen(PORT, () => {
   console.log(`[authentication] listening on port ${PORT}`);

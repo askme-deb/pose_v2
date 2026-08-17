@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { tenantOperationsLinks, superAdminLinks, publicLinks } from '../../constants/nav';
 
 export default function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -13,16 +13,21 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
     [allLinks, query],
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-24 p-4" onClick={onClose}>
-      <div
-        className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-800 animate-scale-in overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800">
-          <Search className="w-4 h-4 text-slate-400" />
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl h-full overflow-y-auto flex flex-col animate-fade-in">
+        <div className="sticky top-0 z-10 flex items-center gap-3 px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
             autoFocus
             value={query}
@@ -33,8 +38,14 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
           <kbd className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">
             ESC
           </kbd>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {results.length === 0 && <p className="px-3 py-6 text-center text-xs text-slate-400">No matches found.</p>}
           {results.map((link) => (
             <button

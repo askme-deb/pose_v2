@@ -42,7 +42,7 @@ import {
   Select,
   Badge,
   DataTable,
-  Modal,
+  Drawer,
   Checkbox,
   useToast,
   cn,
@@ -1132,22 +1132,28 @@ export default function ReportsAnalyticsPage() {
         </div>
       )}
 
-      {/* MODAL: PRODUCT DRILLDOWN */}
-      <Modal open={productModalOpen} onClose={() => setProductModalOpen(false)} maxWidth="xl">
+      {/* OFFCANVAS: PRODUCT DRILLDOWN */}
+      <Drawer
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        title={selectedProductRow?.name ?? 'Product Drilldown'}
+        subtitle={selectedProductRow?.sku}
+        width="xl"
+        footer={
+          selectedProductRow && (
+            <>
+              <Button variant="ghost" onClick={() => setProductModalOpen(false)}>
+                Close
+              </Button>
+              <Button variant="primary" onClick={handleCreateSupplierPo}>
+                Create Supplier PO
+              </Button>
+            </>
+          )
+        }
+      >
         {selectedProductRow && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <Box className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-sm text-slate-900 dark:text-white">{selectedProductRow.name}</h3>
-                  <p className="text-[11px] text-slate-400">{selectedProductRow.sku}</p>
-                </div>
-              </div>
-            </div>
-
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                 <div className="text-[10px] text-slate-400 font-bold uppercase">Units Sold</div>
@@ -1181,21 +1187,27 @@ export default function ReportsAnalyticsPage() {
                 <strong>Downtown Flagship</strong>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setProductModalOpen(false)}>
-                Close
-              </Button>
-              <Button variant="primary" onClick={handleCreateSupplierPo}>
-                Create Supplier PO
-              </Button>
-            </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
-      {/* MODAL: EXPORT REPORT */}
-      <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export Analytics Report" maxWidth="md">
+      {/* OFFCANVAS: EXPORT REPORT */}
+      <Drawer
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Export Analytics Report"
+        width="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setExportModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleDownloadReport}>
+              Download File
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-4 text-xs">
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select Export Format</label>
@@ -1246,19 +1258,28 @@ export default function ReportsAnalyticsPage() {
             </div>
           </div>
         </div>
+      </Drawer>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={() => setExportModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleDownloadReport}>
-            Download File
-          </Button>
-        </div>
-      </Modal>
-
-      {/* MODAL: SCHEDULE EMAIL REPORT */}
-      <Modal open={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="Schedule Automated Email Report" maxWidth="md">
+      {/* OFFCANVAS: SCHEDULE EMAIL REPORT */}
+      <Drawer
+        open={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        title="Schedule Automated Email Report"
+        width="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setScheduleModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleScheduleSave}
+              className="!bg-amber-500 hover:!bg-amber-600 !from-amber-500 !to-amber-500 hover:!from-amber-600 hover:!to-amber-600 shadow-amber-500/20"
+            >
+              Enable Auto-Mail
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-3">
           <Input
             label="Recipient Email Address"
@@ -1277,19 +1298,7 @@ export default function ReportsAnalyticsPage() {
             ]}
           />
         </div>
-
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button variant="ghost" onClick={() => setScheduleModalOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleScheduleSave}
-            className="!bg-amber-500 hover:!bg-amber-600 !from-amber-500 !to-amber-500 hover:!from-amber-600 hover:!to-amber-600 shadow-amber-500/20"
-          >
-            Enable Auto-Mail
-          </Button>
-        </div>
-      </Modal>
+      </Drawer>
     </>
   );
 }

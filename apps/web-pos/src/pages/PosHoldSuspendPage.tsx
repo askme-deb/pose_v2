@@ -12,7 +12,7 @@ import {
   Trash2,
   ShoppingBag,
 } from 'lucide-react';
-import { Badge, Button, GlassCard, KpiCard, Modal, PillTabs, Textarea, EmptyState, useToast, type BadgeColor } from '@pospe/ui-library';
+import { Badge, Button, Drawer, GlassCard, KpiCard, PillTabs, Textarea, EmptyState, useToast, type BadgeColor } from '@pospe/ui-library';
 import { useCartStore, cartTotals, type HeldBill } from '../store/useCartStore';
 import { getCustomerDiscountPercent } from '../services/mockData/posCustomers';
 import { formatINR, formatDateTime } from '../utils/format';
@@ -346,8 +346,8 @@ export default function PosHoldSuspendPage() {
         </div>
       </div>
 
-      {/* Suspend Note modal (no markup for this in the source prototype — designed to fit the data model) */}
-      <Modal
+      {/* Suspend Note offcanvas (no markup for this in the source prototype — designed to fit the data model) */}
+      <Drawer
         open={suspendOpen}
         onClose={() => setSuspendOpen(false)}
         title="Suspend Note"
@@ -375,7 +375,7 @@ export default function PosHoldSuspendPage() {
           onChange={(e) => setNoteText(e.target.value)}
           placeholder="e.g. Awaiting price verification for SKU AML-CHZ-200..."
         />
-      </Modal>
+      </Drawer>
     </div>
   );
 }

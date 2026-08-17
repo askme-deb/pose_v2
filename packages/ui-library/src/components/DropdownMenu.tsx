@@ -28,7 +28,7 @@ export default function DropdownMenu({ trigger, children, align = 'left', width 
         <div
           onClick={() => setOpen(false)}
           className={cn(
-            'absolute top-full mt-2 glass-card bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-0.5 animate-scale-in',
+            'absolute top-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 space-y-0.5 animate-scale-in',
             align === 'right' ? 'right-0' : 'left-0',
             width,
           )}

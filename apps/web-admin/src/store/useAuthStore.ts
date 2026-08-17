@@ -10,7 +10,8 @@ export interface AuthUser {
 
 interface AuthState {
   user: AuthUser | null;
-  login: (user: AuthUser) => void;
+  token: string | null;
+  login: (user: AuthUser, token?: string) => void;
   logout: () => void;
 }
 
@@ -24,8 +25,9 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: defaultUser,
-      login: (user) => set({ user }),
-      logout: () => set({ user: null }),
+      token: null,
+      login: (user, token) => set({ user, token: token ?? null }),
+      logout: () => set({ user: null, token: null }),
     }),
     { name: 'pospe-auth' },
   ),

@@ -14,7 +14,7 @@ import {
   CreditCard,
   SlidersHorizontal,
 } from 'lucide-react';
-import { Button, Input, Select, Modal, EmptyState, useToast } from '@pospe/ui-library';
+import { Button, Input, Select, Drawer, EmptyState, useToast } from '@pospe/ui-library';
 import { useCartStore, cartTotals, type CartItem } from '../store/useCartStore';
 import { usePosSessionStore } from '../store/usePosSessionStore';
 import { posCategories, posProducts } from '../services/mockData/posProducts';
@@ -389,12 +389,12 @@ export default function PosTouchPage() {
         </div>
       </div>
 
-      {/* Quick Pay Modal */}
-      <Modal
+      {/* Quick Pay Offcanvas */}
+      <Drawer
         open={payMethod !== null}
         onClose={() => setPayMethod(null)}
-        title={payMethod ? `Checkout — ${methodLabels[payMethod]}` : ''}
-        maxWidth="md"
+        title={payMethod ? `Checkout — ${methodLabels[payMethod]}` : 'Checkout'}
+        width="md"
         footer={
           <>
             <Button variant="ghost" onClick={() => setPayMethod(null)}>
@@ -460,10 +460,25 @@ export default function PosTouchPage() {
             </p>
           </div>
         )}
-      </Modal>
+      </Drawer>
 
-      {/* Thermal Receipt Modal */}
-      <Modal open={receipt !== null} onClose={() => setReceipt(null)} maxWidth="sm">
+      {/* Thermal Receipt Offcanvas */}
+      <Drawer
+        open={receipt !== null}
+        onClose={() => setReceipt(null)}
+        title="Thermal Receipt"
+        width="sm"
+        footer={
+          <>
+            <Button variant="primary" className="flex-1" onClick={() => window.print()}>
+              Print Thermal Receipt
+            </Button>
+            <Button variant="ghost" onClick={() => setReceipt(null)}>
+              Close
+            </Button>
+          </>
+        }
+      >
         {receipt && (
           <div id="receipt-modal-body" className="space-y-3 font-mono text-[11px] text-slate-800 dark:text-slate-100">
             <div className="text-center space-y-0.5">
@@ -525,24 +540,10 @@ export default function PosTouchPage() {
             <p className="text-center pt-2 border-t border-dashed border-slate-400">Thank you for shopping with us!</p>
           </div>
         )}
-        <div className="flex items-center gap-2 pt-2">
-          <button
-            onClick={() => window.print()}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-xs hover:bg-blue-700"
-          >
-            Print Thermal Receipt
-          </button>
-          <button
-            onClick={() => setReceipt(null)}
-            className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs"
-          >
-            Close
-          </button>
-        </div>
-      </Modal>
+      </Drawer>
 
-      {/* Held Bills quick-access modal */}
-      <Modal open={heldBillsOpen} onClose={() => setHeldBillsOpen(false)} title="Suspended & Held Bills" maxWidth="md">
+      {/* Held Bills quick-access offcanvas */}
+      <Drawer open={heldBillsOpen} onClose={() => setHeldBillsOpen(false)} title="Suspended & Held Bills" width="md">
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {heldBills.length === 0 && <EmptyState icon={PauseCircle} title="No held bills" description="Bills you hold will appear here for quick recall." />}
           {heldBills.map((bill) => {
@@ -577,13 +578,14 @@ export default function PosTouchPage() {
             );
           })}
         </div>
-      </Modal>
+      </Drawer>
 
-      {/* Hold This Bill modal */}
-      <Modal
+      {/* Hold This Bill offcanvas */}
+      <Drawer
         open={holdModalOpen}
         onClose={() => setHoldModalOpen(false)}
         title="Hold This Bill"
+        width="sm"
         footer={
           <>
             <Button variant="ghost" onClick={() => setHoldModalOpen(false)}>
@@ -602,7 +604,7 @@ export default function PosTouchPage() {
           placeholder={`Order for ${customer}`}
           hint="Used to identify this bill in the Held Bills queue."
         />
-      </Modal>
+      </Drawer>
     </div>
   );
 }

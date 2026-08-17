@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { BarChart3, Check, CreditCard, DollarSign, Download, RefreshCw, Search, Store, TrendingUp, X } from 'lucide-react';
-import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, Modal, PillTabs, useToast } from '@pospe/ui-library';
+import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, PillTabs, useToast } from '@pospe/ui-library';
 import { LiveTenant, LivePlatformInvoice, TenantPlan, listTenants, listPlatformInvoices } from '../../services/api/tenants';
 import { formatCompactINR, formatDate, formatINR } from '../../utils/format';
 
@@ -457,19 +457,15 @@ export default function SuperAdminSubscriptionsPage() {
         <Input label="Tier Marketing Badge" value={formBadge} onChange={(e) => setFormBadge(e.target.value)} />
       </Drawer>
 
-      <Modal open={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} maxWidth="md">
+      <Drawer
+        open={!!selectedInvoice}
+        onClose={() => setSelectedInvoice(null)}
+        title={selectedInvoice?.id ?? 'Invoice'}
+        subtitle={selectedInvoice ? `Billed on ${formatDate(selectedInvoice.date)}` : undefined}
+        width="md"
+      >
         {selectedInvoice && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white font-mono">{selectedInvoice.id}</h3>
-                <p className="text-xs text-slate-400">Billed on {formatDate(selectedInvoice.date)}</p>
-              </div>
-              <button onClick={() => setSelectedInvoice(null)} className="text-slate-400 hover:text-slate-600 font-bold">
-                ✕
-              </button>
-            </div>
-
             <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Billed Tenant:</span>
@@ -513,7 +509,7 @@ export default function SuperAdminSubscriptionsPage() {
             </div>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 }

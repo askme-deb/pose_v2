@@ -5,10 +5,10 @@ import {
   Badge,
   Button,
   DataTable,
+  Drawer,
   GlassCard,
   Input,
   KpiCard,
-  Modal,
   PillTabs,
   Select,
   Textarea,
@@ -380,8 +380,13 @@ export default function SuperAdminWhiteLabelPage() {
         </GlassCard>
       )}
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add Custom CNAME Domain" maxWidth="md">
-        <p className="text-xs text-slate-400 -mt-2">Map custom tenant domain to cloud edge ingress.</p>
+      <Drawer
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Custom CNAME Domain"
+        subtitle="Map custom tenant domain to cloud edge ingress."
+        width="md"
+      >
         <form onSubmit={handleAddDomain} className="space-y-4">
           <Select
             label="Target Business Tenant"
@@ -403,7 +408,7 @@ export default function SuperAdminWhiteLabelPage() {
             <Button type="submit" className="!bg-rose-600 hover:!bg-rose-700 !bg-none !shadow-rose-500/25">Provision SSL & Bind</Button>
           </div>
         </form>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

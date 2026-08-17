@@ -24,7 +24,6 @@ import {
   GlassCard,
   Input,
   KpiCard,
-  Modal,
   PillTabs,
   Select,
   Textarea,
@@ -1007,12 +1006,13 @@ export default function UserRolesPage() {
         </form>
       </Drawer>
 
-      {/* Add / Edit User Account Modal */}
-      <Modal
+      {/* Add / Edit User Account Offcanvas */}
+      <Drawer
         open={userModalOpen}
         onClose={closeUserModal}
         title={editingUserId ? 'Edit User Role Assignment' : 'Assign Role & Credentials'}
-        maxWidth="md"
+        subtitle="Modify system access permissions for user account."
+        width="md"
         footer={
           <>
             <button
@@ -1033,7 +1033,6 @@ export default function UserRolesPage() {
           </>
         }
       >
-        <p className="text-xs text-slate-400 -mt-2">Modify system access permissions for user account.</p>
         <form id="user-modal-form" onSubmit={handleSaveUser} className="space-y-3">
           <Input
             label="Full Name"
@@ -1079,7 +1078,7 @@ export default function UserRolesPage() {
             />
           </div>
         </form>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

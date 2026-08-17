@@ -1,4 +1,5 @@
 import { ReactNode, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -9,10 +10,10 @@ export interface DrawerProps {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
-  width?: 'md' | 'lg' | 'xl';
+  width?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-const widths = { md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' };
+const widths = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-lg', xl: 'sm:max-w-2xl' };
 
 export default function Drawer({ open, onClose, title, subtitle, children, footer, width = 'md' }: DrawerProps) {
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function Drawer({ open, onClose, title, subtitle, children, foote
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
@@ -52,6 +53,7 @@ export default function Drawer({ open, onClose, title, subtitle, children, foote
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

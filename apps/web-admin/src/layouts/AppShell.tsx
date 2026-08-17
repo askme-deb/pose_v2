@@ -17,7 +17,18 @@ import logo from '../assets/logo.svg';
 import { useThemeStore } from '../store/useThemeStore';
 import { useTenantStore } from '../store/useTenantStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { tenantOperationsLinks, superAdminLinks, publicLinks, type NavLink } from '../constants/nav';
+import {
+  dashboardLinks,
+  salesLinks,
+  masterDataLinks,
+  productsLinks,
+  inventoryLinks,
+  reportsLinks,
+  administrationLinks,
+  superAdminLinks,
+  publicLinks,
+  type NavLink,
+} from '../constants/nav';
 import SearchModal from '../components/layout/SearchModal';
 import MobileDrawer from '../components/layout/MobileDrawer';
 
@@ -84,6 +95,29 @@ function NavDropdown({ label, links, badgeColor, align = 'left', columns = 3 }: 
         })}
       </div>
     </DropdownMenu>
+  );
+}
+
+function NavPill({ link, badgeColor }: { link: NavLink; badgeColor: 'blue' | 'purple' | 'slate' }) {
+  const location = useLocation();
+  const active = location.pathname === link.href;
+
+  const badgeClasses = {
+    blue: 'bg-blue-600/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20',
+    purple: 'bg-purple-600/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20',
+    slate: 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300',
+  }[badgeColor];
+
+  return (
+    <Link
+      to={link.href}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition ${
+        active ? badgeClasses : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+      }`}
+    >
+      <link.icon className="w-3.5 h-3.5" />
+      {link.label}
+    </Link>
   );
 }
 
@@ -229,12 +263,16 @@ export default function AppShell() {
           </div>
         </div>
 
-        <nav className="hidden md:flex px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center justify-between gap-4 text-xs font-semibold">
-          <div className="flex items-center gap-2">
-            <NavDropdown label="Tenant Operations" links={tenantOperationsLinks} badgeColor="blue" columns={3} />
-            <NavDropdown label="Super Admin Portal" links={superAdminLinks} badgeColor="purple" columns={2} />
-          </div>
-          <NavDropdown label="Public & Design" links={publicLinks} badgeColor="slate" align="right" columns={1} />
+        <nav className="hidden md:flex flex-wrap px-4 lg:px-8 py-2.5 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md items-center gap-1.5 text-xs font-semibold">
+          <NavPill link={dashboardLinks[0]} badgeColor="blue" />
+          <NavDropdown label="Sales" links={salesLinks} badgeColor="blue" columns={2} />
+          <NavDropdown label="Master Data" links={masterDataLinks} badgeColor="blue" columns={1} />
+          <NavPill link={productsLinks[0]} badgeColor="blue" />
+          <NavDropdown label="Inventory" links={inventoryLinks} badgeColor="blue" columns={1} />
+          <NavDropdown label="Reports" links={reportsLinks} badgeColor="blue" columns={1} />
+          <NavDropdown label="Administration" links={administrationLinks} badgeColor="blue" columns={1} />
+          <NavDropdown label="Super Admin Portal" links={superAdminLinks} badgeColor="purple" columns={2} />
+          <NavDropdown label="Public & Design" links={publicLinks} badgeColor="slate" columns={1} />
         </nav>
       </header>
 

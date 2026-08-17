@@ -101,6 +101,9 @@ model User {
   name           String
   email          String
   passwordHash   String
+  // Set only for counter staff who use the POS terminal's 4-digit quick-login
+  // pad instead of the email/password form — null for everyone else.
+  pinHash        String?
   role           UserRole
   twoFaEnabled   Boolean   @default(false)
   isActive       Boolean   @default(true)
