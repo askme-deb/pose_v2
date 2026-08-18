@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -11,9 +11,12 @@ import {
   RotateCcw,
   Trash2,
   ShoppingBag,
+  Scissors,
+  GitMerge,
 } from 'lucide-react';
 import { Badge, Button, Drawer, GlassCard, KpiCard, PillTabs, Textarea, EmptyState, useToast, type BadgeColor } from '@pospe/ui-library';
-import { useCartStore, cartTotals, type HeldBill } from '../store/useCartStore';
+import { useCartStore } from '../store/useCartStore';
+import { splitHeldBill, mergeHeldBills, type ApiHeldBill } from '../services/api/billing';
 import { formatINR, formatDateTime } from '../utils/format';
 
 const HOLD_CATEGORIES = ['Pending Customer', 'Price Verification', 'Draft Orders'] as const;
@@ -46,12 +49,12 @@ function timeAgo(iso: string): string {
   return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
 }
 
-function billTotal(bill: HeldBill): number {
-  return cartTotals(bill.items, bill.discountPercent).total;
+function billTotal(bill: ApiHeldBill): number {
+  return Number(bill.total);
 }
 
 export default function PosHoldSuspendPage() {
-  const { heldBills, recallHeldBill, voidHeldBill, holdCurrentBill, items } = useCartStore();
+  const { heldBills, recallHeldBill, voidHeldBill, holdCurrentBill, loadHeldBills, items } = useCartStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -60,6 +63,14 @@ export default function PosHoldSuspendPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [splitSelected, setSplitSelected] = useState<Set<string>>(new Set());
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    loadHeldBills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totalHeldValue = useMemo(() => heldBills.reduce((sum, b) => sum + billTotal(b), 0), [heldBills]);
 
@@ -67,14 +78,14 @@ export default function PosHoldSuspendPage() {
     () =>
       heldBills.length === 0
         ? null
-        : heldBills.reduce((a, b) => (new Date(a.heldAt).getTime() < new Date(b.heldAt).getTime() ? a : b)),
+        : heldBills.reduce((a, b) => (new Date(a.createdAt).getTime() < new Date(b.createdAt).getTime() ? a : b)),
     [heldBills],
   );
 
   const avgHoldMinutes = useMemo(() => {
     if (heldBills.length === 0) return 0;
     const now = Date.now();
-    const totalMins = heldBills.reduce((sum, b) => sum + (now - new Date(b.heldAt).getTime()) / 60000, 0);
+    const totalMins = heldBills.reduce((sum, b) => sum + (now - new Date(b.createdAt).getTime()) / 60000, 0);
     return Math.round(totalMins / heldBills.length);
   }, [heldBills]);
 
@@ -85,40 +96,112 @@ export default function PosHoldSuspendPage() {
       .filter(
         (b) =>
           q === '' ||
-          b.label.toLowerCase().includes(q) ||
+          (b.label ?? '').toLowerCase().includes(q) ||
           b.customerName.toLowerCase().includes(q) ||
           b.id.toLowerCase().includes(q),
       )
-      .sort((a, b) => new Date(a.heldAt).getTime() - new Date(b.heldAt).getTime());
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [heldBills, activeFilter, search]);
 
   const selectedBill = heldBills.find((b) => b.id === selectedId) ?? null;
+  const mergeCandidates = heldBills.filter((b) => b.id !== selectedId);
 
-  function handleRecall(id: string) {
-    recallHeldBill(id);
-    showToast('Held bill recalled to POS terminal', 'success');
-    navigate('/pos');
+  function selectBill(id: string) {
+    setSelectedId(id);
+    setSplitSelected(new Set());
+    setMergeTargetId('');
   }
 
-  function handleVoid(id: string) {
-    voidHeldBill(id);
-    showToast('Held bill voided', 'info');
-    if (selectedId === id) setSelectedId(null);
+  async function handleRecall(id: string) {
+    setBusy(true);
+    try {
+      await recallHeldBill(id);
+      showToast('Held bill recalled to POS terminal', 'success');
+      navigate('/pos');
+    } catch {
+      showToast('Failed to recall bill — please try again', 'danger');
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function handleSuspendSave() {
+  async function handleVoid(id: string) {
+    setBusy(true);
+    try {
+      await voidHeldBill(id);
+      showToast('Held bill voided', 'info');
+      if (selectedId === id) setSelectedId(null);
+    } catch {
+      showToast('Failed to void bill — please try again', 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function toggleSplitItem(itemId: string) {
+    setSplitSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  async function handleSplit() {
+    if (!selectedBill || splitSelected.size === 0) return;
+    setBusy(true);
+    try {
+      const created = await splitHeldBill(selectedBill.id, [...splitSelected]);
+      await loadHeldBills();
+      setSplitSelected(new Set());
+      setSelectedId(created.id);
+      showToast('Bill split into two held bills', 'success');
+    } catch {
+      showToast('Failed to split bill — please try again', 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMerge() {
+    if (!selectedBill || !mergeTargetId) return;
+    setBusy(true);
+    try {
+      const merged = await mergeHeldBills(selectedBill.id, mergeTargetId);
+      await loadHeldBills();
+      setMergeTargetId('');
+      setSelectedId(merged.id);
+      showToast('Bills merged', 'success');
+    } catch {
+      showToast('Failed to merge bills — please try again', 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSuspendSave() {
     const note = noteText.trim();
     if (!note) {
       showToast('Enter a note or reason before suspending', 'warning');
       return;
     }
-    // No live customer/discount context on this page (it suspends whatever's in
-    // the active cart without re-picking a customer), so this holds at 0% —
-    // consistent with today's behavior, which never applied a discount here either.
-    holdCurrentBill(note, 0);
-    showToast(items.length === 0 ? 'Suspend note saved to Held Bills' : 'Current cart suspended with note', 'success');
-    setNoteText('');
-    setSuspendOpen(false);
+    if (items.length === 0) {
+      showToast('Add items to the active cart before suspending — held bills need at least one item', 'warning');
+      return;
+    }
+    setBusy(true);
+    try {
+      // No live discount context on this page (it suspends whatever's in the
+      // active cart without re-picking a discount), so this holds at 0%.
+      await holdCurrentBill(note, 0);
+      showToast('Current cart suspended with note', 'success');
+      setNoteText('');
+      setSuspendOpen(false);
+    } catch {
+      showToast('Failed to suspend bill — please try again', 'danger');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -189,7 +272,7 @@ export default function PosHoldSuspendPage() {
         <KpiCard
           icon={Clock}
           label="Oldest Hold Item"
-          value={oldest ? timeAgo(oldest.heldAt) : '—'}
+          value={oldest ? timeAgo(oldest.createdAt) : '—'}
           delta={oldest ? `${oldest.id} (${oldest.customerName})` : 'No held bills'}
           deltaTone="negative"
           color="red"
@@ -231,7 +314,7 @@ export default function PosHoldSuspendPage() {
               return (
                 <button
                   key={bill.id}
-                  onClick={() => setSelectedId(bill.id)}
+                  onClick={() => selectBill(bill.id)}
                   className={`w-full text-left p-4 rounded-2xl border transition space-y-2 ${
                     active
                       ? 'bg-amber-500/10 border-amber-500/40 shadow-md'
@@ -239,14 +322,14 @@ export default function PosHoldSuspendPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{bill.label}</p>
+                    <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{bill.label ?? 'Held bill'}</p>
                     <Badge color={categoryBadgeColor[category]}>{categoryShortLabel[category]}</Badge>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {bill.customerName} &middot; {bill.items.length} item{bill.items.length === 1 ? '' : 's'}
                   </p>
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">{formatDateTime(bill.heldAt)} &middot; {timeAgo(bill.heldAt)}</span>
+                    <span className="text-slate-400">{formatDateTime(bill.createdAt)} &middot; {timeAgo(bill.createdAt)}</span>
                     <span className="font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(billTotal(bill))}</span>
                   </div>
                 </button>
@@ -261,7 +344,7 @@ export default function PosHoldSuspendPage() {
             <EmptyState
               icon={ShoppingBag}
               title="Select a held bill"
-              description="Choose a bill from the list to inspect its line items, totals, and recall or void it."
+              description="Choose a bill from the list to inspect its line items, totals, and recall, void, split, or merge it."
             />
           )}
           {selectedBill && (
@@ -269,7 +352,7 @@ export default function PosHoldSuspendPage() {
               <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-200 dark:border-slate-800">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">{selectedBill.label}</h3>
+                    <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">{selectedBill.label ?? 'Held bill'}</h3>
                     <Badge color={categoryBadgeColor[deriveHoldCategory(selectedBill.id)]}>
                       {categoryShortLabel[deriveHoldCategory(selectedBill.id)]}
                     </Badge>
@@ -278,67 +361,106 @@ export default function PosHoldSuspendPage() {
                     #{selectedBill.id} &middot; Customer: <span className="font-semibold">{selectedBill.customerName}</span>
                   </p>
                   <p className="text-[11px] text-slate-400">
-                    Held {formatDateTime(selectedBill.heldAt)} ({timeAgo(selectedBill.heldAt)})
+                    Held {formatDateTime(selectedBill.createdAt)} ({timeAgo(selectedBill.createdAt)})
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Line Items</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Line Items</p>
+                  {selectedBill.items.length > 1 && (
+                    <p className="text-[10px] text-slate-400">Check items to split into a new held bill</p>
+                  )}
+                </div>
                 {selectedBill.items.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">No line items — this is a note-only suspension.</p>
+                  <p className="text-xs text-slate-400 italic">No line items on this bill.</p>
                 ) : (
                   <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
                     {selectedBill.items.map((item) => (
-                      <div
+                      <label
                         key={item.id}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 text-xs"
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 text-xs cursor-pointer"
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">
-                            {formatINR(item.price)} &times; {item.qty}
-                          </p>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {selectedBill.items.length > 1 && (
+                            <input
+                              type="checkbox"
+                              checked={splitSelected.has(item.id)}
+                              onChange={() => toggleSplitItem(item.id)}
+                              className="w-3.5 h-3.5 accent-amber-500 shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{item.product.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              {formatINR(Number(item.price))} &times; {item.quantity}
+                            </p>
+                          </div>
                         </div>
-                        <span className="font-mono font-black text-slate-900 dark:text-white">{formatINR(item.price * item.qty)}</span>
-                      </div>
+                        <span className="font-mono font-black text-slate-900 dark:text-white shrink-0">{formatINR(Number(item.total))}</span>
+                      </label>
                     ))}
                   </div>
                 )}
+                {splitSelected.size > 0 && (
+                  <Button variant="secondary" size="sm" className="w-full" disabled={busy} onClick={handleSplit}>
+                    <Scissors className="w-3.5 h-3.5" />
+                    Split {splitSelected.size} Item{splitSelected.size === 1 ? '' : 's'} Into New Bill
+                  </Button>
+                )}
               </div>
 
-              {(() => {
-                const totals = cartTotals(selectedBill.items, selectedBill.discountPercent);
-                return (
-                  <div className="p-4 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 space-y-2 text-xs">
-                    <div className="flex justify-between text-slate-500">
-                      <span>Subtotal:</span>
-                      <span className="font-mono font-semibold">{formatINR(totals.subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500">
-                      <span>GST Tax:</span>
-                      <span className="font-mono font-semibold">{formatINR(totals.gst)}</span>
-                    </div>
-                    {totals.discount > 0 && (
-                      <div className="flex justify-between text-emerald-600 font-semibold">
-                        <span>Discount:</span>
-                        <span className="font-mono">-{formatINR(totals.discount)}</span>
-                      </div>
-                    )}
-                    <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline">
-                      <span className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">Total</span>
-                      <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">{formatINR(totals.total)}</span>
-                    </div>
+              <div className="p-4 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-semibold">{formatINR(Number(selectedBill.subtotal))}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>GST Tax:</span>
+                  <span className="font-mono font-semibold">{formatINR(Number(selectedBill.taxTotal))}</span>
+                </div>
+                {Number(selectedBill.heldDiscountPercent ?? 0) > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-semibold">
+                    <span>Discount ({Number(selectedBill.heldDiscountPercent)}%):</span>
+                    <span className="font-mono">
+                      -{formatINR(Number(selectedBill.subtotal) * (Number(selectedBill.heldDiscountPercent) / 100))}
+                    </span>
                   </div>
-                );
-              })()}
+                )}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-baseline">
+                  <span className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">Total</span>
+                  <span className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">{formatINR(Number(selectedBill.total))}</span>
+                </div>
+              </div>
+
+              {mergeCandidates.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={mergeTargetId}
+                    onChange={(e) => setMergeTargetId(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
+                  >
+                    <option value="">Merge into another held bill...</option>
+                    {mergeCandidates.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.label ?? 'Held bill'} &middot; {b.customerName} &middot; {formatINR(billTotal(b))}
+                      </option>
+                    ))}
+                  </select>
+                  <Button variant="secondary" size="sm" disabled={!mergeTargetId || busy} onClick={handleMerge}>
+                    <GitMerge className="w-3.5 h-3.5" />
+                    Merge
+                  </Button>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
-                <Button variant="primary" className="flex-1" onClick={() => handleRecall(selectedBill.id)}>
+                <Button variant="primary" className="flex-1" disabled={busy} onClick={() => handleRecall(selectedBill.id)}>
                   <RotateCcw className="w-4 h-4" />
                   Recall to POS
                 </Button>
-                <Button variant="danger" className="flex-1" onClick={() => handleVoid(selectedBill.id)}>
+                <Button variant="danger" className="flex-1" disabled={busy} onClick={() => handleVoid(selectedBill.id)}>
                   <Trash2 className="w-4 h-4" />
                   Void Bill
                 </Button>
@@ -348,7 +470,7 @@ export default function PosHoldSuspendPage() {
         </div>
       </div>
 
-      {/* Suspend Note offcanvas (no markup for this in the source prototype — designed to fit the data model) */}
+      {/* Suspend Note offcanvas */}
       <Drawer
         open={suspendOpen}
         onClose={() => setSuspendOpen(false)}
@@ -358,7 +480,7 @@ export default function PosHoldSuspendPage() {
             <Button variant="ghost" onClick={() => setSuspendOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSuspendSave}>
+            <Button variant="primary" disabled={busy} onClick={handleSuspendSave}>
               Save & Suspend
             </Button>
           </>
@@ -367,7 +489,7 @@ export default function PosHoldSuspendPage() {
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {items.length > 0
             ? `This will suspend the ${items.length} item(s) currently in the active cart with your note as the label.`
-            : 'No items are in the active cart — this will save a note-only placeholder to the Held Bills queue.'}
+            : 'The active cart is empty — add items on the POS terminal before suspending a bill.'}
         </p>
         <Textarea
           label="Note / Reason"

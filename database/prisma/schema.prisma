@@ -502,7 +502,11 @@ model Invoice {
   // walk-in customers with no CRM record, and it shouldn't retroactively change
   // if the linked Customer is later renamed.
   customerName  String        @default("Walk-in Customer")
-  invoiceNumber String
+  // Null for a HELD bill — a real sequential number is only ever allocated by
+  // sales-service's checkout, at the moment a bill actually gets paid.
+  // Postgres treats multiple NULLs as distinct under the unique constraint
+  // below, same reasoning already used for idempotencyKey.
+  invoiceNumber String?
   status        InvoiceStatus @default(DRAFT)
   paymentMethod PaymentMethod @default(CASH)
   subtotal      Decimal       @default(0) @db.Decimal(12, 2)
@@ -513,8 +517,16 @@ model Invoice {
   // null for every other caller. Postgres treats multiple NULLs as distinct,
   // so non-idempotent callers never collide with each other here.
   idempotencyKey String?       @unique
+  // The next two only carry meaning while status is HELD — the cashier's
+  // suspend note/label, and the discount they'd picked before holding.
+  // Once a held bill is recalled, sales-service's checkout re-derives real
+  // totals from scratch (as it already does for a fresh cart) and these are
+  // discarded, not carried onto the paid invoice.
+  label            String?
+  heldDiscountPercent Decimal?   @db.Decimal(5, 2)
 
-  items InvoiceItem[]
+  items    InvoiceItem[]
+  payments Payment[]
 
   @@unique([storeId, invoiceNumber])
   @@map("invoices")
@@ -532,6 +544,27 @@ model InvoiceItem {
   total     Decimal @db.Decimal(12, 2)
 
   @@map("invoice_items")
+}
+
+enum PaymentStatus {
+  CREATED
+  CAPTURED
+  FAILED
+}
+
+model Payment {
+  id               String         @id @default(cuid())
+  invoiceId        String
+  invoice          Invoice        @relation(fields: [invoiceId], references: [id])
+  gateway          PaymentGateway @default(RAZORPAY)
+  gatewayOrderId   String?        @unique
+  gatewayPaymentId String?        @unique
+  amount           Decimal        @db.Decimal(12, 2)
+  status           PaymentStatus  @default(CREATED)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("payments")
 }
 
 enum GstFormType {

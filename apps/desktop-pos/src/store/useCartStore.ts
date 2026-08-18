@@ -1,4 +1,11 @@
 import { create } from 'zustand';
+import {
+  holdBill,
+  listHeldBills,
+  recallHeldBill as apiRecallHeldBill,
+  voidHeldBill as apiVoidHeldBill,
+  type ApiHeldBill,
+} from '../services/api/billing';
 
 export interface CartItem {
   id: string;
@@ -8,31 +15,23 @@ export interface CartItem {
   gstRate: number;
 }
 
-export interface HeldBill {
-  id: string;
-  label: string;
-  items: CartItem[];
-  customerId: string | null;
-  customerName: string;
-  discountPercent: number;
-  heldAt: string;
-}
-
 interface CartState {
   items: CartItem[];
   customerId: string | null;
   customerName: string;
   couponCode: string | null;
-  heldBills: HeldBill[];
+  heldBills: ApiHeldBill[];
+  heldBillsLoading: boolean;
   addToCart: (item: Omit<CartItem, 'qty'>) => void;
   updateQty: (id: string, qty: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
   setCustomer: (customerId: string | null, customerName: string) => void;
   applyCoupon: (code: string | null) => void;
-  holdCurrentBill: (label: string, discountPercent: number) => void;
-  recallHeldBill: (id: string) => void;
-  voidHeldBill: (id: string) => void;
+  loadHeldBills: () => Promise<void>;
+  holdCurrentBill: (label: string, discountPercent: number) => Promise<void>;
+  recallHeldBill: (id: string) => Promise<void>;
+  voidHeldBill: (id: string) => Promise<void>;
 }
 
 export const useCartStore = create<CartState>((set, get) => ({
@@ -41,6 +40,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   customerName: 'Walk-in Customer',
   couponCode: null,
   heldBills: [],
+  heldBillsLoading: false,
 
   addToCart: (item) =>
     set((state) => {
@@ -64,39 +64,47 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   applyCoupon: (code) => set({ couponCode: code }),
 
-  holdCurrentBill: (label, discountPercent) =>
-    set((state) => ({
-      heldBills: [
-        ...state.heldBills,
-        {
-          id: `HOLD-${Date.now()}`,
-          label,
-          items: state.items,
-          customerId: state.customerId,
-          customerName: state.customerName,
-          discountPercent,
-          heldAt: new Date().toISOString(),
-        },
-      ],
-      items: [],
-      couponCode: null,
-      customerId: null,
-      customerName: 'Walk-in Customer',
-    })),
+  // Held bills are real, backend-persisted (billing-service) rows now — this
+  // just keeps a local cache for instant badge counts / list rendering,
+  // refreshed after every hold/recall/void so it never drifts far from the
+  // server, and on demand wherever a page needs a fresh read (e.g. opening
+  // the held-bills page or drawer).
+  loadHeldBills: async () => {
+    set({ heldBillsLoading: true });
+    try {
+      const heldBills = await listHeldBills();
+      set({ heldBills });
+    } finally {
+      set({ heldBillsLoading: false });
+    }
+  },
 
-  recallHeldBill: (id) =>
-    set((state) => {
-      const bill = state.heldBills.find((b) => b.id === id);
-      if (!bill) return state;
-      return {
-        items: bill.items,
-        customerId: bill.customerId,
-        customerName: bill.customerName,
-        heldBills: state.heldBills.filter((b) => b.id !== id),
-      };
-    }),
+  holdCurrentBill: async (label, discountPercent) => {
+    const state = get();
+    await holdBill({
+      customerId: state.customerId ?? undefined,
+      items: state.items.map((i) => ({ productId: i.id, quantity: i.qty })),
+      discountPercent,
+      label,
+    });
+    set({ items: [], couponCode: null, customerId: null, customerName: 'Walk-in Customer' });
+    await get().loadHeldBills();
+  },
 
-  voidHeldBill: (id) => set((state) => ({ heldBills: state.heldBills.filter((b) => b.id !== id) })),
+  recallHeldBill: async (id) => {
+    const recalled = await apiRecallHeldBill(id);
+    set({
+      items: recalled.items.map((i) => ({ id: i.productId, name: i.name, price: i.price, qty: i.quantity, gstRate: i.gstRate })),
+      customerId: recalled.customerId,
+      customerName: recalled.customerName,
+    });
+    await get().loadHeldBills();
+  },
+
+  voidHeldBill: async (id) => {
+    await apiVoidHeldBill(id);
+    await get().loadHeldBills();
+  },
 }));
 
 export function cartTotals(items: CartItem[], discountPercent = 0) {

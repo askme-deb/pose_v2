@@ -14,7 +14,7 @@ import { formatDateTime } from '../utils/format';
 export default function PosShell() {
   const { dark, toggleTheme } = useThemeStore();
   const { session, logout } = usePosSessionStore();
-  const { clearCart, heldBills, items } = useCartStore();
+  const { clearCart, heldBills, items, loadHeldBills } = useCartStore();
   const { online, pendingCount, failedCount, setOnline, refreshCounts } = useSyncStatusStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -29,6 +29,7 @@ export default function PosShell() {
 
   useEffect(() => {
     refreshCounts();
+    loadHeldBills();
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
     window.addEventListener('online', handleOnline);

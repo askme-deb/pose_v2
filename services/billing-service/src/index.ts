@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { metricsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
+import invoicesRouter from './routes/invoices';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'billing-service';
 
@@ -18,6 +19,7 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'billing-service');
 
 app.use('/', healthRouter);
+app.use('/', invoicesRouter);
 
 app.listen(PORT, () => {
   console.log(`[billing-service] listening on port ${PORT}`);

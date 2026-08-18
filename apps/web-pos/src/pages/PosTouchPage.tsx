@@ -86,6 +86,7 @@ export default function PosTouchPage() {
     holdCurrentBill,
     recallHeldBill,
     voidHeldBill,
+    loadHeldBills,
     clearCart,
   } = useCartStore();
   const { session } = usePosSessionStore();
@@ -291,27 +292,39 @@ export default function PosTouchPage() {
     }
   }
 
-  function handleHoldBill() {
+  async function handleHoldBill() {
     if (items.length === 0) {
       showToast('Cart is empty — add items before holding', 'warning');
       return;
     }
     const label = holdLabel.trim() || `Order for ${customerName}`;
-    holdCurrentBill(label, discountPercent);
-    showToast('Bill held successfully', 'success');
-    setHoldLabel('');
-    setHoldModalOpen(false);
+    try {
+      await holdCurrentBill(label, discountPercent);
+      showToast('Bill held successfully', 'success');
+      setHoldLabel('');
+      setHoldModalOpen(false);
+    } catch {
+      showToast('Failed to hold bill — please try again', 'danger');
+    }
   }
 
-  function handleRecall(id: string) {
-    recallHeldBill(id);
-    setHeldBillsOpen(false);
-    showToast('Held bill recalled to cart', 'success');
+  async function handleRecall(id: string) {
+    try {
+      await recallHeldBill(id);
+      setHeldBillsOpen(false);
+      showToast('Held bill recalled to cart', 'success');
+    } catch {
+      showToast('Failed to recall bill — please try again', 'danger');
+    }
   }
 
-  function handleVoid(id: string) {
-    voidHeldBill(id);
-    showToast('Held bill voided', 'info');
+  async function handleVoid(id: string) {
+    try {
+      await voidHeldBill(id);
+      showToast('Held bill voided', 'info');
+    } catch {
+      showToast('Failed to void bill — please try again', 'danger');
+    }
   }
 
   return (
@@ -321,7 +334,7 @@ export default function PosTouchPage() {
           <PauseCircle className="w-3.5 h-3.5 text-amber-500" />
           Hold This Bill
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => setHeldBillsOpen(true)}>
+        <Button variant="ghost" size="sm" onClick={() => { loadHeldBills(); setHeldBillsOpen(true); }}>
           <Clock className="w-3.5 h-3.5 text-purple-600" />
           Quick View Held Bills ({heldBills.length})
         </Button>
@@ -705,18 +718,17 @@ export default function PosTouchPage() {
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {heldBills.length === 0 && <EmptyState icon={PauseCircle} title="No held bills" description="Bills you hold will appear here for quick recall." />}
           {heldBills.map((bill) => {
-            const billTotals = cartTotals(bill.items, bill.discountPercent);
             return (
               <div
                 key={bill.id}
                 className="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{bill.label}</p>
-                  <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(billTotals.total)}</span>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{bill.label ?? 'Held bill'}</p>
+                  <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(Number(bill.total))}</span>
                 </div>
                 <p className="text-[10px] text-slate-400">
-                  {bill.customerName} &middot; {bill.items.length} item{bill.items.length === 1 ? '' : 's'} &middot; {new Date(bill.heldAt).toLocaleTimeString('en-IN')}
+                  {bill.customerName} &middot; {bill.items.length} item{bill.items.length === 1 ? '' : 's'} &middot; {new Date(bill.createdAt).toLocaleTimeString('en-IN')}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
