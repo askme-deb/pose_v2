@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -40,7 +41,7 @@ router.get('/business-profile', async (req, res) => {
   res.json(profile);
 });
 
-router.put('/business-profile', async (req, res) => {
+router.put('/business-profile', requirePermission('store:manage'), async (req, res) => {
   const parsed = profileInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

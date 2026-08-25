@@ -10,7 +10,7 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'go'];
 interface PinLoginResponse {
   token: string;
   user: { name: string };
-  store: { name: string } | null;
+  store: { id: string; name: string } | null;
 }
 
 export default function PosLoginPage() {
@@ -36,6 +36,7 @@ export default function PosLoginPage() {
         login(
           { cashierName: res.user.name, registerName: res.store?.name ?? 'Register 02', shiftLabel: 'Morning Shift' },
           res.token,
+          res.store?.id,
         );
         navigate('/pos');
       } catch {

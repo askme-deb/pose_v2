@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -23,7 +24,7 @@ router.get('/warehouse-transfers', async (req, res) => {
   res.json(transfers);
 });
 
-router.post('/warehouse-transfers', async (req, res) => {
+router.post('/warehouse-transfers', requirePermission('inventory:manage'), async (req, res) => {
   const parsed = transferInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -63,7 +64,7 @@ router.post('/warehouse-transfers', async (req, res) => {
   res.status(201).json(transfer);
 });
 
-router.post('/warehouse-transfers/:id/complete', async (req, res) => {
+router.post('/warehouse-transfers/:id/complete', requirePermission('inventory:manage'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const transfer = await prisma.warehouseTransfer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!transfer) return res.status(404).json({ error: 'Transfer not found' });

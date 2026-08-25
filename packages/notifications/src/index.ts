@@ -27,3 +27,24 @@ export function notifyLowStock(baseUrl: string, alert: LowStockAlert): void {
     body: JSON.stringify(alert),
   }).catch(() => {});
 }
+
+export const buildBirthdayOfferMessage = (customerName: string, bonusAmount: number) =>
+  `Happy Birthday, ${customerName}! We've credited ₹${bonusAmount} to your wallet — treat yourself on your next visit.`;
+
+export interface BirthdayOfferAlert {
+  tenantId: string;
+  customerName: string;
+  email: string;
+  bonusAmount: number;
+}
+
+// Fire-and-forget for the same reason as notifyLowStock — the cron job's own
+// success (crediting the wallet) must never depend on the email actually
+// sending.
+export function notifyBirthdayOffer(baseUrl: string, alert: BirthdayOfferAlert): void {
+  fetch(`${baseUrl}/notifications/birthday-offer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(alert),
+  }).catch(() => {});
+}

@@ -12,6 +12,8 @@ import {
   ArrowRight,
   ArrowRightLeft,
   MapPin,
+  LayoutGrid,
+  AlertOctagon,
 } from 'lucide-react';
 import { Badge, Button, DataTable, Drawer, GlassCard, Input, KpiCard, PillTabs, Select, useToast } from '@pospe/ui-library';
 
@@ -23,9 +25,17 @@ import {
   listTransfers,
   createTransfer,
   completeTransfer,
+  listRacks,
+  createRack,
+  deleteRack,
+  assignToRack,
+  listDamageReports,
+  createDamageReport,
   LiveWarehouse,
   LiveTransfer,
   TransferStatus,
+  Rack,
+  DamageReport,
 } from '../../services/api/warehouseTransfers';
 
 const statusBadgeColor: Record<TransferStatus, 'emerald' | 'blue'> = {
@@ -122,12 +132,24 @@ export default function WarehouseTransfersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [damageReports, setDamageReports] = useState<DamageReport[]>([]);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TransferStatus>('all');
-  const [activeTab, setActiveTab] = useState<'transfers' | 'warehouses'>('transfers');
+  const [activeTab, setActiveTab] = useState<'transfers' | 'warehouses' | 'damage'>('transfers');
 
   const [transferDrawerOpen, setTransferDrawerOpen] = useState(false);
   const [warehouseDrawerOpen, setWarehouseDrawerOpen] = useState(false);
+
+  const [rackWarehouse, setRackWarehouse] = useState<LiveWarehouse | null>(null);
+  const [racks, setRacks] = useState<Rack[]>([]);
+  const [racksLoading, setRacksLoading] = useState(false);
+  const [newRackCode, setNewRackCode] = useState('');
+  const [newRackCapacity, setNewRackCapacity] = useState('');
+  const [assignForm, setAssignForm] = useState<{ rackId: string; productId: string; quantity: string }>({ rackId: '', productId: '', quantity: '' });
+
+  const [damageDrawerOpen, setDamageDrawerOpen] = useState(false);
+  const [damageForm, setDamageForm] = useState({ warehouseId: '', rackId: '', productId: '', quantity: '', reason: '', reportedBy: '' });
 
   const [transferForm, setTransferForm] = useState({
     sourceWarehouseId: '',
@@ -147,10 +169,11 @@ export default function WarehouseTransfersPage() {
   async function reload() {
     setLoading(true);
     try {
-      const [trs, whs, prods] = await Promise.all([listTransfers(), listWarehouses(), listProducts()]);
+      const [trs, whs, prods, dmg] = await Promise.all([listTransfers(), listWarehouses(), listProducts(), listDamageReports()]);
       setTransfers(trs);
       setWarehouses(whs);
       setProducts(prods);
+      setDamageReports(dmg);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to load warehouse data from the server', 'danger');
     } finally {
@@ -277,6 +300,121 @@ export default function WarehouseTransfersPage() {
       setSaving(false);
     }
   };
+
+  async function openRackDrawer(wh: LiveWarehouse) {
+    setRackWarehouse(wh);
+    setNewRackCode('');
+    setNewRackCapacity('');
+    setAssignForm({ rackId: '', productId: products[0]?.id ?? '', quantity: '' });
+    setRacksLoading(true);
+    try {
+      setRacks(await listRacks(wh.id));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load racks', 'danger');
+    } finally {
+      setRacksLoading(false);
+    }
+  }
+
+  async function handleCreateRack(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rackWarehouse || !newRackCode.trim()) return;
+    setSaving(true);
+    try {
+      await createRack(rackWarehouse.id, newRackCode.trim(), newRackCapacity ? Number(newRackCapacity) : undefined);
+      setRacks(await listRacks(rackWarehouse.id));
+      setNewRackCode('');
+      setNewRackCapacity('');
+      showToast('Rack created', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not create rack', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteRack(rackId: string) {
+    if (!rackWarehouse) return;
+    try {
+      await deleteRack(rackId);
+      setRacks(await listRacks(rackWarehouse.id));
+      showToast('Rack removed', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete rack', 'danger');
+    }
+  }
+
+  async function handleAssignToRack(e: React.FormEvent) {
+    e.preventDefault();
+    if (!rackWarehouse || !assignForm.rackId || !assignForm.productId) return;
+    const quantity = Number(assignForm.quantity);
+    if (!quantity || quantity < 0) {
+      showToast('Enter a valid quantity to assign.', 'danger');
+      return;
+    }
+    setSaving(true);
+    try {
+      await assignToRack(assignForm.rackId, assignForm.productId, quantity);
+      setRacks(await listRacks(rackWarehouse.id));
+      setAssignForm((f) => ({ ...f, quantity: '' }));
+      showToast('Stock assigned to rack', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not assign stock to rack', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openDamageDrawer() {
+    setDamageForm({ warehouseId: warehouses[0]?.id ?? '', rackId: '', productId: products[0]?.id ?? '', quantity: '', reason: '', reportedBy: '' });
+    setDamageDrawerOpen(true);
+  }
+
+  async function handleReportDamage(e: React.FormEvent) {
+    e.preventDefault();
+    const quantity = Number(damageForm.quantity);
+    if (!damageForm.warehouseId || !damageForm.productId || !quantity || quantity <= 0 || !damageForm.reason.trim() || !damageForm.reportedBy.trim()) {
+      showToast('Fill in warehouse, product, quantity, reason, and reporter.', 'danger');
+      return;
+    }
+    setSaving(true);
+    try {
+      await createDamageReport({
+        warehouseId: damageForm.warehouseId,
+        rackId: damageForm.rackId || undefined,
+        productId: damageForm.productId,
+        quantity,
+        reason: damageForm.reason.trim(),
+        reportedBy: damageForm.reportedBy.trim(),
+      });
+      await reload();
+      setDamageDrawerOpen(false);
+      showToast('Damage write-off recorded — stock updated', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not record damage write-off', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const damageColumns: ColumnDef<DamageReport>[] = useMemo(
+    () => [
+      { header: 'Product', accessorKey: 'productName', cell: ({ row }) => (
+        <div>
+          <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.productName}</p>
+          <p className="text-[10px] font-mono text-slate-400">{row.original.productSku}</p>
+        </div>
+      ) },
+      { header: 'Warehouse', accessorKey: 'warehouseName' },
+      { header: 'Rack', accessorKey: 'rackCode', cell: ({ row }) => <span className="font-mono text-xs">{row.original.rackCode ?? '—'}</span> },
+      { header: 'Qty', accessorKey: 'quantity' },
+      { header: 'Reason', accessorKey: 'reason' },
+      { header: 'Value Impact', accessorKey: 'valueImpact', cell: ({ row }) => <span className="font-bold text-rose-600 dark:text-rose-400">-{formatINR(row.original.valueImpact)}</span> },
+      { header: 'Reported By', accessorKey: 'reportedBy' },
+      { header: 'Date', accessorKey: 'createdAt', cell: ({ row }) => <span className="text-slate-500 dark:text-slate-400">{formatDateTime(row.original.createdAt)}</span> },
+    ],
+    [],
+  );
 
   const transferColumns: ColumnDef<LiveTransfer>[] = useMemo(
     () => [
@@ -405,12 +543,17 @@ export default function WarehouseTransfersPage() {
             options={[
               { value: 'transfers', label: `Stock Transfers (${transfers.length})` },
               { value: 'warehouses', label: `Warehouse Racks (${warehouses.length})` },
+              { value: 'damage', label: `Damage Log (${damageReports.length})` },
             ]}
             value={activeTab}
-            onChange={(v) => setActiveTab(v as 'transfers' | 'warehouses')}
+            onChange={(v) => setActiveTab(v as 'transfers' | 'warehouses' | 'damage')}
           />
 
           <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={openDamageDrawer} disabled={!warehouses.length}>
+              <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
+              <span>Report Damage</span>
+            </Button>
             <Button variant="secondary" onClick={openWarehouseDrawer}>
               <WarehouseIcon className="w-3.5 h-3.5 text-amber-600" />
               <span>+ Add Warehouse</span>
@@ -444,13 +587,13 @@ export default function WarehouseTransfersPage() {
             emptyDescription="No transfer ref IDs or facilities match your search filter."
           />
         </GlassCard>
-      ) : filteredWarehouses.length === 0 ? (
+      ) : activeTab === 'warehouses' && filteredWarehouses.length === 0 ? (
         <GlassCard padding="lg" className="text-center space-y-3">
           <WarehouseIcon className="w-12 h-12 text-slate-400 mx-auto" />
           <h4 className="font-bold text-base text-slate-800 dark:text-slate-200">No Warehouse Facilities Found</h4>
           <p className="text-xs text-slate-400">No facility name matches your search query.</p>
         </GlassCard>
-      ) : (
+      ) : activeTab === 'warehouses' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredWarehouses.map((wh) => (
             <GlassCard key={wh.id} className="flex flex-col justify-between space-y-4 hover:border-amber-500/50 transition duration-300 group">
@@ -482,9 +625,28 @@ export default function WarehouseTransfersPage() {
                   <div className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-0.5 line-clamp-1">{wh.manager}</div>
                 </div>
               </div>
+
+              <button
+                onClick={() => openRackDrawer(wh)}
+                className="flex items-center justify-center gap-2 py-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-600 hover:text-white transition"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" /> Manage Racks
+              </button>
             </GlassCard>
           ))}
         </div>
+      ) : null}
+
+      {activeTab === 'damage' && (
+        <GlassCard>
+          <DataTable
+            columns={damageColumns}
+            data={damageReports}
+            loading={loading}
+            emptyTitle="No Damage Write-offs Yet"
+            emptyDescription="Reporting damaged stock at a warehouse creates a record here."
+          />
+        </GlassCard>
       )}
 
       <Drawer
@@ -592,6 +754,147 @@ export default function WarehouseTransfersPage() {
           value={warehouseForm.manager}
           onChange={(e) => setWarehouseForm((f) => ({ ...f, manager: e.target.value }))}
         />
+      </Drawer>
+
+      {/* Rack management drawer */}
+      <Drawer
+        open={!!rackWarehouse}
+        onClose={() => setRackWarehouse(null)}
+        title={`Racks — ${rackWarehouse?.facilityName ?? ''}`}
+        subtitle="Where each SKU physically sits — assignments are capped at what's actually in stock."
+        width="lg"
+        footer={
+          <button type="button" onClick={() => setRackWarehouse(null)} className="flex-1 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">
+            Close
+          </button>
+        }
+      >
+        <div className="space-y-5">
+          <form onSubmit={handleCreateRack} className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input label="New Rack Code" placeholder="e.g. A-01" value={newRackCode} onChange={(e) => setNewRackCode(e.target.value)} />
+            </div>
+            <div className="w-28">
+              <Input label="Capacity" type="number" min={1} placeholder="Optional" value={newRackCapacity} onChange={(e) => setNewRackCapacity(e.target.value)} />
+            </div>
+            <Button type="submit" variant="secondary" disabled={saving || !newRackCode.trim()}>
+              <Plus className="w-3.5 h-3.5" /> Add
+            </Button>
+          </form>
+
+          {racksLoading && <p className="text-xs text-slate-400">Loading racks…</p>}
+          {!racksLoading && racks.length === 0 && <p className="text-xs text-slate-400">No racks yet — add one above.</p>}
+
+          <div className="space-y-2 max-h-56 overflow-y-auto">
+            {racks.map((rack) => (
+              <div key={rack.id} className="p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      Rack {rack.code} {rack.capacity ? <span className="text-slate-400 font-normal">&middot; capacity {rack.capacity}</span> : null}
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      {rack.items.length === 0 ? 'Empty' : rack.items.map((i) => `${i.quantity}× ${i.productName}`).join(', ')}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteRack(rack.id)}
+                    disabled={rack.items.some((i) => i.quantity > 0)}
+                    title={rack.items.some((i) => i.quantity > 0) ? 'Clear stock before deleting' : 'Delete rack'}
+                    className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 disabled:opacity-30 hover:bg-rose-600 hover:text-white transition"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {racks.length > 0 && (
+            <form onSubmit={handleAssignToRack} className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assign Stock to a Rack</p>
+              <Select
+                label="Rack"
+                options={racks.map((r) => ({ value: r.id, label: `Rack ${r.code}` }))}
+                value={assignForm.rackId}
+                onChange={(e) => setAssignForm((f) => ({ ...f, rackId: e.target.value }))}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Select
+                  label="Product"
+                  options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` }))}
+                  value={assignForm.productId}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, productId: e.target.value }))}
+                />
+                <Input
+                  label="Quantity"
+                  type="number"
+                  min={0}
+                  value={assignForm.quantity}
+                  onChange={(e) => setAssignForm((f) => ({ ...f, quantity: e.target.value }))}
+                />
+              </div>
+              <Button type="submit" variant="primary" className="w-full" disabled={saving || !assignForm.rackId}>
+                {saving ? 'Assigning…' : 'Assign to Rack'}
+              </Button>
+            </form>
+          )}
+        </div>
+      </Drawer>
+
+      {/* Report damage drawer */}
+      <Drawer
+        open={damageDrawerOpen}
+        onClose={() => setDamageDrawerOpen(false)}
+        title="Report Damaged Goods"
+        subtitle="Writes the quantity off sellable stock immediately — appears in the general stock adjustment log too."
+        footer={
+          <>
+            <button type="button" onClick={() => setDamageDrawerOpen(false)} className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">Cancel</button>
+            <button form="damage-form" type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-lg shadow-rose-500/25 disabled:opacity-50">
+              {saving ? 'Recording…' : 'Record Write-off'}
+            </button>
+          </>
+        }
+      >
+        <form id="damage-form" onSubmit={handleReportDamage} className="space-y-4">
+          <Select
+            label="Warehouse"
+            required
+            options={warehouses.map((w) => ({ value: w.id, label: w.facilityName }))}
+            value={damageForm.warehouseId}
+            onChange={(e) => setDamageForm((f) => ({ ...f, warehouseId: e.target.value, rackId: '' }))}
+          />
+          <Select
+            label="Product"
+            required
+            options={products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` }))}
+            value={damageForm.productId}
+            onChange={(e) => setDamageForm((f) => ({ ...f, productId: e.target.value }))}
+          />
+          <Input
+            label="Quantity"
+            required
+            type="number"
+            min={1}
+            value={damageForm.quantity}
+            onChange={(e) => setDamageForm((f) => ({ ...f, quantity: e.target.value }))}
+          />
+          <Input
+            label="Reason"
+            required
+            placeholder="e.g. Water damage during monsoon storage"
+            value={damageForm.reason}
+            onChange={(e) => setDamageForm((f) => ({ ...f, reason: e.target.value }))}
+          />
+          <Input
+            label="Reported By"
+            required
+            placeholder="Your name"
+            value={damageForm.reportedBy}
+            onChange={(e) => setDamageForm((f) => ({ ...f, reportedBy: e.target.value }))}
+          />
+        </form>
       </Drawer>
     </div>
   );

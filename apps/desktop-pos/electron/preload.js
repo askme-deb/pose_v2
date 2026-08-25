@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('posDB', {
   getCachedProducts: () => ipcRenderer.invoke('db:getCachedProducts'),
   cacheProducts: (products) => ipcRenderer.invoke('db:cacheProducts', products),
+  upsertProducts: (products) => ipcRenderer.invoke('db:upsertProducts', products),
   getCachedCategories: () => ipcRenderer.invoke('db:getCachedCategories'),
   cacheCategories: (categories) => ipcRenderer.invoke('db:cacheCategories', categories),
   getCachedCustomers: () => ipcRenderer.invoke('db:getCachedCustomers'),

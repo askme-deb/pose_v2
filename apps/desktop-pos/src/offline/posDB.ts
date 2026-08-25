@@ -25,6 +25,14 @@ export async function cacheCatalog(products: LiveProduct[], categories: LiveCate
   ]);
 }
 
+// Patches just the rows that actually changed (e.g. another terminal's synced
+// sale) — unlike cacheCatalog, this never touches categories/customers, so
+// it's safe to call from a realtime event without racing a concurrent full
+// refresh.
+export function upsertProducts(products: LiveProduct[]): Promise<void> {
+  return window.posDB.upsertProducts(products);
+}
+
 export async function getCachedCatalog(): Promise<{
   products: LiveProduct[];
   categories: LiveCategory[];

@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import tenantsRouter from './routes/tenants';
 import platformInvoicesRouter from './routes/platformInvoices';
@@ -22,6 +23,13 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'subscription-service');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'subscription-service', 'Platform tenants, billing invoices, CNAME domains & audit logs');
+// Not permission-gated beyond authentication: this is the platform's own
+// SaaS-admin backend (managing every tenant), which the current role model
+// has no dedicated permission for — tenant_owner's wildcard '*' is scoped to
+// their own tenant everywhere else, but would incorrectly pass here too.
+// Flagged as a follow-up; a real superadmin identity is a separate feature.
+app.use(requireAuth);
 app.use('/', tenantsRouter);
 app.use('/', platformInvoicesRouter);
 app.use('/', cnameDomainsRouter);

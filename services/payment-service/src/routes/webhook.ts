@@ -1,4 +1,5 @@
 import { Router, raw } from 'express';
+import { signInternalToken } from '@pospe/permissions';
 import { RazorpaySdk } from '../lib/razorpay';
 import { prisma } from '../lib/prisma';
 
@@ -58,10 +59,15 @@ async function completeHeldInvoiceIfNeeded(invoiceId: string, log?: { error: (ob
   if (!held) return;
 
   const SALES_SERVICE_URL = process.env.SALES_SERVICE_URL || 'http://localhost:4005';
+  const internalToken = signInternalToken();
   try {
     const response = await fetch(`${SALES_SERVICE_URL}/invoices`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-store-id': held.storeId },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-store-id': held.storeId,
+        ...(internalToken ? { Authorization: `Bearer ${internalToken}` } : {}),
+      },
       body: JSON.stringify({
         customerId: held.customerId ?? undefined,
         paymentMethod: 'UPI',

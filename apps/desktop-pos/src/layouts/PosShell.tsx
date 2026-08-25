@@ -7,7 +7,8 @@ import { useThemeStore } from '../store/useThemeStore';
 import { usePosSessionStore } from '../store/usePosSessionStore';
 import { useCartStore } from '../store/useCartStore';
 import { useSyncStatusStore } from '../store/useSyncStatusStore';
-import { runSync, startAutoSync } from '../sync/syncEngine';
+import { runSync, startAutoSync, startHeartbeat } from '../sync/syncEngine';
+import { startRealtimeSync } from '../sync/realtime';
 import { listPendingSales, retrySale, type PendingSale } from '../offline/posDB';
 import { formatDateTime } from '../utils/format';
 
@@ -42,10 +43,14 @@ export default function PosShell() {
         refreshFailedSales();
       }
     });
+    const stopHeartbeat = startHeartbeat();
+    const stopRealtime = startRealtimeSync();
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       stopAutoSync();
+      stopHeartbeat();
+      stopRealtime();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

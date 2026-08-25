@@ -13,6 +13,9 @@ export interface LiveProduct {
   stockQty: number;
   minThreshold: number;
   imageUrl: string;
+  trackBatches: boolean;
+  trackSerials: boolean;
+  isBundle: boolean;
 }
 
 interface ApiProduct {
@@ -28,6 +31,9 @@ interface ApiProduct {
   imageUrl: string | null;
   stockQty: number;
   minThreshold: number;
+  trackBatches: boolean;
+  trackSerials: boolean;
+  isBundle: boolean;
 }
 
 function toLiveProduct(p: ApiProduct): LiveProduct {
@@ -44,6 +50,9 @@ function toLiveProduct(p: ApiProduct): LiveProduct {
     stockQty: p.stockQty,
     minThreshold: p.minThreshold,
     imageUrl: p.imageUrl ?? '',
+    trackBatches: p.trackBatches,
+    trackSerials: p.trackSerials,
+    isBundle: p.isBundle,
   };
 }
 
@@ -69,6 +78,8 @@ export interface ProductInput {
   imageUrl?: string;
   stockQty?: number;
   minThreshold?: number;
+  trackBatches?: boolean;
+  trackSerials?: boolean;
 }
 
 export async function createProduct(input: ProductInput): Promise<LiveProduct> {

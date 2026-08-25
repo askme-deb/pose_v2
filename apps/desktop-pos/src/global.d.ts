@@ -11,6 +11,7 @@ declare global {
     posDB: {
       getCachedProducts(): Promise<LiveProduct[]>;
       cacheProducts(products: LiveProduct[]): Promise<void>;
+      upsertProducts(products: LiveProduct[]): Promise<void>;
       getCachedCategories(): Promise<LiveCategory[]>;
       cacheCategories(categories: LiveCategory[]): Promise<void>;
       getCachedCustomers(): Promise<LiveCustomer[]>;

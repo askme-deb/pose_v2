@@ -5,7 +5,8 @@ import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
-import { requireAuth } from '../middleware/requireAuth';
+import { roleMap, issueTokens } from '../lib/tokens';
+import { requireAuth } from '@pospe/permissions';
 
 const router = Router();
 
@@ -26,32 +27,6 @@ const twoFaVerifyInput = z.object({
   pendingToken: z.string().min(1),
   token: z.string().length(6),
 });
-
-// Prisma's UserRole enum -> the lowercase Role union the frontend/permissions
-// package expects.
-const roleMap: Record<string, string> = {
-  TENANT_OWNER: 'tenant_owner',
-  BRANCH_ADMIN: 'branch_admin',
-  STORE_MANAGER: 'store_manager',
-  CASHIER: 'cashier',
-  ACCOUNTANT: 'accountant',
-  INVENTORY_MANAGER: 'inventory_manager',
-  SALES_EXECUTIVE: 'sales_executive',
-};
-
-function issueTokens(userId: string, tenantId: string, role: string, rbacRoleId: string | null) {
-  const jwtSecret = process.env.JWT_SECRET;
-  const refreshSecret = process.env.JWT_REFRESH_SECRET;
-  if (!jwtSecret || !refreshSecret) return null;
-
-  const token = jwt.sign({ sub: userId, tenantId, role, rbacRoleId }, jwtSecret, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
-  } as jwt.SignOptions);
-  const refreshToken = jwt.sign({ sub: userId }, refreshSecret, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-  } as jwt.SignOptions);
-  return { token, refreshToken };
-}
 
 // Short-lived, single-purpose token proving "this caller just supplied a
 // valid password for this user" without granting access yet — the frontend

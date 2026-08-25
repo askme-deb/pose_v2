@@ -11,11 +11,15 @@ import {
   Gift,
   Edit3,
   Trash2,
+  Wallet,
+  Sparkles,
+  PlusCircle,
 } from 'lucide-react';
 import {
   Badge,
   BadgeColor,
   Button,
+  Checkbox,
   DataTable,
   Drawer,
   GlassCard,
@@ -32,8 +36,18 @@ import {
   updateCustomer,
   deleteCustomer,
   creditBonusPoints,
+  listWalletTransactions,
+  topUpWallet,
+  redeemWallet,
+  listMembershipPlans,
+  createMembershipPlan,
+  updateMembershipPlan,
+  deleteMembershipPlan,
   LiveCustomer,
   CustomerTier,
+  WalletTransaction,
+  MembershipPlan,
+  MembershipPlanInput,
 } from '../../services/api/customers';
 
 interface LoyaltyTier {
@@ -74,12 +88,28 @@ const tierIcon: Record<CustomerTier, string> = {
   STANDARD: '',
 };
 
+const walletTxLabel: Record<WalletTransaction['type'], string> = {
+  TOP_UP: 'Top-up',
+  REDEEM: 'Redeemed',
+  REFUND: 'Refund',
+  BIRTHDAY_BONUS: 'Birthday Bonus',
+};
+
+const walletTxColor: Record<WalletTransaction['type'], BadgeColor> = {
+  TOP_UP: 'emerald',
+  REDEEM: 'red',
+  REFUND: 'blue',
+  BIRTHDAY_BONUS: 'amber',
+};
+
 type CustomerFormState = {
   fullName: string;
   phone: string;
   email: string;
   tier: CustomerTier;
   loyaltyPoints: string;
+  dateOfBirth: string;
+  membershipPlanId: string;
 };
 
 const emptyForm: CustomerFormState = {
@@ -88,6 +118,26 @@ const emptyForm: CustomerFormState = {
   email: '',
   tier: 'STANDARD',
   loyaltyPoints: '100',
+  dateOfBirth: '',
+  membershipPlanId: '',
+};
+
+type PlanFormState = {
+  name: string;
+  tier: CustomerTier;
+  annualFee: string;
+  discountPercent: string;
+  benefits: string;
+  isActive: boolean;
+};
+
+const emptyPlanForm: PlanFormState = {
+  name: '',
+  tier: 'GOLD',
+  annualFee: '999',
+  discountPercent: '10',
+  benefits: '',
+  isActive: true,
 };
 
 const bonusReasons = [
@@ -125,9 +175,10 @@ function downloadBlob(content: string, filename: string, type: string) {
 export default function CustomersPage() {
   const { showToast } = useToast();
   const [customers, setCustomers] = useState<LiveCustomer[]>([]);
+  const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'directory' | 'tiers'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'tiers' | 'membership'>('directory');
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<'all' | CustomerTier>('all');
 
@@ -140,10 +191,24 @@ export default function CustomersPage() {
   const [bonusAmount, setBonusAmount] = useState('500');
   const [bonusReason, setBonusReason] = useState(bonusReasons[0].value);
 
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletTargetId, setWalletTargetId] = useState<string | null>(null);
+  const [walletTransactions, setWalletTransactions] = useState<WalletTransaction[]>([]);
+  const [walletTxLoading, setWalletTxLoading] = useState(false);
+  const [walletMode, setWalletMode] = useState<'topup' | 'redeem'>('topup');
+  const [walletAmount, setWalletAmount] = useState('500');
+  const [walletNote, setWalletNote] = useState('');
+
+  const [planDrawerOpen, setPlanDrawerOpen] = useState(false);
+  const [planEditId, setPlanEditId] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState<PlanFormState>(emptyPlanForm);
+
   async function reload() {
     setLoading(true);
     try {
-      setCustomers(await listCustomers());
+      const [customerRows, planRows] = await Promise.all([listCustomers(), listMembershipPlans()]);
+      setCustomers(customerRows);
+      setPlans(planRows);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to load customers from the server', 'danger');
     } finally {
@@ -189,6 +254,8 @@ export default function CustomersPage() {
       email: c.email,
       tier: c.tier,
       loyaltyPoints: String(c.loyaltyPoints),
+      dateOfBirth: c.dateOfBirth ? c.dateOfBirth.slice(0, 10) : '',
+      membershipPlanId: c.membershipPlanId ?? '',
     });
     setDrawerOpen(true);
   }
@@ -209,6 +276,8 @@ export default function CustomersPage() {
       email: form.email.trim() || undefined,
       tier: form.tier,
       loyaltyPoints: parseInt(form.loyaltyPoints, 10) || 0,
+      dateOfBirth: form.dateOfBirth || null,
+      membershipPlanId: form.membershipPlanId || null,
     };
     try {
       if (editId) {
@@ -269,12 +338,126 @@ export default function CustomersPage() {
     }
   }
 
+  async function openWalletDrawer(c: LiveCustomer) {
+    setWalletTargetId(c.id);
+    setWalletMode('topup');
+    setWalletAmount('500');
+    setWalletNote('');
+    setWalletOpen(true);
+    setWalletTxLoading(true);
+    try {
+      setWalletTransactions(await listWalletTransactions(c.id));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load wallet history', 'danger');
+    } finally {
+      setWalletTxLoading(false);
+    }
+  }
+
+  function closeWalletDrawer() {
+    setWalletOpen(false);
+  }
+
+  async function submitWallet() {
+    const amount = parseFloat(walletAmount);
+    if (!walletTargetId || !amount || amount <= 0) {
+      showToast('Enter a valid wallet amount', 'danger');
+      return;
+    }
+    const target = customers.find((c) => c.id === walletTargetId);
+    setSaving(true);
+    try {
+      if (walletMode === 'topup') {
+        await topUpWallet(walletTargetId, amount, walletNote || undefined);
+        showToast(`Added ${formatINR(amount)} to ${target?.fullName ?? 'customer'}'s wallet.`, 'success');
+      } else {
+        await redeemWallet(walletTargetId, amount, walletNote || undefined);
+        showToast(`Redeemed ${formatINR(amount)} from ${target?.fullName ?? 'customer'}'s wallet.`, 'success');
+      }
+      const [customerRows, transactions] = await Promise.all([listCustomers(), listWalletTransactions(walletTargetId)]);
+      setCustomers(customerRows);
+      setWalletTransactions(transactions);
+      setWalletAmount('500');
+      setWalletNote('');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Wallet transaction failed', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openCreatePlanDrawer() {
+    setPlanEditId(null);
+    setPlanForm(emptyPlanForm);
+    setPlanDrawerOpen(true);
+  }
+
+  function openEditPlanDrawer(p: MembershipPlan) {
+    setPlanEditId(p.id);
+    setPlanForm({
+      name: p.name,
+      tier: p.tier,
+      annualFee: String(p.annualFee),
+      discountPercent: String(p.discountPercent),
+      benefits: p.benefits,
+      isActive: p.isActive,
+    });
+    setPlanDrawerOpen(true);
+  }
+
+  function closePlanDrawer() {
+    setPlanDrawerOpen(false);
+  }
+
+  async function savePlan() {
+    if (!planForm.name.trim()) {
+      showToast('Plan name is required', 'danger');
+      return;
+    }
+    const input: MembershipPlanInput = {
+      name: planForm.name.trim(),
+      tier: planForm.tier,
+      annualFee: parseFloat(planForm.annualFee) || 0,
+      discountPercent: parseFloat(planForm.discountPercent) || 0,
+      benefits: planForm.benefits.trim() || undefined,
+      isActive: planForm.isActive,
+    };
+    setSaving(true);
+    try {
+      if (planEditId) {
+        await updateMembershipPlan(planEditId, input);
+        showToast(`Updated membership plan "${planForm.name}"!`, 'success');
+      } else {
+        await createMembershipPlan(input);
+        showToast(`Created membership plan "${planForm.name}"!`, 'success');
+      }
+      await reload();
+      closePlanDrawer();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save membership plan', 'danger');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeletePlan(p: MembershipPlan) {
+    try {
+      await deleteMembershipPlan(p.id);
+      setPlans((prev) => prev.filter((x) => x.id !== p.id));
+      showToast(`Deleted membership plan "${p.name}".`, 'warning');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not delete membership plan', 'danger');
+    }
+  }
+
   function exportCSV() {
     downloadBlob(toCSV(filtered), `crm-customers-${Date.now()}.csv`, 'text/csv;charset=utf-8;');
     showToast('Exported customer CRM directory to CSV file.', 'success');
   }
 
   const bonusTarget = customers.find((c) => c.id === bonusTargetId);
+  const walletTarget = customers.find((c) => c.id === walletTargetId);
+  const totalWalletBalance = customers.reduce((s, c) => s + c.walletBalance, 0);
 
   const columns: ColumnDef<LiveCustomer, any>[] = [
     {
@@ -312,10 +495,25 @@ export default function CustomersPage() {
       header: 'Membership Tier',
       accessorFn: (c) => c.tier,
       cell: ({ row }) => (
-        <div className="text-center">
+        <div className="text-center space-y-1">
           <Badge color={tierBadgeColor[row.original.tier]} pill>
             {tierIcon[row.original.tier]} {tierLabel[row.original.tier]}
           </Badge>
+          {row.original.membershipPlanName && (
+            <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
+              <Sparkles className="w-3 h-3" /> {row.original.membershipPlanName} ({row.original.membershipDiscountPercent}% off)
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'wallet',
+      header: 'Wallet Balance',
+      accessorFn: (c) => c.walletBalance,
+      cell: ({ row }) => (
+        <div className="text-right font-mono font-bold text-teal-600 dark:text-teal-400">
+          {formatINR(row.original.walletBalance)}
         </div>
       ),
     },
@@ -358,6 +556,13 @@ export default function CustomersPage() {
       header: 'Actions',
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-1.5">
+          <button
+            onClick={() => openWalletDrawer(row.original)}
+            title="Manage Wallet"
+            className="p-1.5 rounded-lg bg-teal-500/10 hover:bg-teal-600 hover:text-white text-teal-600 transition"
+          >
+            <Wallet className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => openBonusDrawer(row.original)}
             title="Credit Bonus Points"
@@ -432,9 +637,10 @@ export default function CustomersPage() {
             options={[
               { value: 'directory', label: `Customer Directory (${customers.length})` },
               { value: 'tiers', label: `Loyalty Tiers (${loyaltyTiers.length})` },
+              { value: 'membership', label: `Membership Plans (${plans.length})` },
             ]}
             value={activeTab}
-            onChange={(v) => setActiveTab(v as 'directory' | 'tiers')}
+            onChange={(v) => setActiveTab(v as 'directory' | 'tiers' | 'membership')}
           />
 
           <div className="flex items-center gap-2">
@@ -450,14 +656,15 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard icon={Users} label="Total Registered Members" value={`${customers.length} Members`} delta="Enrolled Accounts" deltaTone="neutral" color="blue" />
         <KpiCard icon={Award} label="Loyalty Points Active" value={`${totalPoints.toLocaleString('en-IN')} Pts`} delta={`${formatINR(totalPoints)} Redeem Value`} deltaTone="neutral" color="purple" />
         <KpiCard icon={Crown} label="VIP & Gold Tier Members" value={`${vipGoldCount} Members`} delta="High Spenders (>₹20k)" deltaTone="neutral" color="amber" />
         <KpiCard icon={TrendingUp} label="Average Customer LTV" value={formatINR(avgLTV)} delta="Lifetime Billed Revenue" deltaTone="positive" color="emerald" />
+        <KpiCard icon={Wallet} label="Wallet Balance Outstanding" value={formatINR(totalWalletBalance)} delta="Store Credit Liability" deltaTone="neutral" color="blue" />
       </div>
 
-      {activeTab === 'directory' ? (
+      {activeTab === 'directory' && (
         <GlassCard padding="sm" className="!p-0 overflow-hidden">
           <div className="p-4">
             <DataTable
@@ -469,7 +676,76 @@ export default function CustomersPage() {
             />
           </div>
         </GlassCard>
-      ) : (
+      )}
+
+      {activeTab === 'membership' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={openCreatePlanDrawer}>
+              <PlusCircle className="w-4 h-4" />
+              + New Membership Plan
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plans.length === 0 && (
+              <GlassCard className="lg:col-span-3 text-center py-10">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No membership plans yet. Create one to start offering server-enforced checkout discounts.
+                </p>
+              </GlassCard>
+            )}
+            {plans.map((p) => (
+              <GlassCard key={p.id} className="hover:border-teal-500/50 transition duration-300 flex flex-col justify-between space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-lg text-slate-900 dark:text-white">{p.name}</h4>
+                    <Badge color={tierBadgeColor[p.tier]} pill>
+                      {tierIcon[p.tier]} {tierLabel[p.tier]}
+                    </Badge>
+                  </div>
+                  {!p.isActive && (
+                    <span className="px-2.5 py-1 rounded-xl bg-slate-500/10 text-slate-500 font-bold text-[10px] uppercase">Inactive</span>
+                  )}
+                </div>
+
+                <div className="space-y-2 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400 font-semibold">Checkout Discount:</span>
+                    <span className="font-mono font-bold text-teal-600 dark:text-teal-400">{p.discountPercent}%</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400 font-semibold">Annual Fee:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{formatINR(p.annualFee)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400 font-semibold">Enrolled Customers:</span>
+                    <span className="font-mono font-bold text-slate-900 dark:text-white">{p.enrolledCount}</span>
+                  </div>
+                  {p.benefits && (
+                    <div className="text-xs space-y-1">
+                      <span className="text-slate-400 font-semibold block">Benefits:</span>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold leading-relaxed">{p.benefits}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <Button variant="ghost" onClick={() => openEditPlanDrawer(p)}>
+                    <Edit3 className="w-3.5 h-3.5" />
+                    Edit
+                  </Button>
+                  <Button variant="ghost" onClick={() => handleDeletePlan(p)}>
+                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                    Delete
+                  </Button>
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'tiers' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {loyaltyTiers.map((t) => {
             const activeCount = customers.filter((c) => c.tier === t.tier).length;
@@ -560,6 +836,25 @@ export default function CustomersPage() {
             onChange={(e) => setForm((f) => ({ ...f, loyaltyPoints: e.target.value }))}
           />
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Date of Birth"
+            type="date"
+            value={form.dateOfBirth}
+            onChange={(e) => setForm((f) => ({ ...f, dateOfBirth: e.target.value }))}
+          />
+          <Select
+            label="Paid Membership Plan"
+            options={[{ value: '', label: 'No plan enrolled' }, ...plans.map((p) => ({ value: p.id, label: `${p.name} (${p.discountPercent}% off)` }))]}
+            value={form.membershipPlanId}
+            onChange={(e) => setForm((f) => ({ ...f, membershipPlanId: e.target.value }))}
+          />
+        </div>
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          Setting a date of birth enrolls this customer in the automated birthday wallet-credit job. A paid
+          membership plan's discount is enforced server-side at checkout — it can never be undercut by a tampered
+          request, only matched or beaten by a larger manual discount.
+        </p>
       </Drawer>
 
       <Drawer
@@ -590,6 +885,153 @@ export default function CustomersPage() {
           />
           <Select label="Campaign Reason" options={bonusReasons} value={bonusReason} onChange={(e) => setBonusReason(e.target.value)} />
         </div>
+      </Drawer>
+
+      <Drawer
+        open={walletOpen}
+        onClose={closeWalletDrawer}
+        title="Store Credit Wallet"
+        subtitle="Top up or redeem store credit, and review the full ledger."
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeWalletDrawer}>
+              Close
+            </Button>
+            <Button onClick={submitWallet} disabled={saving}>
+              {saving ? 'Processing…' : walletMode === 'topup' ? 'Add to Wallet' : 'Redeem from Wallet'}
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Customer"
+          readOnly
+          value={walletTarget ? `${walletTarget.fullName} — Current balance ${formatINR(walletTarget.walletBalance)}` : ''}
+          className="font-bold !text-teal-600"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Transaction Type"
+            options={[
+              { value: 'topup', label: 'Top-up (add credit)' },
+              { value: 'redeem', label: 'Redeem (use credit)' },
+            ]}
+            value={walletMode}
+            onChange={(e) => setWalletMode(e.target.value as 'topup' | 'redeem')}
+          />
+          <Input
+            label="Amount (₹)"
+            required
+            type="number"
+            min={1}
+            value={walletAmount}
+            onChange={(e) => setWalletAmount(e.target.value)}
+          />
+        </div>
+        <Input
+          label="Note (optional)"
+          placeholder="e.g. Refund for damaged item"
+          value={walletNote}
+          onChange={(e) => setWalletNote(e.target.value)}
+        />
+
+        <div className="pt-2 space-y-2">
+          <h5 className="text-xs font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            Transaction History
+          </h5>
+          {walletTxLoading ? (
+            <p className="text-xs text-slate-400">Loading wallet history…</p>
+          ) : walletTransactions.length === 0 ? (
+            <p className="text-xs text-slate-400">No wallet activity yet.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {walletTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800"
+                >
+                  <div className="space-y-0.5">
+                    <Badge color={walletTxColor[tx.type]} pill>
+                      {walletTxLabel[tx.type]}
+                    </Badge>
+                    {tx.note && <div className="text-[10px] text-slate-400">{tx.note}</div>}
+                  </div>
+                  <div className="text-right">
+                    <div
+                      className={`font-mono font-bold text-xs ${
+                        tx.type === 'REDEEM' ? 'text-rose-600' : 'text-emerald-600'
+                      }`}
+                    >
+                      {tx.type === 'REDEEM' ? '-' : '+'}
+                      {formatINR(tx.amount)}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{formatDate(tx.createdAt)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Drawer>
+
+      <Drawer
+        open={planDrawerOpen}
+        onClose={closePlanDrawer}
+        title={planEditId ? 'Edit Membership Plan' : 'Create Membership Plan'}
+        subtitle="Configure a paid tier with a server-enforced checkout discount."
+        footer={
+          <>
+            <Button variant="secondary" onClick={closePlanDrawer}>
+              Cancel
+            </Button>
+            <Button onClick={savePlan} disabled={saving}>
+              {saving ? 'Saving…' : 'Save Membership Plan'}
+            </Button>
+          </>
+        }
+      >
+        <Input
+          label="Plan Name"
+          required
+          placeholder="e.g. Gold Rewards"
+          value={planForm.name}
+          onChange={(e) => setPlanForm((f) => ({ ...f, name: e.target.value }))}
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Maps to Tier"
+            options={tierOptions}
+            value={planForm.tier}
+            onChange={(e) => setPlanForm((f) => ({ ...f, tier: e.target.value as CustomerTier }))}
+          />
+          <Input
+            label="Discount at Checkout (%)"
+            required
+            type="number"
+            min={0}
+            max={100}
+            value={planForm.discountPercent}
+            onChange={(e) => setPlanForm((f) => ({ ...f, discountPercent: e.target.value }))}
+          />
+        </div>
+        <Input
+          label="Annual Fee (₹)"
+          type="number"
+          min={0}
+          value={planForm.annualFee}
+          onChange={(e) => setPlanForm((f) => ({ ...f, annualFee: e.target.value }))}
+        />
+        <Input
+          label="Benefits Description"
+          placeholder="e.g. 10% off every bill, birthday bonus"
+          value={planForm.benefits}
+          onChange={(e) => setPlanForm((f) => ({ ...f, benefits: e.target.value }))}
+        />
+        <Checkbox
+          label="Plan is active"
+          checked={planForm.isActive}
+          onChange={(e) => setPlanForm((f) => ({ ...f, isActive: e.target.checked }))}
+        />
       </Drawer>
     </div>
   );

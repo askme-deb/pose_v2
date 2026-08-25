@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { buildLowStockMessage } from '@pospe/notifications';
+import { buildLowStockMessage, buildBirthdayOfferMessage } from '@pospe/notifications';
 import { prisma } from '../lib/prisma';
 import { transporter } from '../lib/mailer';
 
@@ -34,6 +34,28 @@ router.post('/notifications/low-stock', async (req, res) => {
   });
 
   res.status(202).json({ sent: true, to });
+});
+
+const birthdayOfferInput = z.object({
+  tenantId: z.string().min(1),
+  customerName: z.string().min(1),
+  email: z.string().min(1),
+  bonusAmount: z.number().positive(),
+});
+
+router.post('/notifications/birthday-offer', async (req, res) => {
+  const parsed = birthdayOfferInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { customerName, email, bonusAmount } = parsed.data;
+
+  await transporter.sendMail({
+    from: '"ApexPOS Rewards" <rewards@apexpos.local>',
+    to: email,
+    subject: `Happy Birthday from all of us!`,
+    text: buildBirthdayOfferMessage(customerName, bonusAmount),
+  });
+
+  res.status(202).json({ sent: true, to: email });
 });
 
 export default router;

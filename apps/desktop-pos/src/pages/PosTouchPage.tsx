@@ -23,6 +23,7 @@ import { listCategories, type LiveCategory } from '../services/api/categories';
 import { listCustomers, type LiveCustomer, type CustomerTier } from '../services/api/customers';
 import { createInvoice, parseCheckoutError, isNetworkError, type ApiInvoice, type ApiPaymentMethod } from '../services/api/invoices';
 import { cacheCatalog, getCachedCatalog, decrementCachedStock, queueSale } from '../offline/posDB';
+import { PRODUCTS_UPDATED_EVENT } from '../sync/realtime';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { formatINR } from '../utils/format';
 
@@ -140,6 +141,22 @@ export default function PosTouchPage() {
         });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Another terminal's synced sale can change what's actually left in stock.
+  // realtime.ts has already patched the offline cache by the time this fires
+  // — this just merges the same rows into the screen that's open right now.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const updated = (event as CustomEvent<LiveProduct[]>).detail;
+      if (!updated?.length) return;
+      setProducts((prev) => {
+        const byId = new Map(updated.map((p) => [p.id, p]));
+        return prev.map((p) => byId.get(p.id) ?? p);
+      });
+    };
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(PRODUCTS_UPDATED_EVENT, handler);
   }, []);
 
   const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;

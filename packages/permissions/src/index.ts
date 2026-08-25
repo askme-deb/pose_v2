@@ -21,3 +21,5 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
 
 export const hasPermission = (role: Role, permission: string): boolean =>
   ROLE_PERMISSIONS[role]?.includes('*') || ROLE_PERMISSIONS[role]?.includes(permission);
+
+export { requireAuth, requirePermission, signInternalToken, verifyToken, type AuthedUser } from './middleware';

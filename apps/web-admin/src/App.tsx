@@ -19,6 +19,7 @@ import CategoriesBrandsPage from './pages/inventory/CategoriesBrandsPage';
 import StockAdjustmentsPage from './pages/inventory/StockAdjustmentsPage';
 import PurchaseOrdersPage from './pages/purchases/PurchaseOrdersPage';
 import SalesInvoicesPage from './pages/sales/SalesInvoicesPage';
+import SalesDocumentsPage from './pages/sales/SalesDocumentsPage';
 import WarehouseTransfersPage from './pages/warehouse/WarehouseTransfersPage';
 import CustomersPage from './pages/crm/CustomersPage';
 import GstReportsPage from './pages/gst/GstReportsPage';
@@ -27,6 +28,7 @@ import BusinessProfilePage from './pages/settings/BusinessProfilePage';
 import SecuritySettingsPage from './pages/settings/SecuritySettingsPage';
 import UserRolesPage from './pages/roles/UserRolesPage';
 import MobileAppsPage from './pages/mobile/MobileAppsPage';
+import SyncStatusPage from './pages/sync/SyncStatusPage';
 
 import SuperAdminDashboardPage from './pages/superadmin/SuperAdminDashboardPage';
 import SuperAdminTenantsPage from './pages/superadmin/SuperAdminTenantsPage';
@@ -56,6 +58,7 @@ export default function App() {
             <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
             <Route path="/purchases" element={<PurchaseOrdersPage />} />
             <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
+            <Route path="/sales/documents" element={<SalesDocumentsPage />} />
             <Route path="/warehouse/transfers" element={<WarehouseTransfersPage />} />
             <Route path="/crm/customers" element={<CustomersPage />} />
             <Route path="/gst/reports" element={<GstReportsPage />} />
@@ -64,6 +67,7 @@ export default function App() {
             <Route path="/settings/security" element={<SecuritySettingsPage />} />
             <Route path="/roles" element={<UserRolesPage />} />
             <Route path="/mobile-apps" element={<MobileAppsPage />} />
+            <Route path="/sync/status" element={<SyncStatusPage />} />
 
             <Route element={<RoleGate allow={['super_admin']} />}>
               <Route path="/superadmin" element={<SuperAdminDashboardPage />} />

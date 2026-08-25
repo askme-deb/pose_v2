@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import webhookRouter from './routes/webhook';
 import paymentsRouter from './routes/payments';
@@ -19,11 +20,13 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'payment-service');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'payment-service', 'Razorpay payment intents, webhook & payment records');
 // Needs the raw request body to verify Razorpay's HMAC signature correctly —
 // mounted before express.json() so it never gets JSON-parsed first (same
 // reasoning api-gateway's proxy router uses).
 app.use(webhookRouter);
 app.use(express.json());
+app.use(requireAuth);
 app.use('/', paymentsRouter);
 
 app.listen(PORT, () => {

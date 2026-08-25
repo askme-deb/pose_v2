@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '@pospe/permissions';
 import { esClient, SEARCH_INDICES } from '../lib/elasticsearch';
 
 const router = Router();
@@ -16,7 +17,7 @@ interface GroupedResults {
 // that header today (same gap as everywhere else in this codebase), so this
 // searches across all indexed data unscoped rather than pretending to
 // isolate tenants it has no signal to isolate by.
-router.get('/api/search', async (req, res) => {
+router.get('/api/search', requireAuth, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   if (!q) return res.json({ products: [], customers: [], invoices: [] } satisfies GroupedResults);
 

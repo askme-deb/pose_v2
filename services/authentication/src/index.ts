@@ -3,12 +3,14 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import rolesRouter from './routes/roles';
 import usersRouter from './routes/users';
 import auditLogsRouter from './routes/auditLogs';
 import authRouter from './routes/auth';
+import registerRouter from './routes/register';
 import twoFactorRouter from './routes/twoFactor';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'authentication';
@@ -23,11 +25,17 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'authentication');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'authentication', 'Login, 2FA, RBAC roles, users & audit logs');
+// Public: nobody has a token yet when calling these (issuing one is the
+// point), and twoFactorRouter guards each of its own routes with requireAuth
+// individually since /2fa/status et al. need a fresh per-user check anyway.
+app.use('/', authRouter);
+app.use('/', registerRouter);
+app.use('/', twoFactorRouter);
+app.use(requireAuth);
 app.use('/', rolesRouter);
 app.use('/', usersRouter);
 app.use('/', auditLogsRouter);
-app.use('/', authRouter);
-app.use('/', twoFactorRouter);
 
 app.listen(PORT, () => {
   console.log(`[authentication] listening on port ${PORT}`);

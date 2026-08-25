@@ -13,9 +13,14 @@ import {
   Pencil,
   Barcode as BarcodeIcon,
   Trash2,
+  PackagePlus,
+  X,
+  PackageX,
 } from 'lucide-react';
 import {
   Badge,
+  Button,
+  Checkbox,
   Drawer,
   DataTable,
   GlassCard,
@@ -33,7 +38,8 @@ import {
   LiveProduct,
 } from '../../services/api/products';
 import { listCategories, LiveCategory } from '../../services/api/taxonomy';
-import { formatINR } from '../../utils/format';
+import { listBundleItems, setBundleItems, clearBundleItems, getDeadStockReport, DeadStockReport } from '../../services/api/inventoryExtras';
+import { formatINR, formatDate } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 
 type StockFilter = 'all' | 'in-stock' | 'low-stock' | 'out-of-stock';
@@ -70,6 +76,8 @@ const emptyForm = {
   stockQty: '',
   minThreshold: '',
   imageUrl: '',
+  trackBatches: false,
+  trackSerials: false,
 };
 
 type FormState = typeof emptyForm;
@@ -100,6 +108,16 @@ export default function ProductsPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
 
   const [barcodeProduct, setBarcodeProduct] = useState<LiveProduct | null>(null);
+
+  const [bundleProduct, setBundleProduct] = useState<LiveProduct | null>(null);
+  const [bundleComposition, setBundleComposition] = useState<{ componentProductId: string; quantity: number }[]>([]);
+  const [bundleLoading, setBundleLoading] = useState(false);
+  const [bundleSaving, setBundleSaving] = useState(false);
+
+  const [deadStockOpen, setDeadStockOpen] = useState(false);
+  const [deadStockDays, setDeadStockDays] = useState('90');
+  const [deadStockReport, setDeadStockReport] = useState<DeadStockReport | null>(null);
+  const [deadStockLoading, setDeadStockLoading] = useState(false);
 
   async function reload() {
     setLoading(true);
@@ -157,6 +175,8 @@ export default function ProductsPage() {
       stockQty: String(p.stockQty),
       minThreshold: String(p.minThreshold),
       imageUrl: p.imageUrl,
+      trackBatches: p.trackBatches,
+      trackSerials: p.trackSerials,
     });
     setDrawerOpen(true);
   }
@@ -175,6 +195,8 @@ export default function ProductsPage() {
       stockQty: Number(form.stockQty) || 0,
       minThreshold: Number(form.minThreshold) || 0,
       imageUrl: form.imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+      trackBatches: form.trackBatches,
+      trackSerials: form.trackSerials,
     };
 
     try {
@@ -201,6 +223,73 @@ export default function ProductsPage() {
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not delete product', 'danger');
     }
+  }
+
+  async function openBundleDrawer(p: LiveProduct) {
+    setBundleProduct(p);
+    setBundleLoading(true);
+    try {
+      const items = await listBundleItems(p.id);
+      setBundleComposition(
+        items.length ? items.map((i) => ({ componentProductId: i.componentProductId, quantity: i.quantity })) : [{ componentProductId: '', quantity: 1 }],
+      );
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load bundle composition', 'danger');
+    } finally {
+      setBundleLoading(false);
+    }
+  }
+
+  async function handleSaveBundle(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bundleProduct) return;
+    const items = bundleComposition.filter((i) => i.componentProductId && i.quantity > 0);
+    if (items.length === 0) {
+      showToast('Add at least one component to this bundle.', 'danger');
+      return;
+    }
+    setBundleSaving(true);
+    try {
+      await setBundleItems(bundleProduct.id, items);
+      await reload();
+      setBundleProduct(null);
+      showToast(`${bundleProduct.name} is now a bundle`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not save bundle composition', 'danger');
+    } finally {
+      setBundleSaving(false);
+    }
+  }
+
+  async function handleClearBundle() {
+    if (!bundleProduct) return;
+    setBundleSaving(true);
+    try {
+      await clearBundleItems(bundleProduct.id);
+      await reload();
+      setBundleProduct(null);
+      showToast(`${bundleProduct.name} is no longer a bundle`, 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not clear bundle composition', 'danger');
+    } finally {
+      setBundleSaving(false);
+    }
+  }
+
+  async function loadDeadStock(days: string) {
+    setDeadStockLoading(true);
+    try {
+      setDeadStockReport(await getDeadStockReport(Number(days) || 90));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not load dead stock report', 'danger');
+    } finally {
+      setDeadStockLoading(false);
+    }
+  }
+
+  function openDeadStockDrawer() {
+    setDeadStockOpen(true);
+    loadDeadStock(deadStockDays);
   }
 
   function handleExportCSV() {
@@ -230,7 +319,14 @@ export default function ProductsPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2.5">
           <img src={row.original.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-800" />
-          <span className="font-bold text-slate-800 dark:text-slate-100">{row.original.name}</span>
+          <div>
+            <span className="font-bold text-slate-800 dark:text-slate-100">{row.original.name}</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              {row.original.isBundle && <Badge color="indigo" pill>Bundle</Badge>}
+              {row.original.trackBatches && <Badge color="cyan" pill>Batches</Badge>}
+              {row.original.trackSerials && <Badge color="purple" pill>Serials</Badge>}
+            </div>
+          </div>
         </div>
       ),
     },
@@ -270,6 +366,13 @@ export default function ProductsPage() {
             className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-purple-600 transition"
           >
             <BarcodeIcon className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => openBundleDrawer(row.original)}
+            title="Bundle composition"
+            className={`p-1.5 rounded-lg transition ${row.original.isBundle ? 'bg-indigo-500/10 text-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600'}`}
+          >
+            <PackagePlus className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => handleDelete(row.original)}
@@ -358,6 +461,13 @@ export default function ProductsPage() {
             </button>
           </div>
 
+          <button
+            onClick={openDeadStockDrawer}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-amber-500 transition shadow-sm"
+          >
+            <PackageX className="w-3.5 h-3.5 text-amber-600" />
+            <span className="hidden sm:inline">Dead Stock</span>
+          </button>
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-purple-500 transition shadow-sm"
@@ -553,6 +663,18 @@ export default function ProductsPage() {
             value={form.imageUrl}
             onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
           />
+          <div className="flex items-center gap-6 pt-1">
+            <Checkbox
+              label="Track batches / expiry"
+              checked={form.trackBatches}
+              onChange={(e) => setForm((f) => ({ ...f, trackBatches: e.target.checked }))}
+            />
+            <Checkbox
+              label="Track serial numbers"
+              checked={form.trackSerials}
+              onChange={(e) => setForm((f) => ({ ...f, trackSerials: e.target.checked }))}
+            />
+          </div>
         </form>
       </Drawer>
 
@@ -591,6 +713,138 @@ export default function ProductsPage() {
             <p className="text-sm font-black text-slate-900 dark:text-white">{formatINR(barcodeProduct.sellingPrice)}</p>
           </div>
         )}
+      </Drawer>
+
+      {/* Bundle composition drawer */}
+      <Drawer
+        open={!!bundleProduct}
+        onClose={() => setBundleProduct(null)}
+        title={`Bundle Composition — ${bundleProduct?.name ?? ''}`}
+        subtitle="Selling this product decrements each component's own stock instead of its own."
+        width="lg"
+        footer={
+          <>
+            {bundleProduct?.isBundle && (
+              <button
+                type="button"
+                onClick={handleClearBundle}
+                disabled={bundleSaving}
+                className="px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-600 font-bold text-xs hover:bg-rose-600 hover:text-white transition disabled:opacity-50"
+              >
+                Clear Bundle
+              </button>
+            )}
+            <button type="button" onClick={() => setBundleProduct(null)} className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">
+              Cancel
+            </button>
+            <button form="bundle-form" type="submit" disabled={bundleSaving || bundleLoading} className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 disabled:opacity-50">
+              {bundleSaving ? 'Saving…' : 'Save Composition'}
+            </button>
+          </>
+        }
+      >
+        {bundleLoading && <p className="text-xs text-slate-400">Loading…</p>}
+        {!bundleLoading && bundleProduct && (
+          <form id="bundle-form" onSubmit={handleSaveBundle} className="space-y-2">
+            {bundleComposition.map((row, idx) => {
+              const componentOptions = productList
+                .filter((p) => p.id !== bundleProduct.id && !p.isBundle)
+                .map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` }));
+              return (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-end p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  <div className="col-span-8">
+                    <Select
+                      label={idx === 0 ? 'Component Product' : undefined}
+                      options={componentOptions}
+                      placeholder="Select a component"
+                      value={row.componentProductId}
+                      onChange={(e) => setBundleComposition((rows) => rows.map((r, i) => (i === idx ? { ...r, componentProductId: e.target.value } : r)))}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Input
+                      label={idx === 0 ? 'Qty' : undefined}
+                      type="number"
+                      min={1}
+                      value={row.quantity}
+                      onChange={(e) => setBundleComposition((rows) => rows.map((r, i) => (i === idx ? { ...r, quantity: Math.max(1, Number(e.target.value) || 1) } : r)))}
+                    />
+                  </div>
+                  <div className="col-span-1 flex justify-center pb-2">
+                    <button
+                      type="button"
+                      onClick={() => setBundleComposition((rows) => rows.filter((_, i) => i !== idx))}
+                      disabled={bundleComposition.length === 1}
+                      className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 disabled:opacity-30 hover:bg-rose-600 hover:text-white transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setBundleComposition((rows) => [...rows, { componentProductId: '', quantity: 1 }])}>
+              <Plus className="w-3.5 h-3.5" /> Add Component
+            </Button>
+          </form>
+        )}
+      </Drawer>
+
+      {/* Dead stock report drawer */}
+      <Drawer
+        open={deadStockOpen}
+        onClose={() => setDeadStockOpen(false)}
+        title="Dead Stock Report"
+        subtitle="Products with no paid sales in the window, sorted by capital tied up."
+        width="lg"
+        footer={
+          <button type="button" onClick={() => setDeadStockOpen(false)} className="flex-1 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs">
+            Close
+          </button>
+        }
+      >
+        <div className="space-y-4">
+          <Select
+            label="Window"
+            options={[
+              { value: '30', label: 'Last 30 days' },
+              { value: '60', label: 'Last 60 days' },
+              { value: '90', label: 'Last 90 days' },
+              { value: '180', label: 'Last 180 days' },
+            ]}
+            value={deadStockDays}
+            onChange={(e) => {
+              setDeadStockDays(e.target.value);
+              loadDeadStock(e.target.value);
+            }}
+          />
+
+          {deadStockLoading && <p className="text-xs text-slate-400">Loading…</p>}
+
+          {!deadStockLoading && deadStockReport && (
+            <>
+              <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">{deadStockReport.count} SKU{deadStockReport.count === 1 ? '' : 's'} with no sales</span>
+                <span className="text-lg font-black text-amber-600 dark:text-amber-400">{formatINR(deadStockReport.totalCapitalTiedUp)}</span>
+              </div>
+
+              {deadStockReport.products.length === 0 && <p className="text-xs text-slate-400">Nothing dead in this window — everything with stock has sold recently.</p>}
+
+              <div className="space-y-1.5 max-h-96 overflow-y-auto">
+                {deadStockReport.products.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs">
+                    <div>
+                      <p className="font-bold text-slate-800 dark:text-slate-100">{p.name}</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{p.sku} &bull; {p.categoryName} &bull; {p.stockQty} in stock</p>
+                      <p className="text-[10px] text-slate-400">{p.lastSoldAt ? `Last sold ${formatDate(p.lastSoldAt)}` : 'Never sold'}</p>
+                    </div>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{formatINR(p.capitalTiedUp)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </Drawer>
     </div>
   );

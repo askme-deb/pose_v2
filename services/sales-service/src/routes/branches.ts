@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -20,7 +21,7 @@ router.get('/branches', async (req, res) => {
   res.json(branches);
 });
 
-router.post('/branches', async (req, res) => {
+router.post('/branches', requirePermission('store:manage'), async (req, res) => {
   const parsed = branchInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -29,7 +30,7 @@ router.post('/branches', async (req, res) => {
   res.status(201).json(branch);
 });
 
-router.put('/branches/:id', async (req, res) => {
+router.put('/branches/:id', requirePermission('store:manage'), async (req, res) => {
   const parsed = branchInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

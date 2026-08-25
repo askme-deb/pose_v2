@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -18,7 +19,7 @@ router.get('/warehouses', async (req, res) => {
   res.json(warehouses);
 });
 
-router.post('/warehouses', async (req, res) => {
+router.post('/warehouses', requirePermission('inventory:manage'), async (req, res) => {
   const parsed = warehouseInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

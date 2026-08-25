@@ -8,6 +8,7 @@ import { metricsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
 import proxyRouter from './routes/proxy';
 import searchRouter from './routes/search';
+import docsRouter from './routes/docs';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'api-gateway';
 
@@ -26,6 +27,7 @@ app.use(
 );
 
 app.use('/', healthRouter);
+app.use('/', docsRouter);
 app.use(searchRouter);
 app.use(proxyRouter); // proxy routes handle their own body streaming; keep before express.json()
 app.use(express.json());

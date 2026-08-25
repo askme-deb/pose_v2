@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { calcGst } from '@pospe/utilities';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 
 const router = Router();
@@ -34,7 +35,7 @@ const heldInclude = { items: { include: { product: { select: { id: true, name: t
 // snapshotted at hold time from the real Product row, same as a real
 // checkout, so a held bill's total doesn't silently drift if a price
 // changes before it's recalled.
-router.post('/invoices/hold', async (req, res) => {
+router.post('/invoices/hold', requirePermission('billing:create'), async (req, res) => {
   const parsed = holdInvoiceInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { customerId, items, discountPercent, label } = parsed.data;
@@ -107,7 +108,7 @@ router.get('/invoices/held', async (req, res) => {
 // exactly as it would for a fresh cart. That keeps the complex checkout
 // transaction (stock, GST, idempotency, loyalty, alerts, search indexing) a
 // single source of truth instead of a second copy living here.
-router.post('/invoices/:id/recall', async (req, res) => {
+router.post('/invoices/:id/recall', requirePermission('billing:create'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
 
@@ -138,7 +139,7 @@ router.post('/invoices/:id/recall', async (req, res) => {
   });
 });
 
-router.delete('/invoices/:id', async (req, res) => {
+router.delete('/invoices/:id', requirePermission('billing:create'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
 
@@ -151,7 +152,7 @@ router.delete('/invoices/:id', async (req, res) => {
   res.status(204).end();
 });
 
-router.post('/invoices/:id/split', async (req, res) => {
+router.post('/invoices/:id/split', requirePermission('billing:create'), async (req, res) => {
   const parsed = splitInvoiceInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { itemIds } = parsed.data;
@@ -212,7 +213,7 @@ router.post('/invoices/:id/split', async (req, res) => {
   res.status(201).json(newHeld);
 });
 
-router.post('/invoices/merge', async (req, res) => {
+router.post('/invoices/merge', requirePermission('billing:create'), async (req, res) => {
   const parsed = mergeInvoicesInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { sourceId, targetId } = parsed.data;

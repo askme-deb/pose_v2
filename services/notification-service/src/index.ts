@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
 import healthRouter from './routes/health';
 import notificationsRouter from './routes/notifications';
 
@@ -19,6 +19,7 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'notification-service');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'notification-service', 'Low-stock alerts & birthday offer emails');
 app.use('/', notificationsRouter);
 
 app.listen(PORT, () => {

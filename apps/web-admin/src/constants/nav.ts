@@ -20,6 +20,8 @@ import {
   Palette,
   Globe,
   LogIn,
+  RadioTower,
+  FileStack,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +40,7 @@ export const salesLinks: NavLink[] = [
   { label: 'POS Billing Terminal', href: '/pos', icon: ShoppingCart, color: 'text-emerald-600' },
   { label: 'Hold & Suspend Bills', href: '/pos/held-bills', icon: PauseCircle, color: 'text-amber-600' },
   { label: 'Sales & Invoices', href: '/sales/invoices', icon: Receipt, color: 'text-blue-600' },
+  { label: 'Sales Documents', href: '/sales/documents', icon: FileStack, color: 'text-indigo-600' },
   { label: 'CRM & Loyalty', href: '/crm/customers', icon: Users, color: 'text-pink-600' },
 ];
 
@@ -62,6 +65,7 @@ export const reportsLinks: NavLink[] = [
 
 export const administrationLinks: NavLink[] = [
   { label: 'Mobile Apps Hub', href: '/mobile-apps', icon: Smartphone, color: 'text-sky-600' },
+  { label: 'Offline Sync Status', href: '/sync/status', icon: RadioTower, color: 'text-cyan-600' },
   { label: 'Roles & RBAC', href: '/roles', icon: ShieldCheck, color: 'text-red-600' },
   { label: 'Company Settings', href: '/settings/business-profile', icon: Settings, color: 'text-slate-600' },
 ];

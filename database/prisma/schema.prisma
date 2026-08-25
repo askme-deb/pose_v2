@@ -72,6 +72,23 @@ model Tenant {
   auditLogs        AuditLog[]
   cnameDomains     CnameDomain[]
   platformInvoices PlatformInvoice[]
+  syncDevices      SyncDevice[]
+  syncConflicts    SyncConflict[]
+  salesQuotes        SalesQuote[]
+  deliveryChallans   DeliveryChallan[]
+  creditNotes        CreditNote[]
+  debitNotes         DebitNote[]
+  goodsReceivedNotes GoodsReceivedNote[]
+  purchaseReturns    PurchaseReturn[]
+  supplierPayments   SupplierPayment[]
+  productBatches     ProductBatch[]
+  productSerials     ProductSerial[]
+  productBundleItems ProductBundleItem[]
+  warehouseRacks         WarehouseRack[]
+  warehouseRackItems     WarehouseRackItem[]
+  warehouseDamageReports WarehouseDamageReport[]
+  customerWalletTransactions CustomerWalletTransaction[]
+  membershipPlans            MembershipPlan[]
 
   @@map("tenants")
 }
@@ -181,9 +198,15 @@ model Store {
   isActive  Boolean    @default(true)
   createdAt DateTime   @default(now())
 
-  users      User[]
-  invoices   Invoice[]
-  stockItems StockItem[]
+  users            User[]
+  invoices         Invoice[]
+  stockItems       StockItem[]
+  syncDevices      SyncDevice[]
+  syncConflicts    SyncConflict[]
+  salesQuotes      SalesQuote[]
+  deliveryChallans DeliveryChallan[]
+  creditNotes      CreditNote[]
+  debitNotes       DebitNote[]
 
   @@map("stores")
 }
@@ -338,13 +361,31 @@ model Product {
   // allocation for when that UI is built; it's just not wired up to this field yet.
   stockQty     Int      @default(0)
   minThreshold Int      @default(0)
+  // Off by default — most products track neither. A product with either flag
+  // set opts into the receiving/selling flows those features add; a bundle
+  // carries no stock of its own (see ProductBundleItem) and is excluded from
+  // its own stockQty guard the way a normal SKU isn't.
+  trackBatches Boolean  @default(false)
+  trackSerials Boolean  @default(false)
+  isBundle     Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  stockItems             StockItem[]
-  invoiceItems           InvoiceItem[]
-  stockAdjustments       StockAdjustment[]
-  purchaseOrderItems     PurchaseOrderItem[]
-  warehouseTransferItems WarehouseTransferItem[]
+  stockItems              StockItem[]
+  invoiceItems            InvoiceItem[]
+  stockAdjustments        StockAdjustment[]
+  purchaseOrderItems      PurchaseOrderItem[]
+  warehouseTransferItems  WarehouseTransferItem[]
+  salesQuoteItems         SalesQuoteItem[]
+  deliveryChallanItems    DeliveryChallanItem[]
+  creditNoteItems         CreditNoteItem[]
+  goodsReceivedNoteItems  GoodsReceivedNoteItem[]
+  purchaseReturnItems     PurchaseReturnItem[]
+  batches                 ProductBatch[]
+  serials                 ProductSerial[]
+  bundleComponents        ProductBundleItem[] @relation("BundleComponents")
+  partOfBundles           ProductBundleItem[] @relation("ComponentOfBundles")
+  warehouseRackItems      WarehouseRackItem[]
+  warehouseDamageReports  WarehouseDamageReport[]
 
   @@unique([tenantId, sku])
   @@map("products")
@@ -411,7 +452,21 @@ model Customer {
   loyaltyPoints Int          @default(0)
   createdAt     DateTime     @default(now())
 
-  invoices Invoice[]
+  // Store-credit balance — the running total; every movement is a
+  // CustomerWalletTransaction row so the balance is always reconstructable.
+  walletBalance Decimal   @default(0) @db.Decimal(12, 2)
+  dateOfBirth   DateTime?
+  // Set the day the birthday cron actually credits the bonus, so the same
+  // customer can't be paid twice in one year if the job re-runs.
+  lastBirthdayOfferAt DateTime?
+
+  membershipPlanId String?
+  membershipPlan   MembershipPlan? @relation(fields: [membershipPlanId], references: [id])
+
+  invoices             Invoice[]
+  salesQuotes          SalesQuote[]
+  deliveryChallans     DeliveryChallan[]
+  walletTransactions   CustomerWalletTransaction[]
 
   @@map("customers")
 }
@@ -427,7 +482,10 @@ model Supplier {
   gstin     String?
   createdAt DateTime @default(now())
 
-  purchaseOrders PurchaseOrder[]
+  purchaseOrders     PurchaseOrder[]
+  goodsReceivedNotes GoodsReceivedNote[]
+  purchaseReturns    PurchaseReturn[]
+  supplierPayments   SupplierPayment[]
 
   @@map("suppliers")
 }
@@ -440,6 +498,7 @@ enum PoPaymentStatus {
 
 enum PurchaseOrderStatus {
   PENDING
+  PARTIALLY_RECEIVED
   RECEIVED
 }
 
@@ -456,7 +515,10 @@ model PurchaseOrder {
   orderStatus          PurchaseOrderStatus @default(PENDING)
   createdAt            DateTime            @default(now())
 
-  items PurchaseOrderItem[]
+  items               PurchaseOrderItem[]
+  goodsReceivedNotes  GoodsReceivedNote[]
+  purchaseReturns     PurchaseReturn[]
+  supplierPayments    SupplierPayment[]
 
   @@unique([tenantId, poNumber])
   @@map("purchase_orders")
@@ -470,6 +532,10 @@ model PurchaseOrderItem {
   product         Product       @relation(fields: [productId], references: [id])
   qty             Int
   unitPrice       Decimal       @db.Decimal(12, 2)
+  // Accumulates across every GRN raised against this line — lets the PO's
+  // status reflect a partial delivery instead of only "pending" or "fully
+  // received" like it used to.
+  receivedQty     Int           @default(0)
 
   @@map("purchase_order_items")
 }
@@ -527,6 +593,12 @@ model Invoice {
 
   items    InvoiceItem[]
   payments Payment[]
+  convertedFromQuotes    SalesQuote[]
+  linkedDeliveryChallans DeliveryChallan[]
+  creditNotes            CreditNote[]
+  debitNotes             DebitNote[]
+  soldSerials            ProductSerial[]
+  walletTransactions     CustomerWalletTransaction[]
 
   @@unique([storeId, invoiceNumber])
   @@map("invoices")
@@ -613,6 +685,8 @@ model Warehouse {
 
   transfersFrom WarehouseTransfer[] @relation("SourceWarehouse")
   transfersTo   WarehouseTransfer[] @relation("DestinationWarehouse")
+  racks         WarehouseRack[]
+  damageReports WarehouseDamageReport[]
 
   @@map("warehouses")
 }
@@ -651,4 +725,518 @@ model WarehouseTransferItem {
   qty                 Int
 
   @@map("warehouse_transfer_items")
+}
+
+// ---------- Offline synchronization ----------
+// One row per POS terminal (web-pos browser profile or desktop-pos install),
+// keyed by a client-generated deviceId that survives logout/login so an
+// admin's "sync status" view reads as one continuous terminal, not a new row
+// every shift.
+
+model SyncDevice {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  storeId      String
+  store        Store     @relation(fields: [storeId], references: [id])
+  deviceId     String
+  label        String?
+  pendingCount Int       @default(0)
+  lastSyncAt   DateTime?
+  lastSeenAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  @@unique([tenantId, deviceId])
+  @@map("sync_devices")
+}
+
+enum SyncConflictKind {
+  INSUFFICIENT_STOCK
+}
+
+enum SyncConflictStatus {
+  OPEN
+  RESOLVED
+}
+
+// A queued offline sale that couldn't be honestly replayed once the device
+// came back online — e.g. another terminal already sold the last unit while
+// this one was offline. Recorded server-side (rather than left to die in one
+// device's local IndexedDB/SQLite) so a manager can see and resolve it from
+// any terminal, and so it survives that device being wiped or replaced.
+model SyncConflict {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  storeId        String
+  store          Store               @relation(fields: [storeId], references: [id])
+  deviceId       String
+  idempotencyKey String
+  kind           SyncConflictKind    @default(INSUFFICIENT_STOCK)
+  reason         String
+  payload        Json
+  status         SyncConflictStatus  @default(OPEN)
+  resolvedBy     String?
+  resolutionNote String?
+  createdAt      DateTime            @default(now())
+  resolvedAt     DateTime?
+
+  @@unique([tenantId, idempotencyKey])
+  @@map("sync_conflicts")
+}
+
+// ---------- Sales documents (Module 7) ----------
+
+enum SalesQuoteKind {
+  QUOTATION
+  ESTIMATE
+}
+
+enum SalesQuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+// Quotations and estimates are the same document in this domain — a
+// non-binding pre-sale price quote with an expiry and an accept/reject/
+// convert lifecycle — so one model with a `kind` discriminator instead of
+// two near-identical tables, route files, and UI pages.
+model SalesQuote {
+  id                 String            @id @default(cuid())
+  tenantId           String
+  tenant             Tenant            @relation(fields: [tenantId], references: [id])
+  storeId            String
+  store              Store             @relation(fields: [storeId], references: [id])
+  quoteNumber        String
+  kind               SalesQuoteKind    @default(QUOTATION)
+  customerId         String?
+  customer           Customer?         @relation(fields: [customerId], references: [id])
+  customerName       String            @default("Walk-in Customer")
+  status             SalesQuoteStatus  @default(DRAFT)
+  validUntil         DateTime?
+  notes              String?
+  subtotal           Decimal           @default(0) @db.Decimal(12, 2)
+  taxTotal           Decimal           @default(0) @db.Decimal(12, 2)
+  total              Decimal           @default(0) @db.Decimal(12, 2)
+  convertedInvoiceId String?
+  convertedInvoice   Invoice?          @relation(fields: [convertedInvoiceId], references: [id])
+  createdAt          DateTime          @default(now())
+
+  items SalesQuoteItem[]
+
+  @@unique([tenantId, quoteNumber])
+  @@map("sales_quotes")
+}
+
+model SalesQuoteItem {
+  id           String     @id @default(cuid())
+  salesQuoteId String
+  salesQuote   SalesQuote @relation(fields: [salesQuoteId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Int
+  price        Decimal    @db.Decimal(12, 2)
+  gstRate      Decimal    @db.Decimal(5, 2)
+  total        Decimal    @db.Decimal(12, 2)
+
+  @@map("sales_quote_items")
+}
+
+enum DeliveryChallanStatus {
+  DRAFT
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+// Proof-of-dispatch for goods leaving a store ahead of (or without) a formal
+// tax invoice — dispatching one is a real stock movement, guarded the same
+// way checkout guards against overselling.
+model DeliveryChallan {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id])
+  storeId         String
+  store           Store                  @relation(fields: [storeId], references: [id])
+  challanNumber   String
+  customerId      String?
+  customer        Customer?              @relation(fields: [customerId], references: [id])
+  customerName    String                 @default("Walk-in Customer")
+  status          DeliveryChallanStatus  @default(DRAFT)
+  vehicleNumber   String?
+  transporterName String?
+  dispatchedAt    DateTime?
+  linkedInvoiceId String?
+  linkedInvoice   Invoice?               @relation(fields: [linkedInvoiceId], references: [id])
+  notes           String?
+  createdAt       DateTime               @default(now())
+
+  items DeliveryChallanItem[]
+
+  @@unique([tenantId, challanNumber])
+  @@map("delivery_challans")
+}
+
+model DeliveryChallanItem {
+  id                String          @id @default(cuid())
+  deliveryChallanId String
+  deliveryChallan   DeliveryChallan @relation(fields: [deliveryChallanId], references: [id])
+  productId         String
+  product           Product         @relation(fields: [productId], references: [id])
+  quantity          Int
+
+  @@map("delivery_challan_items")
+}
+
+enum CreditDebitNoteStatus {
+  ISSUED
+  CANCELLED
+}
+
+// A formal, itemized tax document against a specific invoice — more granular
+// than the existing whole-invoice /invoices/:id/refund (which just flips
+// status): a credit note can cover a partial return and restocks exactly the
+// quantities it lists.
+model CreditNote {
+  id               String                @id @default(cuid())
+  tenantId         String
+  tenant           Tenant                @relation(fields: [tenantId], references: [id])
+  storeId          String
+  store            Store                 @relation(fields: [storeId], references: [id])
+  creditNoteNumber String
+  invoiceId        String
+  invoice          Invoice               @relation(fields: [invoiceId], references: [id])
+  customerName     String
+  reason           String
+  status           CreditDebitNoteStatus @default(ISSUED)
+  subtotal         Decimal               @default(0) @db.Decimal(12, 2)
+  taxTotal         Decimal               @default(0) @db.Decimal(12, 2)
+  total            Decimal               @default(0) @db.Decimal(12, 2)
+  createdAt        DateTime              @default(now())
+
+  items CreditNoteItem[]
+
+  @@unique([tenantId, creditNoteNumber])
+  @@map("credit_notes")
+}
+
+model CreditNoteItem {
+  id           String     @id @default(cuid())
+  creditNoteId String
+  creditNote   CreditNote @relation(fields: [creditNoteId], references: [id])
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  quantity     Int
+  price        Decimal    @db.Decimal(12, 2)
+  gstRate      Decimal    @db.Decimal(5, 2)
+  total        Decimal    @db.Decimal(12, 2)
+
+  @@map("credit_note_items")
+}
+
+// A debit note covers additional charges billed after the original invoice
+// (a freight correction, a shortfall found at delivery) — record-only: unlike
+// a credit note it has no goods to restock, just an amount owed.
+model DebitNote {
+  id              String                @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                @relation(fields: [tenantId], references: [id])
+  storeId         String
+  store           Store                 @relation(fields: [storeId], references: [id])
+  debitNoteNumber String
+  invoiceId       String
+  invoice         Invoice               @relation(fields: [invoiceId], references: [id])
+  customerName    String
+  reason          String
+  amount          Decimal               @db.Decimal(12, 2)
+  status          CreditDebitNoteStatus @default(ISSUED)
+  createdAt       DateTime              @default(now())
+
+  @@unique([tenantId, debitNoteNumber])
+  @@map("debit_notes")
+}
+
+// ---------- Purchase: GRN, returns, vendor ledger (Module 6) ----------
+
+// A real inward-goods record, separate from the PO itself — a PO can be
+// received across several shipments, each with its own GRN. The stock
+// actually moves here, not when the PO is created.
+model GoodsReceivedNote {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  grnNumber       String
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  supplierId      String
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  receivedBy      String
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  items          GoodsReceivedNoteItem[]
+  productBatches ProductBatch[]
+  productSerials ProductSerial[]
+
+  @@unique([tenantId, grnNumber])
+  @@map("goods_received_notes")
+}
+
+model GoodsReceivedNoteItem {
+  id                  String            @id @default(cuid())
+  goodsReceivedNoteId String
+  goodsReceivedNote   GoodsReceivedNote @relation(fields: [goodsReceivedNoteId], references: [id])
+  productId           String
+  product             Product           @relation(fields: [productId], references: [id])
+  receivedQty         Int
+
+  @@map("goods_received_note_items")
+}
+
+enum PurchaseReturnStatus {
+  ISSUED
+  CANCELLED
+}
+
+// Goods going back to the supplier — the inverse stock movement of a GRN,
+// and (via the vendor ledger below) a credit against what's owed them.
+model PurchaseReturn {
+  id              String               @id @default(cuid())
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  returnNumber    String
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder        @relation(fields: [purchaseOrderId], references: [id])
+  supplierId      String
+  supplier        Supplier             @relation(fields: [supplierId], references: [id])
+  reason          String
+  status          PurchaseReturnStatus @default(ISSUED)
+  totalValue      Decimal              @default(0) @db.Decimal(12, 2)
+  createdAt       DateTime             @default(now())
+
+  items PurchaseReturnItem[]
+
+  @@unique([tenantId, returnNumber])
+  @@map("purchase_returns")
+}
+
+model PurchaseReturnItem {
+  id               String         @id @default(cuid())
+  purchaseReturnId String
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id])
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  quantity         Int
+  unitPrice        Decimal        @db.Decimal(12, 2)
+
+  @@map("purchase_return_items")
+}
+
+enum SupplierPaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CHEQUE
+}
+
+// The real vendor ledger entry that replaces the old "PARTIAL = half owed"
+// approximation — an actual payment against a supplier's outstanding balance.
+model SupplierPayment {
+  id              String                @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                @relation(fields: [tenantId], references: [id])
+  supplierId      String
+  supplier        Supplier              @relation(fields: [supplierId], references: [id])
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  amount          Decimal               @db.Decimal(12, 2)
+  method          SupplierPaymentMethod @default(BANK_TRANSFER)
+  reference       String?
+  notes           String?
+  paidAt          DateTime              @default(now())
+
+  @@map("supplier_payments")
+}
+
+// ---------- Inventory: batches, serials, bundles (Module 5) ----------
+
+// A specific lot received on a specific date, with its own expiry — the
+// FEFO (first-expiry-first-out) breakdown behind Product.stockQty, which
+// stays the simple aggregate everything else already reads.
+model ProductBatch {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  tenant              Tenant             @relation(fields: [tenantId], references: [id])
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id])
+  batchNumber         String
+  quantity            Int
+  costPrice           Decimal            @db.Decimal(12, 2)
+  expiryDate          DateTime?
+  receivedAt           DateTime          @default(now())
+  goodsReceivedNoteId String?
+  goodsReceivedNote   GoodsReceivedNote? @relation(fields: [goodsReceivedNoteId], references: [id])
+  createdAt           DateTime           @default(now())
+
+  @@unique([tenantId, productId, batchNumber])
+  @@map("product_batches")
+}
+
+enum SerialStatus {
+  IN_STOCK
+  SOLD
+  RETURNED
+  DAMAGED
+}
+
+// One row per physical unit of a serialized product (electronics, appliances,
+// anything sold under warranty) — tracked individually rather than as a bare
+// quantity.
+model ProductSerial {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  tenant              Tenant             @relation(fields: [tenantId], references: [id])
+  productId           String
+  product             Product            @relation(fields: [productId], references: [id])
+  serialNumber        String
+  status              SerialStatus       @default(IN_STOCK)
+  invoiceId           String?
+  invoice             Invoice?           @relation(fields: [invoiceId], references: [id])
+  goodsReceivedNoteId String?
+  goodsReceivedNote   GoodsReceivedNote? @relation(fields: [goodsReceivedNoteId], references: [id])
+  createdAt           DateTime           @default(now())
+
+  @@unique([tenantId, productId, serialNumber])
+  @@map("product_serials")
+}
+
+// Composition of a combo/bundle product — selling the bundle decrements each
+// component's own stock instead of the bundle carrying stock of its own.
+model ProductBundleItem {
+  id                 String  @id @default(cuid())
+  tenantId           String
+  tenant             Tenant  @relation(fields: [tenantId], references: [id])
+  bundleProductId    String
+  bundleProduct      Product @relation("BundleComponents", fields: [bundleProductId], references: [id])
+  componentProductId String
+  componentProduct   Product @relation("ComponentOfBundles", fields: [componentProductId], references: [id])
+  quantity           Int
+
+  @@unique([bundleProductId, componentProductId])
+  @@map("product_bundle_items")
+}
+
+// ---------- Warehouse: racks, damage (Module 8) ----------
+
+// A physical shelving location inside a warehouse — Warehouse.totalRacks used
+// to be just a headcount; this is the real "which rack is SKU X actually on"
+// answer.
+model WarehouseRack {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  code        String
+  capacity    Int?
+  createdAt   DateTime  @default(now())
+
+  items         WarehouseRackItem[]
+  damageReports WarehouseDamageReport[]
+
+  @@unique([warehouseId, code])
+  @@map("warehouse_racks")
+}
+
+model WarehouseRackItem {
+  id        String        @id @default(cuid())
+  tenantId  String
+  tenant    Tenant        @relation(fields: [tenantId], references: [id])
+  rackId    String
+  rack      WarehouseRack @relation(fields: [rackId], references: [id])
+  productId String
+  product   Product       @relation(fields: [productId], references: [id])
+  quantity  Int           @default(0)
+  updatedAt DateTime      @updatedAt
+
+  @@unique([rackId, productId])
+  @@map("warehouse_rack_items")
+}
+
+// A write-off against a specific warehouse (and optionally a specific rack)
+// — the actual stock effect reuses StockAdjustment (same audit log every
+// other shrinkage/damage entry already shows up in), this is the
+// warehouse-specific context (which facility, which rack) around it.
+model WarehouseDamageReport {
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  warehouseId String
+  warehouse   Warehouse      @relation(fields: [warehouseId], references: [id])
+  rackId      String?
+  rack        WarehouseRack? @relation(fields: [rackId], references: [id])
+  productId   String
+  product     Product        @relation(fields: [productId], references: [id])
+  quantity    Int
+  reason      String
+  reportedBy  String
+  valueImpact Decimal        @default(0) @db.Decimal(12, 2)
+  createdAt   DateTime       @default(now())
+
+  @@map("warehouse_damage_reports")
+}
+
+// ---------- Customer: wallet, membership, birthday offers (Module 9) ----------
+
+enum WalletTransactionType {
+  TOP_UP
+  REDEEM
+  REFUND
+  BIRTHDAY_BONUS
+}
+
+// A real store-credit ledger — every top-up and redemption is its own row,
+// Customer.walletBalance is just the running total, same relationship
+// StockAdjustment has to Product.stockQty.
+model CustomerWalletTransaction {
+  id         String                @id @default(cuid())
+  tenantId   String
+  tenant     Tenant                @relation(fields: [tenantId], references: [id])
+  customerId String
+  customer   Customer              @relation(fields: [customerId], references: [id])
+  type       WalletTransactionType
+  amount     Decimal               @db.Decimal(12, 2)
+  invoiceId  String?
+  invoice    Invoice?              @relation(fields: [invoiceId], references: [id])
+  note       String?
+  createdAt  DateTime              @default(now())
+
+  @@map("customer_wallet_transactions")
+}
+
+// A real, tenant-configurable paid tier — replaces the hardcoded
+// STANDARD/SILVER/GOLD/VIP_DIAMOND discount table that used to live only in
+// the POS frontend as a placeholder. Enrolling a customer here is what
+// actually earns them a checkout discount now, not just their CustomerTier
+// label.
+model MembershipPlan {
+  id              String       @id @default(cuid())
+  tenantId        String
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  name            String
+  tier            CustomerTier
+  annualFee       Decimal      @default(0) @db.Decimal(12, 2)
+  discountPercent Decimal      @default(0) @db.Decimal(5, 2)
+  benefits        String?
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+
+  customers Customer[]
+
+  @@unique([tenantId, name])
+  @@map("membership_plans")
 }

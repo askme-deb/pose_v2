@@ -3,7 +3,7 @@ import { z } from 'zod';
 import speakeasy from 'speakeasy';
 import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
-import { requireAuth } from '../middleware/requireAuth';
+import { requireAuth } from '@pospe/permissions';
 
 const router = Router();
 

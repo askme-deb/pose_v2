@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { requireAuth, requirePermission } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import dashboardRouter from './routes/dashboard';
 
@@ -19,6 +20,8 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'reporting-service');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'reporting-service', 'Revenue analytics & dashboard aggregates');
+app.use(requireAuth, requirePermission('report:view'));
 app.use('/', dashboardRouter);
 
 app.listen(PORT, () => {

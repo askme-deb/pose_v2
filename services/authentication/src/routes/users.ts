@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
 
@@ -26,7 +27,7 @@ router.get('/users', async (req, res) => {
   res.json(users);
 });
 
-router.post('/users', async (req, res) => {
+router.post('/users', requirePermission('user:manage'), async (req, res) => {
   const parsed = userInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -58,7 +59,7 @@ router.post('/users', async (req, res) => {
   res.status(201).json(user);
 });
 
-router.put('/users/:id', async (req, res) => {
+router.put('/users/:id', requirePermission('user:manage'), async (req, res) => {
   const parsed = userInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 

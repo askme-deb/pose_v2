@@ -13,6 +13,18 @@ export interface LiveCustomer {
   ordersCount: number;
   lastVisit: string | null;
   joinedAt: string;
+  walletBalance: number;
+  dateOfBirth: string | null;
+  membershipPlanId: string | null;
+  membershipPlanName: string | null;
+  membershipDiscountPercent: number;
+}
+
+interface ApiMembershipPlanRef {
+  id: string;
+  name: string;
+  discountPercent: string;
+  isActive: boolean;
 }
 
 interface ApiCustomer {
@@ -26,6 +38,10 @@ interface ApiCustomer {
   ordersCount: number;
   lastVisit: string | null;
   createdAt: string;
+  walletBalance: string;
+  dateOfBirth: string | null;
+  membershipPlanId: string | null;
+  membershipPlan: ApiMembershipPlanRef | null;
 }
 
 function toLive(c: ApiCustomer): LiveCustomer {
@@ -40,6 +56,11 @@ function toLive(c: ApiCustomer): LiveCustomer {
     ordersCount: c.ordersCount,
     lastVisit: c.lastVisit,
     joinedAt: c.createdAt,
+    walletBalance: Number(c.walletBalance),
+    dateOfBirth: c.dateOfBirth,
+    membershipPlanId: c.membershipPlanId,
+    membershipPlanName: c.membershipPlan?.name ?? null,
+    membershipDiscountPercent: c.membershipPlan ? Number(c.membershipPlan.discountPercent) : 0,
   };
 }
 
@@ -54,6 +75,8 @@ export interface CustomerInput {
   email?: string;
   tier?: CustomerTier;
   loyaltyPoints?: number;
+  dateOfBirth?: string | null;
+  membershipPlanId?: string | null;
 }
 
 export async function createCustomer(input: CustomerInput): Promise<LiveCustomer> {
@@ -73,4 +96,106 @@ export async function deleteCustomer(id: string): Promise<void> {
 export async function creditBonusPoints(id: string, amount: number, reason: string): Promise<LiveCustomer> {
   const customer = await apiClient.post<ApiCustomer>(`/api/sales/customers/${id}/bonus-points`, { amount, reason });
   return toLive(customer);
+}
+
+// ---------- Wallet ----------
+
+export type WalletTransactionType = 'TOP_UP' | 'REDEEM' | 'REFUND' | 'BIRTHDAY_BONUS';
+
+export interface WalletTransaction {
+  id: string;
+  type: WalletTransactionType;
+  amount: number;
+  note: string | null;
+  invoiceId: string | null;
+  createdAt: string;
+}
+
+interface ApiWalletTransaction {
+  id: string;
+  type: WalletTransactionType;
+  amount: string;
+  note: string | null;
+  invoiceId: string | null;
+  createdAt: string;
+}
+
+export async function listWalletTransactions(customerId: string): Promise<WalletTransaction[]> {
+  const rows = await apiClient.get<ApiWalletTransaction[]>(`/api/sales/customers/${customerId}/wallet/transactions`);
+  return rows.map((r) => ({ ...r, amount: Number(r.amount) }));
+}
+
+export async function topUpWallet(customerId: string, amount: number, note?: string): Promise<LiveCustomer> {
+  const customer = await apiClient.post<ApiCustomer>(`/api/sales/customers/${customerId}/wallet/topup`, { amount, note });
+  return toLive(customer);
+}
+
+export async function redeemWallet(customerId: string, amount: number, note?: string): Promise<LiveCustomer> {
+  const customer = await apiClient.post<ApiCustomer>(`/api/sales/customers/${customerId}/wallet/redeem`, { amount, note });
+  return toLive(customer);
+}
+
+// ---------- Membership plans ----------
+
+export interface MembershipPlan {
+  id: string;
+  name: string;
+  tier: CustomerTier;
+  annualFee: number;
+  discountPercent: number;
+  benefits: string;
+  isActive: boolean;
+  enrolledCount: number;
+}
+
+interface ApiMembershipPlan {
+  id: string;
+  name: string;
+  tier: CustomerTier;
+  annualFee: string;
+  discountPercent: string;
+  benefits: string | null;
+  isActive: boolean;
+  _count: { customers: number };
+}
+
+function toLivePlan(p: ApiMembershipPlan): MembershipPlan {
+  return {
+    id: p.id,
+    name: p.name,
+    tier: p.tier,
+    annualFee: Number(p.annualFee),
+    discountPercent: Number(p.discountPercent),
+    benefits: p.benefits ?? '',
+    isActive: p.isActive,
+    enrolledCount: p._count.customers,
+  };
+}
+
+export async function listMembershipPlans(): Promise<MembershipPlan[]> {
+  const plans = await apiClient.get<ApiMembershipPlan[]>('/api/sales/membership-plans');
+  return plans.map(toLivePlan);
+}
+
+export interface MembershipPlanInput {
+  name: string;
+  tier: CustomerTier;
+  annualFee?: number;
+  discountPercent: number;
+  benefits?: string;
+  isActive?: boolean;
+}
+
+export async function createMembershipPlan(input: MembershipPlanInput): Promise<MembershipPlan> {
+  const plan = await apiClient.post<ApiMembershipPlan>('/api/sales/membership-plans', input);
+  return toLivePlan(plan);
+}
+
+export async function updateMembershipPlan(id: string, input: Partial<MembershipPlanInput>): Promise<MembershipPlan> {
+  const plan = await apiClient.put<ApiMembershipPlan>(`/api/sales/membership-plans/${id}`, input);
+  return toLivePlan(plan);
+}
+
+export async function deleteMembershipPlan(id: string): Promise<void> {
+  await apiClient.delete(`/api/sales/membership-plans/${id}`);
 }

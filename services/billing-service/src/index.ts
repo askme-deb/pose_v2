@@ -3,7 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import invoicesRouter from './routes/invoices';
 
@@ -19,6 +20,8 @@ app.use(pinoHttp());
 metricsMiddleware(app, 'billing-service');
 
 app.use('/', healthRouter);
+apiDocsMiddleware(app, 'billing-service', 'Invoice retrieval, holds & payment status');
+app.use(requireAuth);
 app.use('/', invoicesRouter);
 
 app.listen(PORT, () => {

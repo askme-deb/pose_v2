@@ -60,6 +60,13 @@ function pendingSaleRowToObject(row) {
 function registerIpcHandlers() {
   ipcMain.handle('db:getCachedProducts', () => readTable('products'));
   ipcMain.handle('db:cacheProducts', (_event, products) => replaceTable('products', products));
+  ipcMain.handle('db:upsertProducts', (_event, products) => {
+    const insert = db.prepare('INSERT OR REPLACE INTO products (id, data) VALUES (?, ?)');
+    const tx = db.transaction((rows) => {
+      for (const row of rows) insert.run(row.id, JSON.stringify(row));
+    });
+    tx(products);
+  });
   ipcMain.handle('db:getCachedCategories', () => readTable('categories'));
   ipcMain.handle('db:cacheCategories', (_event, categories) => replaceTable('categories', categories));
   ipcMain.handle('db:getCachedCustomers', () => readTable('customers'));

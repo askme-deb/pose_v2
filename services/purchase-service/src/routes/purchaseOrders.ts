@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
+import { receiveGoods, PurchaseOrderNotFoundError, OverReceiveError } from '../lib/receiving';
 
 const router = Router();
 
@@ -15,7 +17,7 @@ const poInput = z.object({
   items: z.array(lineItemInput).min(1),
   expectedDeliveryDate: z.string(),
   paymentStatus: z.enum(['PAID', 'PARTIAL', 'UNPAID']).optional(),
-  orderStatus: z.enum(['PENDING', 'RECEIVED']).optional(),
+  orderStatus: z.enum(['PENDING', 'PARTIALLY_RECEIVED', 'RECEIVED']).optional(),
 });
 
 const include = {
@@ -29,7 +31,7 @@ router.get('/purchase-orders', async (req, res) => {
   res.json(orders);
 });
 
-router.post('/purchase-orders', async (req, res) => {
+router.post('/purchase-orders', requirePermission('purchase:manage'), async (req, res) => {
   const parsed = poInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -51,37 +53,49 @@ router.post('/purchase-orders', async (req, res) => {
       totalAmount,
       expectedDeliveryDate: new Date(expectedDeliveryDate),
       paymentStatus: paymentStatus ?? 'UNPAID',
-      orderStatus: orderStatus ?? 'PENDING',
+      orderStatus: 'PENDING',
       items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })) },
     },
     include,
   });
 
-  // If issued as already-received (rare, but the create form allows it), stock
-  // should reflect that immediately — same rule the dedicated /receive endpoint
-  // applies.
-  if (order.orderStatus === 'RECEIVED') {
-    await prisma.$transaction(order.items.map((i) => prisma.product.update({ where: { id: i.productId }, data: { stockQty: { increment: i.qty } } })));
+  // If issued as already-received (rare, but the create form allows it), that's
+  // a real goods receipt — goes through the same GRN transaction as any other
+  // receiving does, so stock, receivedQty, and the GRN trail all stay consistent.
+  if (orderStatus === 'RECEIVED') {
+    await receiveGoods({
+      tenantId,
+      purchaseOrderId: order.id,
+      items: order.items.map((i) => ({ productId: i.productId, receivedQty: i.qty })),
+      receivedBy: 'Auto (issued as received)',
+    });
   }
 
-  res.status(201).json(order);
+  const final = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id: order.id }, include });
+  res.status(201).json(final);
 });
 
-// Marking a PO received is a GRN (goods received note) — it's the point stock
-// actually enters inventory, not PO creation. Restocking happens in the same
-// transaction as the status flip.
-router.post('/purchase-orders/:id/receive', async (req, res) => {
+// Quick "receive everything still outstanding" in one shot — goes through the
+// same GRN transaction routes/goodsReceivedNotes.ts uses for a partial
+// receipt, just pre-filled with every line's full remaining quantity.
+router.post('/purchase-orders/:id/receive', requirePermission('purchase:manage'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const order = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId }, include: { items: true } });
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });
   if (order.orderStatus === 'RECEIVED') return res.status(400).json({ error: 'Purchase order is already marked received' });
 
-  const [updated] = await prisma.$transaction([
-    prisma.purchaseOrder.update({ where: { id: order.id }, data: { orderStatus: 'RECEIVED' }, include }),
-    ...order.items.map((i) => prisma.product.update({ where: { id: i.productId }, data: { stockQty: { increment: i.qty } } })),
-  ]);
+  const remainingItems = order.items.filter((i) => i.receivedQty < i.qty).map((i) => ({ productId: i.productId, receivedQty: i.qty - i.receivedQty }));
 
-  res.json(updated);
+  try {
+    await receiveGoods({ tenantId, purchaseOrderId: order.id, items: remainingItems, receivedBy: 'Quick Receive' });
+    const updated = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id: order.id }, include });
+    res.json(updated);
+  } catch (err) {
+    if (err instanceof PurchaseOrderNotFoundError) return res.status(404).json({ error: err.message });
+    if (err instanceof OverReceiveError) return res.status(400).json({ error: err.message, productId: err.productId });
+    req.log?.error({ err }, 'Failed to receive purchase order');
+    res.status(500).json({ error: 'Failed to receive purchase order' });
+  }
 });
 
 export default router;

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { indexProduct, deleteProductFromIndex } from '../lib/elasticsearch';
 
@@ -19,6 +20,9 @@ const productInput = z.object({
   imageUrl: z.string().optional(),
   stockQty: z.number().int().nonnegative().optional(),
   minThreshold: z.number().int().nonnegative().optional(),
+  trackBatches: z.boolean().optional(),
+  trackSerials: z.boolean().optional(),
+  isBundle: z.boolean().optional(),
 });
 
 router.get('/products', async (req, res) => {
@@ -31,7 +35,7 @@ router.get('/products', async (req, res) => {
   res.json(products);
 });
 
-router.post('/products', async (req, res) => {
+router.post('/products', requirePermission('inventory:manage'), async (req, res) => {
   const parsed = productInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -44,7 +48,7 @@ router.post('/products', async (req, res) => {
   res.status(201).json(product);
 });
 
-router.put('/products/:id', async (req, res) => {
+router.put('/products/:id', requirePermission('inventory:manage'), async (req, res) => {
   const parsed = productInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -61,7 +65,7 @@ router.put('/products/:id', async (req, res) => {
   res.json(product);
 });
 
-router.delete('/products/:id', async (req, res) => {
+router.delete('/products/:id', requirePermission('inventory:manage'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const existing = await prisma.product.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Product not found' });

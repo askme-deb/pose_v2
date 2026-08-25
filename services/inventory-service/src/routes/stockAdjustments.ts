@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { requirePermission } from '@pospe/permissions';
 import { notifyLowStock } from '@pospe/notifications';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
@@ -29,7 +30,7 @@ router.get('/stock-adjustments', async (req, res) => {
 // same transaction) — the pending/approved status is a manager sign-off audit trail,
 // not a gate on whether the stock change happened. Matches the KPI math on the
 // frontend, which already counts pending adjustments in "Net Quantity Variance".
-router.post('/stock-adjustments', async (req, res) => {
+router.post('/stock-adjustments', requirePermission('inventory:manage'), async (req, res) => {
   const parsed = adjustmentInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -71,7 +72,7 @@ router.post('/stock-adjustments', async (req, res) => {
   res.status(201).json(adjustment);
 });
 
-router.post('/stock-adjustments/:id/approve', async (req, res) => {
+router.post('/stock-adjustments/:id/approve', requirePermission('inventory:manage'), async (req, res) => {
   const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
   const existing = await prisma.stockAdjustment.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Adjustment not found' });
