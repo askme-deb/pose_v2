@@ -17,7 +17,7 @@ function randomARN(): string {
 }
 
 router.get('/gst-returns', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const returns = await prisma.gstReturn.findMany({ where: { tenantId }, orderBy: { periodMonth: 'desc' } });
   res.json(returns);
 });
@@ -26,7 +26,7 @@ router.post('/gst-returns', async (req, res) => {
   const parsed = gstReturnInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const { formType, periodMonth, billedTurnover, taxLiability, arn } = parsed.data;
 
   const gstReturn = await prisma.gstReturn.create({
@@ -44,7 +44,7 @@ router.post('/gst-returns', async (req, res) => {
 });
 
 router.post('/gst-returns/:id/file', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.gstReturn.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'GST return not found' });
 
@@ -63,21 +63,36 @@ router.post('/gst-returns/:id/file', async (req, res) => {
 // database in this scaffold, so that's a pragmatic read across the domain
 // boundary rather than a real service-to-service call.
 router.get('/gst-summary', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
 
   const invoiceItems = await prisma.invoiceItem.findMany({
     where: { invoice: { status: 'PAID', store: { tenantId } } },
-    select: { quantity: true, price: true, gstRate: true, productId: true },
+    select: { quantity: true, price: true, gstRate: true, productId: true, invoice: { select: { subtotal: true, discountTotal: true } } },
+  });
+  // Credit notes against still-PAID invoices reduce outward liability.
+  const creditItems = await prisma.creditNoteItem.findMany({
+    where: { creditNote: { status: 'ISSUED', tenantId, invoice: { status: 'PAID' } } },
+    select: { quantity: true, price: true, gstRate: true, total: true },
   });
 
   const slabMap = new Map<number, { taxableAmount: number; productIds: Set<string> }>();
   for (const item of invoiceItems) {
     const rate = Number(item.gstRate);
-    const taxable = item.quantity * Number(item.price);
+    // Taxable value is after the invoice-level discount (GST is levied on
+    // the discounted transaction value), applied pro rata to each line.
+    const subtotal = Number(item.invoice.subtotal);
+    const discountRatio = subtotal > 0 ? Number(item.invoice.discountTotal) / subtotal : 0;
+    const taxable = item.quantity * Number(item.price) * (1 - discountRatio);
     const bucket = slabMap.get(rate) ?? { taxableAmount: 0, productIds: new Set<string>() };
     bucket.taxableAmount += taxable;
     bucket.productIds.add(item.productId);
     slabMap.set(rate, bucket);
+  }
+  for (const item of creditItems) {
+    const rate = Number(item.gstRate);
+    const bucket = slabMap.get(rate);
+    // Credit note line total = taxable + tax, so back out the taxable part.
+    if (bucket) bucket.taxableAmount -= Number(item.total) / (1 + rate / 100);
   }
 
   const taxSlabs = [...slabMap.entries()]

@@ -1,40 +1,43 @@
+import type { Request } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { HttpError, tenantIdOf } from '@pospe/permissions';
 
 export const prisma = new PrismaClient();
 
-const DEFAULT_TENANT_SLUG = 'apex-supermarket';
-
-let cachedDefaultTenantId: string | null = null;
-// Keyed by tenantId — every tenant has its own default store, so a single
-// shared cache var here would leak tenant A's store id into tenant B's
-// requests the moment both had been resolved once in this process.
-const cachedDefaultStoreIdByTenant = new Map<string, string>();
+// Keyed by `${tenantId}:${storeId}` (validated stores) and by tenantId
+// (each tenant's primary store), so one tenant's resolution can never be
+// served to another.
+const validatedStores = new Set<string>();
+const primaryStoreByTenant = new Map<string, string>();
 
 /**
- * Real JWT-based tenant/store resolution isn't wired up yet (see authentication
- * service), so until then requests are scoped to explicit `x-tenant-id`/`x-store-id`
- * headers or fall back to the seeded demo tenant/store.
+ * The acting tenant for a request: the tenant signed into the caller's
+ * access token (see @pospe/permissions' tenantIdOf). Never a client header.
  */
-export async function resolveTenantId(headerTenantId?: string): Promise<string> {
-  if (headerTenantId) return headerTenantId;
-  if (cachedDefaultTenantId) return cachedDefaultTenantId;
-
-  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: DEFAULT_TENANT_SLUG } });
-  cachedDefaultTenantId = tenant.id;
-  return tenant.id;
+export async function resolveTenantId(req: Request): Promise<string> {
+  return tenantIdOf(req);
 }
 
-// Falls back to the tenant's primary store (isPrimary: true) rather than a
-// hardcoded demo store name — every tenant has exactly one by construction
-// (seed.ts for the demo tenant, the self-serve registration flow for every
-// other one), so this resolves for any tenant instead of only the one whose
-// store happens to be named "Downtown Flagship".
-export async function resolveStoreId(tenantId: string, headerStoreId?: string): Promise<string> {
-  if (headerStoreId) return headerStoreId;
-  const cached = cachedDefaultStoreIdByTenant.get(tenantId);
-  if (cached) return cached;
+/**
+ * The store a request acts on. An explicit x-store-id (a POS terminal's
+ * store) is honoured only after checking it belongs to the caller's tenant;
+ * otherwise the user's assigned store, otherwise the tenant's primary store.
+ */
+export async function resolveStoreId(tenantId: string, headerStoreId?: string, assignedStoreId?: string | null): Promise<string> {
+  const requested = headerStoreId || assignedStoreId || undefined;
+  if (requested) {
+    const key = `${tenantId}:${requested}`;
+    if (validatedStores.has(key)) return requested;
+    const store = await prisma.store.findFirst({ where: { id: requested, tenantId }, select: { id: true } });
+    if (!store) throw new HttpError(403, 'Store does not belong to your tenant');
+    validatedStores.add(key);
+    return requested;
+  }
 
-  const store = await prisma.store.findFirstOrThrow({ where: { tenantId, isPrimary: true } });
-  cachedDefaultStoreIdByTenant.set(tenantId, store.id);
+  const cached = primaryStoreByTenant.get(tenantId);
+  if (cached) return cached;
+  const store = await prisma.store.findFirst({ where: { tenantId, isPrimary: true }, select: { id: true } });
+  if (!store) throw new HttpError(404, 'Tenant has no primary store configured');
+  primaryStoreByTenant.set(tenantId, store.id);
   return store.id;
 }

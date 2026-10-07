@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
-import { metricsMiddleware, apiDocsMiddleware } from '@pospe/utilities';
+import { metricsMiddleware, apiDocsMiddleware, installAsyncErrorHandling, errorHandler, initObservability } from '@pospe/utilities';
 import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import invoicesRouter from './routes/invoices';
@@ -19,8 +19,12 @@ import membershipPlansRouter from './routes/membershipPlans';
 import { startBirthdayCron } from './lib/birthdayCron';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'sales-service';
+installAsyncErrorHandling();
+initObservability(process.env.SERVICE_NAME);
 
 const app = express();
+// Reached through the api-gateway, which forwards X-Forwarded-For.
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 4005;
 
 app.use(helmet());
@@ -44,6 +48,8 @@ app.use('/', deliveryChallansRouter);
 app.use('/', creditNotesRouter);
 app.use('/', debitNotesRouter);
 app.use('/', membershipPlansRouter);
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`[sales-service] listening on port ${PORT}`);

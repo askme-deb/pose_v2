@@ -9,7 +9,7 @@ const router = Router();
 // database in this scaffold, so reading Invoice/InvoiceItem directly here
 // beats standing up a real service-to-service call for one report.
 router.get('/reports/dead-stock', requirePermission('report:view'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const days = Math.max(1, Number(req.query.days) || 90);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);

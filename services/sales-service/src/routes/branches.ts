@@ -16,7 +16,7 @@ const branchInput = z.object({
 });
 
 router.get('/branches', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const branches = await prisma.store.findMany({ where: { tenantId }, orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }] });
   res.json(branches);
 });
@@ -25,7 +25,17 @@ router.post('/branches', requirePermission('store:manage'), async (req, res) => 
   const parsed = branchInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  // Subscription plan limit — set per tenant on the superadmin Tenants page.
+  const [tenant, storeCount] = await Promise.all([
+    prisma.tenant.findUniqueOrThrow({ where: { id: tenantId }, select: { storesLimit: true, plan: true } }),
+    prisma.store.count({ where: { tenantId } }),
+  ]);
+  if (storeCount >= tenant.storesLimit) {
+    return res.status(402).json({
+      error: `Your ${tenant.plan} plan allows ${tenant.storesLimit} branch${tenant.storesLimit === 1 ? '' : 'es'}. Upgrade your plan to add more.`,
+    });
+  }
   const branch = await prisma.store.create({ data: { ...parsed.data, tenantId } });
   res.status(201).json(branch);
 });
@@ -34,7 +44,7 @@ router.put('/branches/:id', requirePermission('store:manage'), async (req, res) 
   const parsed = branchInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.store.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Branch not found' });
 

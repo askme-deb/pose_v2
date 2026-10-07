@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import rateLimit from 'express-rate-limit';
 import { requireAuth } from '@pospe/permissions';
 
 const router = Router();
@@ -27,8 +28,37 @@ const PUBLIC_PATHS = [
   '/api/auth/login/2fa-verify',
   '/api/auth/refresh',
   '/api/auth/register',
+  '/api/auth/password/forgot',
+  '/api/auth/password/reset',
+  '/api/auth/verify-email',
+  '/api/auth/verify-email/resend',
   '/api/payment/payments/razorpay/webhook',
+  '/api/payment/payments/cashfree/webhook',
+  '/api/payment/payments/phonepe/webhook',
 ];
+
+// Credential-guessing surface: password/PIN/2FA logins and OTP redemption.
+// Far tighter than the gateway-wide limit; keyed per client IP (index.ts
+// sets trust proxy so this is the real client, not the ingress).
+const credentialLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
+});
+const CREDENTIAL_PATHS = new Set([
+  '/api/auth/login',
+  '/api/auth/login/pin',
+  '/api/auth/login/2fa-verify',
+  '/api/auth/register',
+  '/api/auth/password/forgot',
+  '/api/auth/password/reset',
+  '/api/auth/verify-email',
+  '/api/auth/verify-email/resend',
+]);
+
+router.use((req, res, next) => (CREDENTIAL_PATHS.has(req.path) ? credentialLimiter(req, res, next) : next()));
 
 // Each downstream service already treats its own /docs (plus the static
 // Swagger UI assets it serves under that same path) and /openapi.json as
@@ -36,8 +66,12 @@ const PUBLIC_PATHS = [
 // the gateway's aggregated /docs page actually render without a Bearer token.
 const PUBLIC_DOCS_PATTERN = /\/docs(\/.*)?$|\/openapi\.json$/;
 
+// Locally stored product images (dev fallback when S3 isn't configured):
+// <img> tags can't send a bearer token, and object keys are random UUIDs.
+const PUBLIC_UPLOADS_PATTERN = /^\/api\/inventory\/uploads\//;
+
 router.use((req, res, next) => {
-  if (PUBLIC_PATHS.includes(req.path) || PUBLIC_DOCS_PATTERN.test(req.path)) return next();
+  if (PUBLIC_PATHS.includes(req.path) || PUBLIC_DOCS_PATTERN.test(req.path) || PUBLIC_UPLOADS_PATTERN.test(req.path)) return next();
   return requireAuth(req, res, next);
 });
 
@@ -47,6 +81,8 @@ for (const [prefix, target] of Object.entries(services)) {
     createProxyMiddleware({
       target,
       changeOrigin: true,
+      // Forward X-Forwarded-For so services log/audit the real client IP.
+      xfwd: true,
       pathRewrite: { [`^/api/${prefix}`]: '' },
     }),
   );

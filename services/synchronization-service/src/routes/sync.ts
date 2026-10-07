@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
-import { prisma, resolveTenantId } from '../lib/prisma';
-import { broadcastInventoryChanged, type SyncedProduct } from '../lib/realtime';
+import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
+import { broadcastInventoryChanged, requestDeviceSync, type SyncedProduct } from '../lib/realtime';
 
 const router = Router();
 
@@ -41,7 +41,11 @@ const pushItemInput = z.object({
   payload: z.object({
     customerId: z.string().optional(),
     paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']),
-    items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive() })).min(1),
+    // unitPrice is forwarded as-is; sales-service enforces billing:price_override
+    // against the same caller token on replay.
+    items: z
+      .array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive(), unitPrice: z.number().nonnegative().optional() }))
+      .min(1),
     discountPercent: z.number().min(0).max(100).default(0),
   }),
 });
@@ -72,7 +76,8 @@ router.post('/push', requirePermission('billing:create'), async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { deviceId, storeId, label, items } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  await resolveStoreId(tenantId, storeId);
   const authorization = req.header('authorization');
 
   // Chronological replay: whichever offline sale actually happened first gets
@@ -89,7 +94,6 @@ router.post('/push', requirePermission('billing:create'), async (req, res) => {
         headers: {
           'Content-Type': 'application/json',
           'idempotency-key': item.idempotencyKey,
-          'x-tenant-id': tenantId,
           'x-store-id': storeId,
           ...(authorization ? { authorization } : {}),
         },
@@ -103,7 +107,7 @@ router.post('/push', requirePermission('billing:create'), async (req, res) => {
         continue;
       }
 
-      const body = await response.json().catch(() => ({}));
+      const body = (await response.json().catch(() => ({}))) as { error?: string; productId?: unknown };
       if (response.status === 400 && typeof body.productId === 'string') {
         const conflict = await prisma.syncConflict.upsert({
           where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: item.idempotencyKey } },
@@ -171,6 +175,12 @@ const heartbeatInput = z.object({
   storeId: z.string().min(1),
   label: z.string().optional(),
   pendingCount: z.number().int().nonnegative().default(0),
+  // Optional device telemetry for the fleet view.
+  platform: z.string().max(40).optional(),
+  osVersion: z.string().max(40).optional(),
+  appVersion: z.string().max(40).optional(),
+  batteryPercent: z.number().int().min(0).max(100).optional(),
+  peripherals: z.array(z.string().max(60)).max(20).optional(),
 });
 
 // Lightweight "I'm still here" ping so a device shows up in /sync/devices even
@@ -179,14 +189,15 @@ const heartbeatInput = z.object({
 router.post('/heartbeat', requirePermission('billing:create'), async (req, res) => {
   const parsed = heartbeatInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { deviceId, storeId, label, pendingCount } = parsed.data;
+  const { deviceId, storeId, label, pendingCount, ...telemetry } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  await resolveStoreId(tenantId, storeId);
 
   const device = await prisma.syncDevice.upsert({
     where: { tenantId_deviceId: { tenantId, deviceId } },
-    update: { storeId, ...(label ? { label } : {}), pendingCount, lastSeenAt: new Date() },
-    create: { tenantId, storeId, deviceId, label, pendingCount },
+    update: { storeId, ...(label ? { label } : {}), pendingCount, lastSeenAt: new Date(), ...telemetry },
+    create: { tenantId, storeId, deviceId, label, pendingCount, ...telemetry },
   });
   res.json(device);
 });
@@ -194,7 +205,7 @@ router.post('/heartbeat', requirePermission('billing:create'), async (req, res) 
 const ONLINE_WINDOW_MS = 90_000;
 
 router.get('/devices', requirePermission('report:view'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const devices = await prisma.syncDevice.findMany({
     where: { tenantId },
     include: { store: { select: { id: true, name: true } } },
@@ -204,8 +215,18 @@ router.get('/devices', requirePermission('report:view'), async (req, res) => {
   res.json(devices.map((d) => ({ ...d, online: now - d.lastSeenAt.getTime() < ONLINE_WINDOW_MS })));
 });
 
+// Asks one terminal (over its Socket.IO connection) to flush its offline
+// queue now, instead of waiting for its next scheduled sync.
+router.post('/devices/:deviceId/sync-request', requirePermission('inventory:manage'), async (req, res) => {
+  const tenantId = await resolveTenantId(req);
+  const device = await prisma.syncDevice.findFirst({ where: { tenantId, deviceId: req.params.deviceId } });
+  if (!device) return res.status(404).json({ error: 'Device not found' });
+  const delivered = requestDeviceSync(tenantId, device.deviceId);
+  res.status(202).json({ requested: true, connected: delivered });
+});
+
 router.get('/conflicts', requirePermission('report:view'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const status = req.query.status === 'RESOLVED' ? 'RESOLVED' : req.query.status === 'ALL' ? undefined : 'OPEN';
   const conflicts = await prisma.syncConflict.findMany({
     where: { tenantId, ...(status ? { status } : {}) },
@@ -224,7 +245,7 @@ router.post('/conflicts/:id/resolve', requirePermission('inventory:manage'), asy
   const parsed = resolveInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.syncConflict.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Conflict not found' });
 

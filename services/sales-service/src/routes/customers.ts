@@ -50,7 +50,7 @@ async function withStats<T extends { id: string }>(customers: T[]) {
 }
 
 router.get('/customers', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const customers = await prisma.customer.findMany({
     where: { tenantId },
     include: { membershipPlan: true },
@@ -63,7 +63,7 @@ router.post('/customers', requirePermission('customer:manage'), async (req, res)
   const parsed = customerInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   if (!(await assertMembershipPlan(tenantId, parsed.data.membershipPlanId))) {
     return res.status(404).json({ error: 'Membership plan not found' });
   }
@@ -80,7 +80,7 @@ router.put('/customers/:id', requirePermission('customer:manage'), async (req, r
   const parsed = customerInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
   if (!(await assertMembershipPlan(tenantId, parsed.data.membershipPlanId))) {
@@ -98,7 +98,7 @@ router.put('/customers/:id', requirePermission('customer:manage'), async (req, r
 });
 
 router.delete('/customers/:id', requirePermission('customer:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
@@ -121,7 +121,7 @@ router.post('/customers/:id/bonus-points', requirePermission('customer:manage'),
   const parsed = bonusInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
@@ -145,7 +145,7 @@ router.post('/customers/:id/wallet/topup', requirePermission('customer:manage'),
   const parsed = walletTopupInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
@@ -174,7 +174,7 @@ router.post('/customers/:id/wallet/redeem', requirePermission('customer:manage')
   const parsed = walletRedeemInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
   if (Number(existing.walletBalance) < parsed.data.amount) {
@@ -206,7 +206,7 @@ router.post('/customers/:id/wallet/redeem', requirePermission('customer:manage')
 });
 
 router.get('/customers/:id/wallet/transactions', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.customer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Customer not found' });
 

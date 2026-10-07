@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { logAudit } from '../lib/audit';
+import { logAudit, actorOf } from '../lib/audit';
 
 const router = Router();
 
@@ -43,7 +43,7 @@ router.post('/tenants', async (req, res) => {
   const parsed = tenantInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { organizationName, subdomain, ownerName, ownerEmail, plan, storesLimit, storageLimitGB, region, dbStrategy } = parsed.data;
-  const actor = (req.body.actorName as string) || 'Super Administrator';
+  const actor = await actorOf(req);
 
   const existing = await prisma.tenant.findUnique({ where: { slug: subdomain } });
   if (existing) return res.status(409).json({ error: 'A tenant with this subdomain already exists' });
@@ -64,14 +64,14 @@ router.post('/tenants', async (req, res) => {
     },
     include: { _count: { select: { stores: true } } },
   });
-  await logAudit(tenant.id, actor, 'TENANT_PROVISIONED', `Provisioned tenant ${tenant.name} (${tenant.slug}.apexpos.com)`, 'MEDIUM', req.ip);
+  await logAudit(tenant.id, actor, 'TENANT_PROVISIONED', `Provisioned tenant ${tenant.name} (${tenant.slug}.pospe.com)`, 'MEDIUM', req.ip);
   res.status(201).json(withComputed(tenant));
 });
 
 router.put('/tenants/:id', async (req, res) => {
   const parsed = tenantInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const actor = (req.body.actorName as string) || 'Super Administrator';
+  const actor = await actorOf(req);
 
   const existing = await prisma.tenant.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Tenant not found' });
@@ -109,7 +109,7 @@ router.put('/tenants/:id', async (req, res) => {
 });
 
 router.post('/tenants/:id/toggle-status', async (req, res) => {
-  const actor = (req.body.actorName as string) || 'Super Administrator';
+  const actor = await actorOf(req);
   const existing = await prisma.tenant.findUnique({ where: { id: req.params.id } });
   if (!existing) return res.status(404).json({ error: 'Tenant not found' });
 
@@ -142,7 +142,7 @@ router.get('/tenants/:id/branding', async (req, res) => {
 router.put('/tenants/:id/branding', async (req, res) => {
   const parsed = brandingInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const actor = (req.body.actorName as string) || 'Super Administrator';
+  const actor = await actorOf(req);
 
   const tenant = await prisma.tenant.findUnique({ where: { id: req.params.id } });
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });

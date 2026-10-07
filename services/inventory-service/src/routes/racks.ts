@@ -10,7 +10,7 @@ const rackInclude = {
 } as const;
 
 router.get('/warehouses/:id/racks', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const racks = await prisma.warehouseRack.findMany({
     where: { warehouseId: req.params.id, tenantId },
     include: rackInclude,
@@ -28,7 +28,7 @@ router.post('/warehouses/:id/racks', requirePermission('inventory:manage'), asyn
   const parsed = createRackInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const warehouse = await prisma.warehouse.findFirst({ where: { id: req.params.id, tenantId } });
   if (!warehouse) return res.status(404).json({ error: 'Warehouse not found' });
 
@@ -43,7 +43,7 @@ router.post('/warehouses/:id/racks', requirePermission('inventory:manage'), asyn
 });
 
 router.delete('/racks/:id', requirePermission('inventory:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const rack = await prisma.warehouseRack.findFirst({ where: { id: req.params.id, tenantId }, include: rackInclude });
   if (!rack) return res.status(404).json({ error: 'Rack not found' });
   if (rack.items.some((i) => i.quantity > 0)) {
@@ -70,7 +70,7 @@ router.post('/racks/:id/assign', requirePermission('inventory:manage'), async (r
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { productId, quantity } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const rack = await prisma.warehouseRack.findFirst({ where: { id: req.params.id, tenantId } });
   if (!rack) return res.status(404).json({ error: 'Rack not found' });
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId } });
@@ -99,7 +99,7 @@ router.post('/racks/:id/assign', requirePermission('inventory:manage'), async (r
 // "Where is this SKU physically stored" — the reverse lookup a floor
 // associate actually needs, across every warehouse and rack at once.
 router.get('/products/:id/rack-locations', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const items = await prisma.warehouseRackItem.findMany({
     where: { productId: req.params.id, tenantId, quantity: { gt: 0 } },
     include: { rack: { include: { warehouse: { select: { id: true, name: true } } } } },

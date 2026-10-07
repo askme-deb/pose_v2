@@ -33,7 +33,7 @@ async function withStats<T extends { id: string }>(suppliers: T[]) {
 }
 
 router.get('/suppliers', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const suppliers = await prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: 'asc' } });
   res.json(await withStats(suppliers));
 });
@@ -42,7 +42,7 @@ router.post('/suppliers', requirePermission('purchase:manage'), async (req, res)
   const parsed = supplierInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const supplier = await prisma.supplier.create({ data: { ...parsed.data, tenantId } });
   const [withStatsResult] = await withStats([supplier]);
   res.status(201).json(withStatsResult);
@@ -60,7 +60,7 @@ router.post('/suppliers/:id/payments', requirePermission('purchase:manage'), asy
   const parsed = paymentInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId } });
   if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
 
@@ -75,7 +75,7 @@ router.post('/suppliers/:id/payments', requirePermission('purchase:manage'), asy
 // separately. Each entry carries a signed amount; the running balance is what
 // withStats' outstandingAmount already reports as of "now".
 router.get('/suppliers/:id/ledger', requirePermission('report:view'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const supplier = await prisma.supplier.findFirst({ where: { id: req.params.id, tenantId } });
   if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
 

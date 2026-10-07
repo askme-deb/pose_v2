@@ -15,11 +15,15 @@ export function initRealtime(httpServer: HttpServer): SocketIOServer {
     const user = token ? verifyToken(token) : null;
     if (!user) return next(new Error('Unauthorized'));
     socket.data.tenantId = user.tenantId;
+    // Terminals identify themselves so the back office can target one device.
+    const deviceId = socket.handshake.auth?.deviceId;
+    socket.data.deviceId = typeof deviceId === 'string' ? deviceId.slice(0, 100) : undefined;
     next();
   });
 
   io.on('connection', (socket) => {
     socket.join(`tenant:${socket.data.tenantId}`);
+    if (socket.data.deviceId) socket.join(`device:${socket.data.tenantId}:${socket.data.deviceId}`);
   });
 
   return io;
@@ -53,4 +57,12 @@ export function broadcastInventoryChanged(
 
 export function connectedDeviceCount(tenantId: string): number {
   return io?.sockets.adapter.rooms.get(`tenant:${tenantId}`)?.size ?? 0;
+}
+
+/** Returns whether the device currently has a live connection to receive it. */
+export function requestDeviceSync(tenantId: string, deviceId: string): boolean {
+  const room = `device:${tenantId}:${deviceId}`;
+  if (!io?.sockets.adapter.rooms.get(room)?.size) return false;
+  io.to(room).emit('sync:requested', { deviceId });
+  return true;
 }

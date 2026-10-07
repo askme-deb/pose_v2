@@ -24,7 +24,7 @@ router.get('/docs', (_req, res) => {
     .join('\n');
   res.type('html').send(`<!doctype html>
 <html>
-<head><meta charset="utf-8"><title>ApexPOS API Docs</title>
+<head><meta charset="utf-8"><title>Pospe API Docs</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 640px; margin: 48px auto; padding: 0 16px; }
   h1 { font-size: 20px; }
@@ -34,7 +34,7 @@ router.get('/docs', (_req, res) => {
 </style>
 </head>
 <body>
-  <h1>ApexPOS Platform API Docs</h1>
+  <h1>Pospe Platform API Docs</h1>
   <p>Each service publishes its own live-generated OpenAPI 3.0 spec and Swagger UI, reflecting its actual mounted routes.</p>
   <ul>${items}</ul>
 </body>

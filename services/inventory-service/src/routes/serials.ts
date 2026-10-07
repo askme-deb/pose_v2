@@ -12,7 +12,7 @@ const include = {
 const serialStatus = z.enum(['IN_STOCK', 'SOLD', 'RETURNED', 'DAMAGED']);
 
 router.get('/products/:id/serials', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const statusFilter = serialStatus.safeParse(req.query.status);
   const serials = await prisma.productSerial.findMany({
     where: { productId: req.params.id, tenantId, ...(statusFilter.success ? { status: statusFilter.data } : {}) },
@@ -25,7 +25,7 @@ router.get('/products/:id/serials', async (req, res) => {
 // Cross-product lookup — "which product/invoice does serial X belong to",
 // the question a warranty claim or a customer walk-in actually asks.
 router.get('/serials/search', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const q = String(req.query.q ?? '').trim();
   if (!q) return res.json([]);
 
@@ -47,7 +47,7 @@ router.post('/serials/:id/sell', requirePermission('inventory:manage'), async (r
   const parsed = sellInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const serial = await prisma.productSerial.findFirst({ where: { id: req.params.id, tenantId } });
   if (!serial) return res.status(404).json({ error: 'Serial not found' });
   if (serial.status !== 'IN_STOCK') return res.status(400).json({ error: `Serial is already ${serial.status.toLowerCase()}` });
@@ -77,7 +77,7 @@ router.post('/serials/:id/mark', requirePermission('inventory:manage'), async (r
   const parsed = markInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const serial = await prisma.productSerial.findFirst({ where: { id: req.params.id, tenantId } });
   if (!serial) return res.status(404).json({ error: 'Serial not found' });
 

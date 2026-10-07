@@ -35,7 +35,7 @@ const profileInput = z.object({
 });
 
 router.get('/business-profile', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const profile = await prisma.tenantProfile.findUnique({ where: { tenantId } });
   if (!profile) return res.status(404).json({ error: 'Business profile not configured for this tenant' });
   res.json(profile);
@@ -45,7 +45,7 @@ router.put('/business-profile', requirePermission('store:manage'), async (req, r
   const parsed = profileInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const profile = await prisma.tenantProfile.upsert({
     where: { tenantId },
     update: parsed.data,

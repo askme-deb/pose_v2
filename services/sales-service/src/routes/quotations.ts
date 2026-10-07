@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
+import { computeInvoiceTotals } from '@pospe/utilities';
 import { checkoutInvoice, CustomerNotFoundError, ProductNotFoundError, InsufficientStockError } from '../lib/checkout';
 
 const router = Router();
@@ -27,8 +28,8 @@ const include = {
 const numberPrefix = { QUOTATION: 'QT', ESTIMATE: 'ES' } as const;
 
 router.get('/quotations', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const kind = req.query.kind === 'ESTIMATE' ? 'ESTIMATE' : req.query.kind === 'QUOTATION' ? 'QUOTATION' : undefined;
 
   const quotes = await prisma.salesQuote.findMany({
@@ -47,8 +48,8 @@ router.post('/quotations', requirePermission('sales:manage'), async (req, res) =
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { kind, customerId, items, validUntil, notes } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   let customerName: string | undefined;
   if (customerId) {
@@ -62,19 +63,14 @@ router.post('/quotations', requirePermission('sales:manage'), async (req, res) =
   if (products.length !== productIds.length) return res.status(404).json({ error: 'One or more products not found' });
   const productById = new Map(products.map((p) => [p.id, p]));
 
-  let subtotal = 0;
-  let taxTotal = 0;
-  const lineItems = items.map(({ productId, quantity }) => {
-    const product = productById.get(productId)!;
-    const price = Number(product.price);
-    const gstRate = Number(product.gstRate);
-    const lineSubtotal = price * quantity;
-    const lineTax = Math.round(lineSubtotal * (gstRate / 100) * 100) / 100;
-    subtotal += lineSubtotal;
-    taxTotal += lineTax;
-    return { productId, quantity, price, gstRate, total: lineSubtotal + lineTax };
-  });
-  const total = subtotal + taxTotal;
+  const totals = computeInvoiceTotals(
+    items.map(({ productId, quantity }) => {
+      const product = productById.get(productId)!;
+      return { productId, quantity, price: Number(product.price), gstRate: Number(product.gstRate) };
+    }),
+  );
+  const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
+  const { subtotal, taxTotal, total } = totals;
 
   const existingCount = await prisma.salesQuote.count({ where: { tenantId, kind } });
   const quoteNumber = `${numberPrefix[kind]}-${1000 + existingCount + 1}`;
@@ -108,7 +104,7 @@ router.put('/quotations/:id', requirePermission('sales:manage'), async (req, res
   const parsed = updateQuoteInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.salesQuote.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Quotation not found' });
   if (existing.status !== 'DRAFT') return res.status(400).json({ error: 'Only a draft quotation can be edited' });
@@ -125,7 +121,7 @@ router.put('/quotations/:id', requirePermission('sales:manage'), async (req, res
 type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED';
 
 async function transition(req: Request, res: Response, from: QuoteStatus[], to: QuoteStatus) {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.salesQuote.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Quotation not found' });
   if (!from.includes(existing.status as QuoteStatus)) {
@@ -150,8 +146,8 @@ router.post('/quotations/:id/reject', requirePermission('sales:manage'), (req, r
 router.post('/quotations/:id/convert', requirePermission('sales:manage'), async (req, res) => {
   const paymentMethod = z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']).default('CASH').parse(req.body?.paymentMethod ?? 'CASH');
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const quote = await prisma.salesQuote.findFirst({ where: { id: req.params.id, tenantId }, include });
   if (!quote) return res.status(404).json({ error: 'Quotation not found' });
   if (quote.status === 'CONVERTED') return res.status(400).json({ error: 'Quotation was already converted' });
@@ -167,6 +163,7 @@ router.post('/quotations/:id/convert', requirePermission('sales:manage'), async 
       paymentMethod,
       items: quote.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       discountPercent: 0,
+      createdById: req.authUser?.sub,
     });
 
     const updated = await prisma.salesQuote.update({
@@ -185,7 +182,7 @@ router.post('/quotations/:id/convert', requirePermission('sales:manage'), async 
 });
 
 router.delete('/quotations/:id', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.salesQuote.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Quotation not found' });
   if (existing.status !== 'DRAFT') return res.status(400).json({ error: 'Only a draft quotation can be deleted' });

@@ -1,4 +1,5 @@
 import { notifyLowStock, type LowStockAlert } from '@pospe/notifications';
+import { computeInvoiceTotals } from '@pospe/utilities';
 import { prisma } from './prisma';
 import { indexInvoice, indexCustomer } from './elasticsearch';
 
@@ -16,6 +17,13 @@ export class ProductNotFoundError extends Error {
   }
 }
 
+export class IdempotencyConflictError extends Error {
+  status = 409;
+  constructor() {
+    super('This idempotency key was already used');
+  }
+}
+
 export class InsufficientStockError extends Error {
   constructor(public productId: string, public productName: string) {
     super(`Insufficient stock for ${productName}`);
@@ -25,6 +33,8 @@ export class InsufficientStockError extends Error {
 export interface CheckoutItemInput {
   productId: string;
   quantity: number;
+  // Already permission-checked by the caller; overrides the Product's price.
+  unitPrice?: number;
 }
 
 export interface CheckoutParams {
@@ -35,6 +45,8 @@ export interface CheckoutParams {
   items: CheckoutItemInput[];
   discountPercent: number;
   idempotencyKey?: string;
+  // The signed-in user ringing up the sale (omitted for system callers).
+  createdById?: string;
 }
 
 export const invoiceInclude = { items: { include: { product: { select: { id: true, name: true } } } } } as const;
@@ -46,12 +58,22 @@ export const invoiceInclude = { items: { include: { product: { select: { id: tru
 // so both go through the exact same money-and-stock-moving logic instead of a
 // second, slightly-different copy.
 export async function checkoutInvoice(params: CheckoutParams) {
-  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey } = params;
+  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey, createdById } = params;
 
-  if (idempotencyKey) {
-    const existing = await prisma.invoice.findUnique({ where: { idempotencyKey }, include: invoiceInclude });
-    if (existing) return { invoice: existing, reused: true as const };
-  }
+  // idempotencyKey is unique across the whole table, so a replay is only
+  // honoured when the existing invoice belongs to this tenant — otherwise a
+  // guessed/reused key would hand back another tenant's invoice.
+  const findReplay = async () => {
+    if (!idempotencyKey) return null;
+    const existing = await prisma.invoice.findUnique({ where: { idempotencyKey }, include: { ...invoiceInclude, store: { select: { tenantId: true } } } });
+    if (!existing) return null;
+    if (existing.store.tenantId !== tenantId) throw new IdempotencyConflictError();
+    const { store: _store, ...invoice } = existing;
+    return invoice;
+  };
+
+  const replay = await findReplay();
+  if (replay) return { invoice: replay, reused: true as const };
 
   let customerName: string | undefined;
   // A membership discount is a floor, not a replacement — it never overrides a
@@ -131,20 +153,17 @@ export async function checkoutInvoice(params: CheckoutParams) {
       });
       const invoiceNumber = `${profile.invoicePrefix}${profile.nextInvoiceNumber - 1}`;
 
-      let subtotal = 0;
-      let taxTotal = 0;
-      const lineItems = items.map(({ productId, quantity }) => {
-        const product = productById.get(productId)!;
-        const price = Number(product.price);
-        const gstRate = Number(product.gstRate);
-        const lineSubtotal = price * quantity;
-        const lineTax = Math.round(lineSubtotal * (gstRate / 100) * 100) / 100;
-        subtotal += lineSubtotal;
-        taxTotal += lineTax;
-        return { productId, quantity, price, gstRate, total: lineSubtotal + lineTax };
-      });
-      const discountAmount = subtotal * (effectiveDiscountPercent / 100);
-      const total = subtotal + taxTotal - discountAmount;
+      // Discount first, then GST on the discounted value (see computeInvoiceTotals).
+      const totals = computeInvoiceTotals(
+        items.map(({ productId, quantity, unitPrice }) => {
+          const product = productById.get(productId)!;
+          return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate) };
+        }),
+        effectiveDiscountPercent,
+      );
+      const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
+      const { subtotal, discountTotal, taxTotal, total } = totals;
+      const pointsEarned = customerId ? Math.floor(total / 100) : 0;
 
       for (const move of stockMoves) {
         const result = await tx.product.updateMany({
@@ -171,13 +190,16 @@ export async function checkoutInvoice(params: CheckoutParams) {
         data: {
           storeId,
           customerId,
+          createdById,
           ...(customerName ? { customerName } : {}),
           invoiceNumber,
           status: 'PAID',
           paymentMethod,
           subtotal,
+          discountTotal,
           taxTotal,
           total,
+          loyaltyPointsEarned: pointsEarned,
           idempotencyKey,
           items: { create: lineItems },
         },
@@ -185,7 +207,6 @@ export async function checkoutInvoice(params: CheckoutParams) {
       });
 
       if (customerId) {
-        const pointsEarned = Math.floor(total / 100);
         if (pointsEarned > 0) {
           updatedCustomer = await tx.customer.update({
             where: { id: customerId },
@@ -198,7 +219,7 @@ export async function checkoutInvoice(params: CheckoutParams) {
     });
 
     for (const alert of lowStockAlerts) notifyLowStock(NOTIFICATION_SERVICE_URL, alert);
-    indexInvoice(invoice);
+    indexInvoice(invoice, tenantId);
     if (updatedCustomer) indexCustomer(updatedCustomer);
 
     return { invoice, reused: false as const };
@@ -208,7 +229,7 @@ export async function checkoutInvoice(params: CheckoutParams) {
     // what actually prevents the duplicate; this just turns that race into
     // the same "here's your existing invoice" response as the normal case.
     if (idempotencyKey && (err as { code?: string }).code === 'P2002') {
-      const existing = await prisma.invoice.findUnique({ where: { idempotencyKey }, include: invoiceInclude });
+      const existing = await findReplay();
       if (existing) return { invoice: existing, reused: true as const };
     }
     throw err;

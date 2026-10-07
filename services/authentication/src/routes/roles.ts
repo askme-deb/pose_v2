@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
-import { logAudit } from '../lib/audit';
+import { logAudit, actorOf } from '../lib/audit';
 
 const router = Router();
 
@@ -74,7 +74,7 @@ const SYSTEM_ROLE_DEFAULTS: Record<string, z.infer<typeof permissionsSchema>> = 
 };
 
 router.get('/roles', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const roles = await prisma.rbacRole.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
   res.json(roles);
 });
@@ -83,8 +83,8 @@ router.post('/roles', requirePermission('user:manage'), async (req, res) => {
   const parsed = roleInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const actor = (req.body.actorName as string) || 'System Administrator';
+  const tenantId = await resolveTenantId(req);
+  const actor = await actorOf(req);
 
   const role = await prisma.rbacRole.create({
     data: { tenantId, isSystem: false, ...parsed.data },
@@ -97,8 +97,8 @@ router.put('/roles/:id', requirePermission('user:manage'), async (req, res) => {
   const parsed = roleInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const actor = (req.body.actorName as string) || 'System Administrator';
+  const tenantId = await resolveTenantId(req);
+  const actor = await actorOf(req);
   const existing = await prisma.rbacRole.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Role not found' });
 
@@ -108,8 +108,8 @@ router.put('/roles/:id', requirePermission('user:manage'), async (req, res) => {
 });
 
 router.delete('/roles/:id', requirePermission('user:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const actor = (req.query.actorName as string) || 'System Administrator';
+  const tenantId = await resolveTenantId(req);
+  const actor = await actorOf(req);
   const existing = await prisma.rbacRole.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Role not found' });
   if (existing.isSystem) return res.status(400).json({ error: 'System critical roles cannot be deleted' });
@@ -120,8 +120,8 @@ router.delete('/roles/:id', requirePermission('user:manage'), async (req, res) =
 });
 
 router.post('/roles/grant-all-read', requirePermission('user:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const actor = (req.body.actorName as string) || 'System Administrator';
+  const tenantId = await resolveTenantId(req);
+  const actor = await actorOf(req);
 
   const roles = await prisma.rbacRole.findMany({ where: { tenantId } });
   await Promise.all(
@@ -141,8 +141,8 @@ router.post('/roles/grant-all-read', requirePermission('user:manage'), async (re
 });
 
 router.post('/roles/reset-matrix', requirePermission('user:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const actor = (req.body.actorName as string) || 'System Administrator';
+  const tenantId = await resolveTenantId(req);
+  const actor = await actorOf(req);
 
   const roles = await prisma.rbacRole.findMany({ where: { tenantId, isSystem: true } });
   await Promise.all(

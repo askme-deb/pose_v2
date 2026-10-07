@@ -25,8 +25,8 @@ const include = {
 } as const;
 
 router.get('/delivery-challans', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const challans = await prisma.deliveryChallan.findMany({ where: { storeId }, include, orderBy: { createdAt: 'desc' } });
   res.json(challans);
 });
@@ -36,8 +36,8 @@ router.post('/delivery-challans', requirePermission('sales:manage'), async (req,
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { customerId, items, vehicleNumber, transporterName, linkedInvoiceId, notes } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   let customerName: string | undefined;
   if (customerId) {
@@ -75,7 +75,7 @@ router.post('/delivery-challans', requirePermission('sales:manage'), async (req,
 // store ahead of (or without) a formal invoice, guarded against overselling
 // the same way checkout is.
 router.post('/delivery-challans/:id/dispatch', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const challan = await prisma.deliveryChallan.findFirst({ where: { id: req.params.id, tenantId }, include });
   if (!challan) return res.status(404).json({ error: 'Delivery challan not found' });
   if (challan.status !== 'DRAFT') return res.status(400).json({ error: 'Only a draft challan can be dispatched' });
@@ -107,7 +107,7 @@ router.post('/delivery-challans/:id/dispatch', requirePermission('sales:manage')
 });
 
 router.post('/delivery-challans/:id/deliver', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.deliveryChallan.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Delivery challan not found' });
   if (existing.status !== 'DISPATCHED') return res.status(400).json({ error: 'Only a dispatched challan can be marked delivered' });
@@ -119,7 +119,7 @@ router.post('/delivery-challans/:id/deliver', requirePermission('sales:manage'),
 // Cancelling after dispatch restocks what left — before dispatch nothing ever
 // moved, so it's a plain status flip.
 router.post('/delivery-challans/:id/cancel', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.deliveryChallan.findFirst({ where: { id: req.params.id, tenantId }, include });
   if (!existing) return res.status(404).json({ error: 'Delivery challan not found' });
   if (existing.status === 'CANCELLED' || existing.status === 'DELIVERED') {
@@ -139,7 +139,7 @@ router.post('/delivery-challans/:id/cancel', requirePermission('sales:manage'), 
 });
 
 router.delete('/delivery-challans/:id', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.deliveryChallan.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Delivery challan not found' });
   if (existing.status !== 'DRAFT') return res.status(400).json({ error: 'Only a draft challan can be deleted' });

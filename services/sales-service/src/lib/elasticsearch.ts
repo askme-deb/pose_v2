@@ -19,7 +19,7 @@ interface IndexableCustomer {
 interface IndexableInvoice {
   id: string;
   storeId: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   customerName: string;
   total: Prisma.Decimal | number | string;
   status: string;
@@ -51,16 +51,16 @@ export function deleteCustomerFromIndex(id: string): void {
   esClient.delete({ index: CUSTOMERS_INDEX, id }).catch(() => {});
 }
 
-// Invoices don't carry tenantId directly (only storeId) — the search-side
-// filter this feeds is scoped by tenant elsewhere anyway (see the gateway's
-// known limitation note), so storeId is enough to identify the document.
-export function indexInvoice(invoice: IndexableInvoice): void {
+// Invoices don't carry tenantId as a column (only storeId), so the caller
+// passes it — the gateway's /api/search filters every index by tenantId.
+export function indexInvoice(invoice: IndexableInvoice, tenantId: string): void {
   esClient
     .index({
       index: INVOICES_INDEX,
       id: invoice.id,
       document: {
         id: invoice.id,
+        tenantId,
         storeId: invoice.storeId,
         invoiceNumber: invoice.invoiceNumber,
         customerName: invoice.customerName,

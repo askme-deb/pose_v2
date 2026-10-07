@@ -13,7 +13,7 @@ const categoryInput = z.object({
 });
 
 router.get('/categories', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const categories = await prisma.category.findMany({
     where: { tenantId },
     orderBy: { name: 'asc' },
@@ -26,7 +26,7 @@ router.post('/categories', requirePermission('inventory:manage'), async (req, re
   const parsed = categoryInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const category = await prisma.category.create({ data: { ...parsed.data, tenantId } });
   res.status(201).json({ ...category, skuCount: 0 });
 });
@@ -35,7 +35,7 @@ router.put('/categories/:id', requirePermission('inventory:manage'), async (req,
   const parsed = categoryInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.category.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Category not found' });
 

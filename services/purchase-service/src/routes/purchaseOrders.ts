@@ -26,7 +26,7 @@ const include = {
 } as const;
 
 router.get('/purchase-orders', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const orders = await prisma.purchaseOrder.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(orders);
 });
@@ -35,7 +35,7 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
   const parsed = poInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const { supplierId, items, expectedDeliveryDate, paymentStatus, orderStatus } = parsed.data;
 
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, tenantId } });
@@ -79,7 +79,7 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
 // same GRN transaction routes/goodsReceivedNotes.ts uses for a partial
 // receipt, just pre-filled with every line's full remaining quantity.
 router.post('/purchase-orders/:id/receive', requirePermission('purchase:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const order = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId }, include: { items: true } });
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });
   if (order.orderStatus === 'RECEIVED') return res.status(400).json({ error: 'Purchase order is already marked received' });

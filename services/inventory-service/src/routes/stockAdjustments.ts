@@ -17,7 +17,7 @@ const adjustmentInput = z.object({
 });
 
 router.get('/stock-adjustments', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const adjustments = await prisma.stockAdjustment.findMany({
     where: { tenantId },
     include: { product: { select: { id: true, name: true, sku: true } } },
@@ -34,7 +34,7 @@ router.post('/stock-adjustments', requirePermission('inventory:manage'), async (
   const parsed = adjustmentInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const { productId, action, qty, reasonCode, auditor } = parsed.data;
 
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId } });
@@ -73,7 +73,7 @@ router.post('/stock-adjustments', requirePermission('inventory:manage'), async (
 });
 
 router.post('/stock-adjustments/:id/approve', requirePermission('inventory:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.stockAdjustment.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Adjustment not found' });
 

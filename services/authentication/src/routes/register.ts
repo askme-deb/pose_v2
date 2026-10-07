@@ -3,7 +3,8 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
-import { roleMap, issueTokens } from '../lib/tokens';
+import { sendAuthOtp } from '@pospe/notifications';
+import { createOtp } from '../lib/otp';
 import { DEFAULT_ROLE_DEFS } from '../lib/roleTemplates';
 
 const router = Router();
@@ -38,9 +39,10 @@ async function uniqueSlug(base: string): Promise<string> {
 // transaction — Tenant, a primary Store, a TenantProfile (checkout's
 // invoice-numbering depends on this row existing, not just being optional),
 // the same six-role starter kit seed.ts gives every demo tenant, and the
-// owner's own User — then logs them straight in with a real session, the
-// same tokens /login would issue. No demo catalog/customers/invoices get
-// created; this is provisioning, not seeding.
+// owner's own User. The tenant starts on TRIAL. No session is issued until
+// the owner confirms the 6-digit code emailed to them (POST /verify-email),
+// so nobody can provision tenants on an address they don't control. No demo
+// catalog/customers/invoices get created; this is provisioning, not seeding.
 router.post('/register', async (req, res) => {
   const parsed = registerInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -57,9 +59,9 @@ router.post('/register', async (req, res) => {
   const slug = await uniqueSlug(slugify(businessName));
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const { tenant, owner, ownerRoleId } = await prisma.$transaction(async (tx) => {
+  const { tenant, owner } = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
-      data: { name: businessName, slug, ownerName, ownerEmail: email },
+      data: { name: businessName, slug, ownerName, ownerEmail: email, status: 'TRIAL' },
     });
 
     const store = await tx.store.create({
@@ -90,7 +92,7 @@ router.post('/register', async (req, res) => {
       },
     });
 
-    return { tenant, owner, ownerRoleId: roleIdByCode.ROLE_SUPER_ADMIN };
+    return { tenant, owner };
   });
 
   await logAudit(
@@ -102,24 +104,10 @@ router.post('/register', async (req, res) => {
     req.ip,
   );
 
-  const role = roleMap[owner.role] ?? 'tenant_owner';
-  const tokens = issueTokens(owner.id, tenant.id, role, ownerRoleId);
-  if (!tokens) {
-    return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
-  }
+  const code = await createOtp(owner.id, 'EMAIL_VERIFY');
+  await sendAuthOtp({ tenantId: tenant.id, to: owner.email, name: owner.name, code, purpose: 'EMAIL_VERIFY' });
 
-  res.status(201).json({
-    ...tokens,
-    user: {
-      id: owner.id,
-      name: owner.name,
-      email: owner.email,
-      role,
-      tenantId: tenant.id,
-      tenantName: tenant.name,
-      rbacRole: { id: ownerRoleId, title: 'Super Administrator', code: 'ROLE_SUPER_ADMIN' },
-    },
-  });
+  res.status(201).json({ requiresEmailVerification: true, email: owner.email, tenantName: tenant.name });
 });
 
 export default router;

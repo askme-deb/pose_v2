@@ -1,20 +1,13 @@
+import type { Request } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { tenantIdOf } from '@pospe/permissions';
 
 export const prisma = new PrismaClient();
 
-const DEFAULT_TENANT_SLUG = 'apex-supermarket';
-let cachedDefaultTenantId: string | null = null;
-
 /**
- * Resolves the acting tenant for a request. Real JWT-based tenant resolution
- * isn't wired up yet (see authentication service), so until then requests are
- * scoped to an explicit `x-tenant-id` header or fall back to the seeded demo tenant.
+ * The acting tenant for a request: the tenant signed into the caller's
+ * access token (see @pospe/permissions' tenantIdOf). Never a client header.
  */
-export async function resolveTenantId(headerTenantId?: string): Promise<string> {
-  if (headerTenantId) return headerTenantId;
-  if (cachedDefaultTenantId) return cachedDefaultTenantId;
-
-  const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: DEFAULT_TENANT_SLUG } });
-  cachedDefaultTenantId = tenant.id;
-  return tenant.id;
+export async function resolveTenantId(req: Request): Promise<string> {
+  return tenantIdOf(req);
 }

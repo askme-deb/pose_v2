@@ -1,15 +1,25 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, userHasPermission, HttpError } from '@pospe/permissions';
+import { round2 } from '@pospe/utilities';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 import { indexInvoice } from '../lib/elasticsearch';
 import { checkoutInvoice, CustomerNotFoundError, ProductNotFoundError, InsufficientStockError } from '../lib/checkout';
+import { restock } from '../lib/stock';
+
+// Internal service calls carry sub 'system' — not a user to credit the sale to.
+const actingUserId = (req: { authUser?: { sub: string } }) => (req.authUser && req.authUser.sub !== 'system' ? req.authUser.sub : undefined);
+
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:4006';
 
 const router = Router();
 
 const invoiceItemInput = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().positive(),
+  // Manual price override for this line. Only honored for callers holding
+  // billing:price_override; otherwise price comes from the Product row.
+  unitPrice: z.number().nonnegative().optional(),
 });
 
 const createInvoiceInput = z.object({
@@ -20,8 +30,8 @@ const createInvoiceInput = z.object({
 });
 
 router.get('/invoices', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const invoices = await prisma.invoice.findMany({
     where: { storeId },
@@ -40,8 +50,12 @@ router.post('/invoices', requirePermission('billing:create'), async (req, res) =
   const parsed = createInvoiceInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  if (parsed.data.items.some((i) => i.unitPrice !== undefined) && !userHasPermission(req.authUser, 'billing:price_override')) {
+    return res.status(403).json({ error: 'Missing required permission: billing:price_override' });
+  }
+
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   // Lets an offline-queued sale be replayed safely once back online: if a
   // previous attempt with this key already succeeded (the client just never
   // saw the response — a flaky sync, not a real duplicate sale), checkoutInvoice
@@ -49,7 +63,7 @@ router.post('/invoices', requirePermission('billing:create'), async (req, res) =
   const idempotencyKey = req.header('idempotency-key') || undefined;
 
   try {
-    const { invoice, reused } = await checkoutInvoice({ tenantId, storeId, idempotencyKey, ...parsed.data });
+    const { invoice, reused } = await checkoutInvoice({ tenantId, storeId, idempotencyKey, createdById: actingUserId(req), ...parsed.data });
     res.status(reused ? 200 : 201).json(invoice);
   } catch (err) {
     if (err instanceof CustomerNotFoundError) return res.status(404).json({ error: err.message });
@@ -57,44 +71,101 @@ router.post('/invoices', requirePermission('billing:create'), async (req, res) =
     if (err instanceof InsufficientStockError) {
       return res.status(400).json({ error: err.message, productId: err.productId });
     }
-    // Express 4 doesn't forward a thrown/rejected error from an async handler
-    // to any error middleware on its own — left unhandled, it crashes the
-    // whole process. A single bad request should return 500, not take down
-    // every other in-flight request too.
-    req.log?.error({ err }, 'Failed to create invoice');
-    res.status(500).json({ error: 'Failed to create invoice' });
+    // Anything else (including IdempotencyConflictError's 409) goes to the
+    // shared errorHandler, which maps status codes and logs real failures.
+    throw err;
   }
 });
 
-// Refunding restocks the sold quantities in the same transaction — this is a real
-// business rule (money and stock both move), not just a status flip.
-router.post('/invoices/:id/refund', requirePermission('billing:create'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+// Whole-invoice refund. Only a PAID invoice can be refunded, exactly once
+// (the status flip is a conditional update inside the transaction, so two
+// concurrent refunds can't both restock). Quantities already returned via
+// credit notes were restocked then and are excluded here; bundles restock
+// their components; loyalty points credited at checkout are reversed; and
+// any captured online payment is refunded through payment-service.
+router.post('/invoices/:id/refund', requirePermission('billing:refund'), async (req, res) => {
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const invoice = await prisma.invoice.findFirst({
     where: { id: req.params.id, storeId },
-    include: { items: true },
+    include: { items: true, creditNotes: { where: { status: 'ISSUED' }, include: { items: true } }, payments: true },
   });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-  if (invoice.status === 'REFUNDED') return res.status(400).json({ error: 'Invoice is already refunded' });
+  if (invoice.status !== 'PAID') {
+    return res.status(400).json({
+      error: invoice.status === 'REFUNDED' ? 'Invoice is already refunded' : `Only paid invoices can be refunded (this one is ${invoice.status})`,
+    });
+  }
 
-  const [updated] = await prisma.$transaction([
-    prisma.invoice.update({
+  const creditedQty = new Map<string, number>();
+  let creditedTotal = 0;
+  for (const note of invoice.creditNotes) {
+    creditedTotal += Number(note.total);
+    for (const item of note.items) creditedQty.set(item.productId, (creditedQty.get(item.productId) ?? 0) + item.quantity);
+  }
+  const restockLines = invoice.items
+    .map((item) => {
+      // Consume credited quantity line by line (a product can appear twice).
+      const alreadyCredited = Math.min(item.quantity, creditedQty.get(item.productId) ?? 0);
+      creditedQty.set(item.productId, (creditedQty.get(item.productId) ?? 0) - alreadyCredited);
+      return { productId: item.productId, quantity: item.quantity - alreadyCredited };
+    })
+    .filter((l) => l.quantity > 0);
+  const refundAmount = round2(Math.max(0, Number(invoice.total) - creditedTotal));
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.invoice.updateMany({
+      where: { id: invoice.id, status: 'PAID' },
+      data: { status: 'REFUNDED', refundedAt: new Date() },
+    });
+    if (count !== 1) throw new HttpError(409, 'Invoice was refunded by another request');
+
+    await restock(tx, tenantId, restockLines);
+
+    if (invoice.customerId && invoice.loyaltyPointsEarned > 0) {
+      const customer = await tx.customer.findUniqueOrThrow({ where: { id: invoice.customerId }, select: { loyaltyPoints: true } });
+      await tx.customer.update({
+        where: { id: invoice.customerId },
+        data: { loyaltyPoints: { decrement: Math.min(customer.loyaltyPoints, invoice.loyaltyPointsEarned) } },
+      });
+    }
+
+    return tx.invoice.findUniqueOrThrow({
       where: { id: invoice.id },
-      data: { status: 'REFUNDED' },
       include: { items: { include: { product: { select: { id: true, name: true } } } } },
-    }),
-    ...invoice.items.map((item) =>
-      prisma.product.update({
-        where: { id: item.productId },
-        data: { stockQty: { increment: item.quantity } },
-      }),
-    ),
-  ]);
+    });
+  });
 
-  indexInvoice(updated);
-  res.json(updated);
+  indexInvoice(updated, tenantId);
+
+  // Money back to the customer's card/UPI for online payments. The stock and
+  // status changes above stand either way; a failed gateway refund is
+  // reported so staff can retry it from the payment record.
+  const gatewayRefunds = [];
+  let remaining = refundAmount;
+  for (const payment of invoice.payments.filter((p) => p.status === 'CAPTURED' || p.status === 'PARTIALLY_REFUNDED')) {
+    const refundable = round2(Math.min(remaining, Number(payment.amount) - Number(payment.refundedAmount)));
+    if (refundable <= 0) continue;
+    remaining = round2(remaining - refundable);
+    gatewayRefunds.push(await requestGatewayRefund(payment.id, refundable, req.header('authorization')));
+  }
+
+  res.json({ ...updated, refundAmount, gatewayRefunds });
 });
+
+async function requestGatewayRefund(paymentId: string, amount: number, authorization?: string) {
+  try {
+    const response = await fetch(`${PAYMENT_SERVICE_URL}/payments/${paymentId}/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(authorization ? { authorization } : {}) },
+      body: JSON.stringify({ amount }),
+    });
+    const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    return { paymentId, amount, ok: response.ok, ...(response.ok ? { refund: body } : { error: body.error ?? `payment-service returned ${response.status}` }) };
+  } catch {
+    return { paymentId, amount, ok: false, error: 'payment-service unreachable' };
+  }
+}
 
 export default router;

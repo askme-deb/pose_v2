@@ -12,7 +12,7 @@ const include = {
 } as const;
 
 router.get('/warehouse-damage-reports', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const where = { tenantId, ...(req.query.warehouseId ? { warehouseId: String(req.query.warehouseId) } : {}) };
   const reports = await prisma.warehouseDamageReport.findMany({ where, include, orderBy: { createdAt: 'desc' } });
   res.json(reports);
@@ -36,7 +36,7 @@ router.post('/warehouse-damage-reports', requirePermission('inventory:manage'), 
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { warehouseId, rackId, productId, quantity, reason, reportedBy } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const warehouse = await prisma.warehouse.findFirst({ where: { id: warehouseId, tenantId } });
   if (!warehouse) return res.status(404).json({ error: 'Warehouse not found' });
 

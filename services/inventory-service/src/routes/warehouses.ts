@@ -14,7 +14,7 @@ const warehouseInput = z.object({
 });
 
 router.get('/warehouses', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const warehouses = await prisma.warehouse.findMany({ where: { tenantId }, orderBy: { name: 'asc' } });
   res.json(warehouses);
 });
@@ -23,7 +23,7 @@ router.post('/warehouses', requirePermission('inventory:manage'), async (req, re
   const parsed = warehouseInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const warehouse = await prisma.warehouse.create({ data: { ...parsed.data, tenantId } });
   res.status(201).json(warehouse);
 });

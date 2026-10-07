@@ -12,7 +12,7 @@ const brandInput = z.object({
 });
 
 router.get('/brands', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const brands = await prisma.brand.findMany({
     where: { tenantId },
     orderBy: { name: 'asc' },
@@ -35,7 +35,7 @@ router.post('/brands', requirePermission('inventory:manage'), async (req, res) =
   const parsed = brandInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const brand = await prisma.brand.create({ data: { ...parsed.data, tenantId } });
   res.status(201).json({ ...brand, skuCount: 0 });
 });
@@ -44,7 +44,7 @@ router.put('/brands/:id', requirePermission('inventory:manage'), async (req, res
   const parsed = brandInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.brand.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Brand not found' });
 

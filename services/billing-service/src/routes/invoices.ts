@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { calcGst } from '@pospe/utilities';
-import { requirePermission } from '@pospe/permissions';
+import type { Prisma } from '@prisma/client';
+import { computeInvoiceTotals } from '@pospe/utilities';
+import { requirePermission, userHasPermission, HttpError } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 
 const router = Router();
@@ -9,6 +10,9 @@ const router = Router();
 const heldItemInput = z.object({
   productId: z.string().min(1),
   quantity: z.number().int().positive(),
+  // Manual price override, same rule as sales-service checkout: only
+  // honored for callers holding billing:price_override.
+  unitPrice: z.number().nonnegative().optional(),
 });
 
 const holdInvoiceInput = z.object({
@@ -27,7 +31,7 @@ const mergeInvoicesInput = z.object({
   targetId: z.string().min(1),
 });
 
-const heldInclude = { items: { include: { product: { select: { id: true, name: true } } } } } as const;
+const heldInclude = { items: { include: { product: { select: { id: true, name: true, price: true } } } } } as const;
 
 // A held bill is an Invoice row with status HELD — no invoiceNumber (only
 // sales-service's checkout ever allocates one, when a bill actually gets
@@ -40,8 +44,12 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { customerId, items, discountPercent, label } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  if (items.some((i) => i.unitPrice !== undefined) && !userHasPermission(req.authUser, 'billing:price_override')) {
+    return res.status(403).json({ error: 'Missing required permission: billing:price_override' });
+  }
+
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   let customerName: string | undefined;
   if (customerId) {
@@ -57,19 +65,17 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
   }
   const productById = new Map(products.map((p) => [p.id, p]));
 
-  let subtotal = 0;
-  let taxTotal = 0;
-  const lineItems = items.map(({ productId, quantity }) => {
-    const product = productById.get(productId)!;
-    const price = Number(product.price);
-    const gstRate = Number(product.gstRate);
-    const { amount: lineSubtotal, tax: lineTax } = calcGst(price * quantity, gstRate);
-    subtotal += lineSubtotal;
-    taxTotal += lineTax;
-    return { productId, quantity, price, gstRate, total: lineSubtotal + lineTax };
-  });
-  const discountAmount = subtotal * (discountPercent / 100);
-  const total = subtotal + taxTotal - discountAmount;
+  // Same pricing as sales-service's checkout, so the held total is exactly
+  // what the customer will be charged when the bill is completed.
+  const totals = computeInvoiceTotals(
+    items.map(({ productId, quantity, unitPrice }) => {
+      const product = productById.get(productId)!;
+      return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate) };
+    }),
+    discountPercent,
+  );
+  const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
+  const { subtotal, discountTotal, taxTotal, total } = totals;
 
   const held = await prisma.invoice.create({
     data: {
@@ -80,6 +86,7 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
       label,
       heldDiscountPercent: discountPercent,
       subtotal,
+      discountTotal,
       taxTotal,
       total,
       items: { create: lineItems },
@@ -91,8 +98,8 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
 });
 
 router.get('/invoices/held', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const held = await prisma.invoice.findMany({
     where: { storeId, status: 'HELD' },
@@ -109,8 +116,8 @@ router.get('/invoices/held', async (req, res) => {
 // transaction (stock, GST, idempotency, loyalty, alerts, search indexing) a
 // single source of truth instead of a second copy living here.
 router.post('/invoices/:id/recall', requirePermission('billing:create'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const held = await prisma.invoice.findFirst({
     where: { id: req.params.id, storeId, status: 'HELD' },
@@ -133,6 +140,7 @@ router.post('/invoices/:id/recall', requirePermission('billing:create'), async (
       productId: item.productId,
       name: item.product.name,
       price: Number(item.price),
+      catalogPrice: Number(item.product.price),
       gstRate: Number(item.gstRate),
       quantity: item.quantity,
     })),
@@ -140,8 +148,8 @@ router.post('/invoices/:id/recall', requirePermission('billing:create'), async (
 });
 
 router.delete('/invoices/:id', requirePermission('billing:create'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const held = await prisma.invoice.findFirst({ where: { id: req.params.id, storeId, status: 'HELD' } });
   if (!held) return res.status(404).json({ error: 'Held bill not found' });
@@ -157,8 +165,8 @@ router.post('/invoices/:id/split', requirePermission('billing:create'), async (r
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { itemIds } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const held = await prisma.invoice.findFirst({
     where: { id: req.params.id, storeId, status: 'HELD' },
@@ -175,21 +183,10 @@ router.post('/invoices/:id/split', requirePermission('billing:create'), async (r
     return res.status(400).json({ error: 'Cannot split every item — at least one must remain on the original bill' });
   }
 
-  const splitSubtotal = splitItems.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
-  const splitTax = splitItems.reduce((sum, i) => sum + (Number(i.total) - Number(i.price) * i.quantity), 0);
-
   // Interactive transaction, not the array form used elsewhere in this file:
   // reassigning the split items needs the new invoice's generated id, which
   // only exists once the create() above has actually run.
   const newHeld = await prisma.$transaction(async (tx) => {
-    await tx.invoice.update({
-      where: { id: held.id },
-      data: {
-        subtotal: { decrement: splitSubtotal },
-        taxTotal: { decrement: splitTax },
-        total: { decrement: splitSubtotal + splitTax },
-      },
-    });
     const created = await tx.invoice.create({
       data: {
         storeId,
@@ -198,15 +195,14 @@ router.post('/invoices/:id/split', requirePermission('billing:create'), async (r
         status: 'HELD',
         label: `${held.label ?? 'Held bill'} (split)`,
         heldDiscountPercent: held.heldDiscountPercent,
-        subtotal: splitSubtotal,
-        taxTotal: splitTax,
-        total: splitSubtotal + splitTax,
       },
     });
     await tx.invoiceItem.updateMany({
       where: { id: { in: splitItems.map((i) => i.id) } },
       data: { invoiceId: created.id },
     });
+    await recomputeHeldTotals(tx, held.id);
+    await recomputeHeldTotals(tx, created.id);
     return tx.invoice.findUniqueOrThrow({ where: { id: created.id }, include: heldInclude });
   });
 
@@ -219,31 +215,47 @@ router.post('/invoices/merge', requirePermission('billing:create'), async (req, 
   const { sourceId, targetId } = parsed.data;
   if (sourceId === targetId) return res.status(400).json({ error: 'sourceId and targetId must differ' });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const [source, target] = await Promise.all([
-    prisma.invoice.findFirst({ where: { id: sourceId, storeId, status: 'HELD' }, include: heldInclude }),
+    prisma.invoice.findFirst({ where: { id: sourceId, storeId, status: 'HELD' }, include: { ...heldInclude, payments: true } }),
     prisma.invoice.findFirst({ where: { id: targetId, storeId, status: 'HELD' } }),
   ]);
   if (!source || !target) return res.status(404).json({ error: 'One or both held bills not found' });
+  // An online payment may already be in flight for the source bill; merging
+  // it away would leave that payment pointing at nothing billable.
+  if (source.payments.length > 0) {
+    return res.status(409).json({ error: 'This held bill has an online payment attached and cannot be merged' });
+  }
 
   const merged = await prisma.$transaction(async (tx) => {
     await tx.invoiceItem.updateMany({ where: { invoiceId: source.id }, data: { invoiceId: target.id } });
-    const updatedTarget = await tx.invoice.update({
-      where: { id: target.id },
-      data: {
-        subtotal: { increment: source.subtotal },
-        taxTotal: { increment: source.taxTotal },
-        total: { increment: source.total },
-      },
-      include: heldInclude,
-    });
     await tx.invoice.delete({ where: { id: source.id } });
-    return updatedTarget;
+    // The merged bill takes the target's discount, re-priced over all items.
+    await recomputeHeldTotals(tx, target.id);
+    return tx.invoice.findUniqueOrThrow({ where: { id: target.id }, include: heldInclude });
   });
 
   res.json(merged);
 });
+
+// Re-derives a held bill's totals from its line items and held discount —
+// used after split/merge move items between bills.
+async function recomputeHeldTotals(tx: Prisma.TransactionClient, invoiceId: string) {
+  const invoice = await tx.invoice.findUnique({ where: { id: invoiceId }, include: { items: true } });
+  if (!invoice) throw new HttpError(404, 'Held bill not found');
+  const totals = computeInvoiceTotals(
+    invoice.items.map((i) => ({ id: i.id, price: Number(i.price), quantity: i.quantity, gstRate: Number(i.gstRate) })),
+    invoice.heldDiscountPercent ? Number(invoice.heldDiscountPercent) : 0,
+  );
+  for (const line of totals.lines) {
+    await tx.invoiceItem.update({ where: { id: line.id }, data: { total: line.total } });
+  }
+  await tx.invoice.update({
+    where: { id: invoiceId },
+    data: { subtotal: totals.subtotal, discountTotal: totals.discountTotal, taxTotal: totals.taxTotal, total: totals.total },
+  });
+}
 
 export default router;

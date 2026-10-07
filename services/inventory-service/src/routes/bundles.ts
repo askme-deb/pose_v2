@@ -8,7 +8,7 @@ const router = Router();
 const include = { componentProduct: { select: { id: true, name: true, sku: true, price: true } } } as const;
 
 router.get('/products/:id/bundle-items', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const items = await prisma.productBundleItem.findMany({ where: { bundleProductId: req.params.id, tenantId }, include });
   res.json(items);
 });
@@ -25,7 +25,7 @@ router.put('/products/:id/bundle-items', requirePermission('inventory:manage'), 
   const parsed = setBundleInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const bundle = await prisma.product.findFirst({ where: { id: req.params.id, tenantId } });
   if (!bundle) return res.status(404).json({ error: 'Product not found' });
 
@@ -47,7 +47,7 @@ router.put('/products/:id/bundle-items', requirePermission('inventory:manage'), 
 });
 
 router.delete('/products/:id/bundle-items', requirePermission('inventory:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const bundle = await prisma.product.findFirst({ where: { id: req.params.id, tenantId } });
   if (!bundle) return res.status(404).json({ error: 'Product not found' });
 

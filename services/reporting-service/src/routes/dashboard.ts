@@ -23,7 +23,7 @@ function pctDelta(current: number, previous: number): number {
 }
 
 router.get('/dashboard', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const timeframe = ((req.query.timeframe as string) || 'today') as Timeframe;
   if (!WINDOW_DAYS[timeframe]) return res.status(400).json({ error: 'Invalid timeframe' });
 

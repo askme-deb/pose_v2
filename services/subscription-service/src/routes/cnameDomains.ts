@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { logAudit } from '../lib/audit';
+import { logAudit, actorOf } from '../lib/audit';
 
 const router = Router();
 
@@ -21,7 +21,7 @@ router.get('/cname-domains', async (_req, res) => {
 router.post('/cname-domains', async (req, res) => {
   const parsed = domainInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const actor = (req.body.actorName as string) || 'Super Administrator';
+  const actor = await actorOf(req);
 
   const tenant = await prisma.tenant.findUnique({ where: { id: parsed.data.tenantId } });
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });

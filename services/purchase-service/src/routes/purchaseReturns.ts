@@ -23,7 +23,7 @@ const include = {
 } as const;
 
 router.get('/purchase-returns', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const returns = await prisma.purchaseReturn.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(returns);
 });
@@ -37,7 +37,7 @@ router.post('/purchase-returns', requirePermission('purchase:manage'), async (re
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { purchaseOrderId, items, reason } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const order = await prisma.purchaseOrder.findFirst({ where: { id: purchaseOrderId, tenantId }, include: { items: true } });
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });
 
@@ -95,7 +95,7 @@ router.post('/purchase-returns', requirePermission('purchase:manage'), async (re
 });
 
 router.post('/purchase-returns/:id/cancel', requirePermission('purchase:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.purchaseReturn.findFirst({ where: { id: req.params.id, tenantId }, include });
   if (!existing) return res.status(404).json({ error: 'Purchase return not found' });
   if (existing.status === 'CANCELLED') return res.status(400).json({ error: 'Purchase return is already cancelled' });

@@ -21,7 +21,7 @@ const createGrnInput = z.object({
 });
 
 router.get('/grns', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const where = { tenantId, ...(req.query.purchaseOrderId ? { purchaseOrderId: String(req.query.purchaseOrderId) } : {}) };
   const grns = await prisma.goodsReceivedNote.findMany({ where, include: grnInclude, orderBy: { createdAt: 'desc' } });
   res.json(grns);
@@ -33,7 +33,7 @@ router.post('/grns', requirePermission('purchase:manage'), async (req, res) => {
   const parsed = createGrnInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
 
   try {
     const grn = await receiveGoods({ tenantId, ...parsed.data });

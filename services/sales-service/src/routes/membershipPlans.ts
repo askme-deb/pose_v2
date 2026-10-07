@@ -17,7 +17,7 @@ const planInput = z.object({
 });
 
 router.get('/membership-plans', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const plans = await prisma.membershipPlan.findMany({
     where: { tenantId },
     include: { _count: { select: { customers: true } } },
@@ -30,7 +30,7 @@ router.post('/membership-plans', requirePermission('customer:manage'), async (re
   const parsed = planInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const duplicate = await prisma.membershipPlan.findFirst({ where: { tenantId, name: parsed.data.name } });
   if (duplicate) return res.status(409).json({ error: 'A plan with this name already exists' });
 
@@ -42,7 +42,7 @@ router.put('/membership-plans/:id', requirePermission('customer:manage'), async 
   const parsed = planInput.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.membershipPlan.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Membership plan not found' });
 
@@ -54,7 +54,7 @@ router.put('/membership-plans/:id', requirePermission('customer:manage'), async 
 // it out from under them would silently strip their earned discount at
 // checkout with no trace of why.
 router.delete('/membership-plans/:id', requirePermission('customer:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.membershipPlan.findFirst({
     where: { id: req.params.id, tenantId },
     include: { _count: { select: { customers: true } } },

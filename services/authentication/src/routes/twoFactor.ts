@@ -18,7 +18,7 @@ router.get('/2fa/status', requireAuth, async (req, res) => {
 // and raw key are shown as text for manual/URI entry into an authenticator app.
 router.post('/2fa/setup', requireAuth, async (req, res) => {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: req.authUser!.sub } });
-  const secret = speakeasy.generateSecret({ name: `ApexPOS (${user.email})`, issuer: 'ApexPOS' });
+  const secret = speakeasy.generateSecret({ name: `Pospe (${user.email})`, issuer: 'Pospe' });
 
   await prisma.user.update({ where: { id: user.id }, data: { twoFaSecret: secret.base32 } });
   res.json({ secret: secret.base32, otpauthUrl: secret.otpauth_url });
@@ -46,8 +46,17 @@ router.post('/2fa/confirm', requireAuth, async (req, res) => {
   res.json({ success: true });
 });
 
+// Turning 2FA off requires a current code: otherwise anyone holding a stolen
+// access token could strip the second factor and keep the account.
 router.post('/2fa/disable', requireAuth, async (req, res) => {
+  const parsed = confirmInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter your current 6-digit authenticator code' });
+
   const user = await prisma.user.findUniqueOrThrow({ where: { id: req.authUser!.sub } });
+  if (user.twoFaEnabled && user.twoFaSecret) {
+    const valid = speakeasy.totp.verify({ secret: user.twoFaSecret, encoding: 'base32', token: parsed.data.token, window: 1 });
+    if (!valid) return res.status(400).json({ error: 'Invalid code' });
+  }
   await prisma.user.update({ where: { id: user.id }, data: { twoFaEnabled: false, twoFaSecret: null } });
   await logAudit(user.tenantId, user.name, '2FA_DISABLED', `${user.name} disabled two-factor authentication`, 'MEDIUM');
   res.json({ success: true });

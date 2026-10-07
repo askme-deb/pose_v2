@@ -1,11 +1,10 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
-import { roleMap, issueTokens } from '../lib/tokens';
+import { roleMap, issueTokens, verifyRefreshToken, issuePendingTwoFaToken, verifyPendingTwoFaToken } from '../lib/tokens';
 import { requireAuth } from '@pospe/permissions';
 
 const router = Router();
@@ -17,6 +16,9 @@ const loginInput = z.object({
 
 const pinLoginInput = z.object({
   pin: z.string().regex(/^\d{4}$/, 'PIN must be 4 digits'),
+  // The store this terminal was paired with (see POS pairing). PINs are only
+  // matched against that store's staff — never across every tenant.
+  storeId: z.string().min(1, 'This terminal is not paired with a store'),
 });
 
 const refreshInput = z.object({
@@ -28,29 +30,31 @@ const twoFaVerifyInput = z.object({
   token: z.string().length(6),
 });
 
-// Short-lived, single-purpose token proving "this caller just supplied a
-// valid password for this user" without granting access yet — the frontend
-// carries it to /login/2fa-verify. Stateless (no server-side session store),
-// same approach the rest of this file already takes with JWTs.
-function issuePendingTwoFaToken(userId: string) {
-  const jwtSecret = process.env.JWT_SECRET;
-  if (!jwtSecret) return null;
-  return jwt.sign({ sub: userId, purpose: '2fa-pending' }, jwtSecret, { expiresIn: '5m' } as jwt.SignOptions);
+const MAX_FAILED_LOGINS = 5;
+const LOCKOUT_MINUTES = 15;
+const BLOCKED_TENANT_STATUSES = new Set(['SUSPENDED', 'CANCELLED']);
+
+const userRelations = {
+  rbacRole: { select: { id: true, title: true, code: true, permissions: true } },
+  tenant: { select: { id: true, name: true, slug: true, status: true } },
+} as const;
+
+type UserWithRelations = NonNullable<Awaited<ReturnType<typeof findUserById>>>;
+
+function findUserById(id: string) {
+  return prisma.user.findFirst({ where: { id }, include: userRelations });
 }
 
-type UserWithRelations = {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  tenantId: string;
-  tenant: { name: string };
-  rbacRole: { id: string; title: string; code: string } | null;
-};
+// The store a freshly signed-in user acts on by default: their assigned
+// store, else the tenant's primary store. POS terminals pair with this.
+async function defaultStoreId(user: { storeId: string | null; tenantId: string }) {
+  if (user.storeId) return user.storeId;
+  const store = await prisma.store.findFirst({ where: { tenantId: user.tenantId, isPrimary: true }, select: { id: true } });
+  return store?.id ?? null;
+}
 
-// The exact same shape every login-family route below returns — pulled out
-// once /refresh and /me needed it too, rather than a fourth copy-paste.
-function serializeUser(user: UserWithRelations) {
+// The exact same shape every login-family route returns.
+export async function serializeUser(user: UserWithRelations) {
   return {
     id: user.id,
     name: user.name,
@@ -58,146 +62,148 @@ function serializeUser(user: UserWithRelations) {
     role: roleMap[user.role] ?? 'cashier',
     tenantId: user.tenantId,
     tenantName: user.tenant.name,
-    rbacRole: user.rbacRole,
+    tenantStatus: user.tenant.status,
+    storeId: await defaultStoreId(user),
+    rbacRole: user.rbacRole ? { id: user.rbacRole.id, title: user.rbacRole.title, code: user.rbacRole.code } : null,
   };
 }
 
-const userRelations = {
-  rbacRole: { select: { id: true, title: true, code: true } },
-  tenant: { select: { id: true, name: true, slug: true } },
-} as const;
+/**
+ * Account-level gates every login path shares. Returns an error response
+ * (already sent) or null when the user may proceed.
+ */
+function rejectIfBlocked(user: UserWithRelations, res: Response): Response | null {
+  if (!user.isActive) return res.status(403).json({ error: 'This account has been deactivated' });
+  if (BLOCKED_TENANT_STATUSES.has(user.tenant.status)) {
+    return res.status(403).json({ error: 'This business account is suspended. Contact support to restore access.', tenantStatus: user.tenant.status });
+  }
+  if (!user.emailVerifiedAt) {
+    return res.status(403).json({ error: 'Please verify your email address first', requiresEmailVerification: true, email: user.email });
+  }
+  return null;
+}
+
+async function completeLogin(req: Request, res: Response, user: UserWithRelations, via: string) {
+  const tokens = issueTokens(user);
+  if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastActivityAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+  });
+  await logAudit(user.tenantId, user.name, 'LOGIN_SUCCESS', `${user.name} authenticated successfully${via}`, 'LOW', req.ip);
+  return res.json({ ...tokens, user: await serializeUser(user) });
+}
+
+async function recordFailedLogin(req: Request, user: UserWithRelations, detail: string) {
+  const attempts = user.failedLoginAttempts + 1;
+  const lock = attempts >= MAX_FAILED_LOGINS;
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { failedLoginAttempts: lock ? 0 : attempts, ...(lock ? { lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60_000) } : {}) },
+  });
+  await logAudit(user.tenantId, user.name, lock ? 'ACCOUNT_LOCKED' : 'LOGIN_FAILED', detail, 'HIGH', req.ip);
+}
+
+function isLocked(user: UserWithRelations) {
+  return user.lockedUntil !== null && user.lockedUntil > new Date();
+}
 
 router.post('/login', async (req, res) => {
   const parsed = loginInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { email, password } = parsed.data;
 
-  const user = await prisma.user.findFirst({
-    where: { email },
-    include: {
-      rbacRole: { select: { id: true, title: true, code: true } },
-      tenant: { select: { id: true, name: true, slug: true } },
-    },
-  });
+  const user = await prisma.user.findFirst({ where: { email }, include: userRelations });
+  if (user && isLocked(user)) {
+    return res.status(423).json({ error: `Too many failed attempts. Try again after ${user.lockedUntil!.toLocaleTimeString('en-IN')}.` });
+  }
 
   const passwordValid = user ? await bcrypt.compare(password, user.passwordHash) : false;
   if (!user || !passwordValid) {
-    if (user) await logAudit(user.tenantId, user.name, 'LOGIN_FAILED', `Failed login attempt for ${email}`, 'HIGH', req.ip);
+    if (user) await recordFailedLogin(req, user, `Failed login attempt for ${email}`);
     return res.status(401).json({ error: 'Invalid email or password' });
   }
-  if (!user.isActive) {
-    return res.status(403).json({ error: 'This account has been deactivated' });
-  }
+  if (rejectIfBlocked(user, res)) return;
 
-  if (user.twoFaEnabled) {
+  if (user.twoFaEnabled && user.twoFaSecret) {
     const pendingToken = issuePendingTwoFaToken(user.id);
-    if (!pendingToken) {
-      return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
-    }
+    if (!pendingToken) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
     return res.json({ requiresTwoFactor: true, pendingToken });
   }
 
-  const role = roleMap[user.role] ?? 'cashier';
-  const tokens = issueTokens(user.id, user.tenantId, role, user.rbacRoleId);
-  if (!tokens) {
-    return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
-  }
-
-  await prisma.user.update({ where: { id: user.id }, data: { lastActivityAt: new Date() } });
-  await logAudit(user.tenantId, user.name, 'LOGIN_SUCCESS', `${user.name} authenticated successfully`, 'LOW', req.ip);
-
-  res.json({
-    ...tokens,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role,
-      tenantId: user.tenantId,
-      tenantName: user.tenant.name,
-      rbacRole: user.rbacRole,
-    },
-  });
+  return completeLogin(req, res, user, '');
 });
 
 // Second step of login when the account has 2FA enabled: exchange a valid
-// pendingToken + TOTP code for the real access/refresh tokens /login would
-// have issued directly if 2FA were off.
+// pendingToken + TOTP code for the real access/refresh tokens.
 router.post('/login/2fa-verify', async (req, res) => {
   const parsed = twoFaVerifyInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { pendingToken, token: code } = parsed.data;
 
-  let payload: { sub: string; purpose: string };
-  try {
-    payload = jwt.verify(pendingToken, process.env.JWT_SECRET!) as typeof payload;
-  } catch {
-    return res.status(401).json({ error: 'Login session expired — please sign in again' });
-  }
-  if (payload.purpose !== '2fa-pending') {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
+  const userId = verifyPendingTwoFaToken(pendingToken);
+  if (!userId) return res.status(401).json({ error: 'Login session expired — please sign in again' });
 
-  const user = await prisma.user.findFirst({
-    where: { id: payload.sub },
-    include: {
-      rbacRole: { select: { id: true, title: true, code: true } },
-      tenant: { select: { id: true, name: true, slug: true } },
-    },
-  });
-  if (!user || !user.twoFaSecret) {
-    return res.status(401).json({ error: 'Invalid session' });
-  }
+  const user = await findUserById(userId);
+  if (!user || !user.twoFaSecret) return res.status(401).json({ error: 'Invalid session' });
+  if (isLocked(user)) return res.status(423).json({ error: 'Too many failed attempts. Try again later.' });
+  if (rejectIfBlocked(user, res)) return;
 
   const valid = speakeasy.totp.verify({ secret: user.twoFaSecret, encoding: 'base32', token: code, window: 1 });
   if (!valid) {
-    await logAudit(user.tenantId, user.name, 'LOGIN_FAILED', `Failed 2FA code entry for ${user.email}`, 'HIGH', req.ip);
+    await recordFailedLogin(req, user, `Failed 2FA code entry for ${user.email}`);
     return res.status(401).json({ error: 'Invalid authentication code' });
   }
 
-  const role = roleMap[user.role] ?? 'cashier';
-  const tokens = issueTokens(user.id, user.tenantId, role, user.rbacRoleId);
-  if (!tokens) {
-    return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
-  }
-
-  await prisma.user.update({ where: { id: user.id }, data: { lastActivityAt: new Date() } });
-  await logAudit(user.tenantId, user.name, 'LOGIN_SUCCESS', `${user.name} authenticated successfully (2FA)`, 'LOW', req.ip);
-
-  res.json({
-    ...tokens,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role,
-      tenantId: user.tenantId,
-      tenantName: user.tenant.name,
-      rbacRole: user.rbacRole,
-    },
-  });
+  return completeLogin(req, res, user, ' (2FA)');
 });
 
+// Per-store failed-PIN throttle. A 4-digit PIN has only 10,000 values, so
+// besides the gateway's per-IP limit, each store gets a small failure budget
+// per window regardless of where the guesses come from.
+const PIN_WINDOW_MS = 10 * 60_000;
+const PIN_MAX_FAILURES = 10;
+const pinFailures = new Map<string, { count: number; resetAt: number }>();
+
+function pinThrottled(storeId: string) {
+  const entry = pinFailures.get(storeId);
+  return Boolean(entry && entry.resetAt > Date.now() && entry.count >= PIN_MAX_FAILURES);
+}
+
+function recordPinFailure(storeId: string) {
+  const now = Date.now();
+  const entry = pinFailures.get(storeId);
+  if (!entry || entry.resetAt <= now) pinFailures.set(storeId, { count: 1, resetAt: now + PIN_WINDOW_MS });
+  else entry.count += 1;
+}
+
 // POS terminal quick-login: a cashier taps their 4-digit PIN instead of
-// typing email/password. PINs aren't unique on their own (unlike email), so
-// this checks the PIN against every active user who has one set — fine at
-// demo scale, would need a store/terminal-scoped lookup to stay fast with a
-// large cashier roster.
+// typing email/password. Scoped to the staff of the one store this terminal
+// is paired with (assigned to it, or unassigned staff of the same tenant).
 router.post('/login/pin', async (req, res) => {
   const parsed = pinLoginInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { pin } = parsed.data;
+  const { pin, storeId } = parsed.data;
+
+  if (pinThrottled(storeId)) {
+    return res.status(429).json({ error: 'Too many incorrect PINs on this terminal. Ask a manager to sign in, or wait 10 minutes.' });
+  }
+
+  const store = await prisma.store.findFirst({ where: { id: storeId, isActive: true }, select: { id: true, name: true, tenantId: true } });
+  if (!store) return res.status(404).json({ error: 'This terminal is paired with a store that no longer exists. Re-pair it.' });
 
   const candidates = await prisma.user.findMany({
-    where: { pinHash: { not: null }, isActive: true },
-    include: {
-      store: { select: { id: true, name: true } },
-      rbacRole: { select: { id: true, title: true, code: true } },
-      tenant: { select: { id: true, name: true } },
+    where: {
+      tenantId: store.tenantId,
+      pinHash: { not: null },
+      isActive: true,
+      OR: [{ storeId: store.id }, { storeId: null }],
     },
+    include: userRelations,
   });
 
-  let matched: (typeof candidates)[number] | null = null;
+  let matched: UserWithRelations | null = null;
   for (const candidate of candidates) {
     if (candidate.pinHash && (await bcrypt.compare(pin, candidate.pinHash))) {
       matched = candidate;
@@ -206,72 +212,63 @@ router.post('/login/pin', async (req, res) => {
   }
 
   if (!matched) {
+    recordPinFailure(storeId);
     return res.status(401).json({ error: 'Invalid PIN' });
   }
+  if (isLocked(matched)) return res.status(423).json({ error: 'This account is temporarily locked.' });
+  if (rejectIfBlocked(matched, res)) return;
 
-  const role = roleMap[matched.role] ?? 'cashier';
-  const tokens = issueTokens(matched.id, matched.tenantId, role, matched.rbacRoleId);
-  if (!tokens) {
-    return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
-  }
+  const tokens = issueTokens({ ...matched, storeId: store.id });
+  if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
 
   await prisma.user.update({ where: { id: matched.id }, data: { lastActivityAt: new Date() } });
-  await logAudit(matched.tenantId, matched.name, 'LOGIN_SUCCESS', `${matched.name} authenticated via terminal PIN`, 'LOW', req.ip);
+  await logAudit(matched.tenantId, matched.name, 'LOGIN_SUCCESS', `${matched.name} authenticated via terminal PIN at ${store.name}`, 'LOW', req.ip);
 
   res.json({
     ...tokens,
-    user: {
-      id: matched.id,
-      name: matched.name,
-      email: matched.email,
-      role,
-      tenantId: matched.tenantId,
-      tenantName: matched.tenant.name,
-      rbacRole: matched.rbacRole,
-    },
-    store: matched.store,
+    user: { ...(await serializeUser(matched)), storeId: store.id },
+    store: { id: store.id, name: store.name },
   });
 });
 
-// Every login route above issues a refresh token nobody could ever redeem —
-// this is that endpoint. It matters most for mobile: a 15-minute access
-// token with no way to refresh means getting logged out mid-shift, which is
-// tolerable to shrug off on a web app but not on a phone. Rotates the
-// refresh token on every use (new one issued, old one not tracked anywhere
-// to invalidate) — real rotation hygiene, though full revoke-on-reuse
-// detection would need a server-side token store this codebase doesn't have
-// yet, consistent with every other route here staying stateless-JWT.
+// Rotates the refresh token on every use. Revocation: the refresh token
+// carries the user's tokenVersion, and logout / password reset /
+// deactivation bump it, so earlier refresh tokens stop working at once.
 router.post('/refresh', async (req, res) => {
   const parsed = refreshInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  let payload: { sub: string };
-  try {
-    payload = jwt.verify(parsed.data.refreshToken, process.env.JWT_REFRESH_SECRET!) as typeof payload;
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired refresh token — please sign in again' });
-  }
+  const payload = verifyRefreshToken(parsed.data.refreshToken);
+  const invalid = () => res.status(401).json({ error: 'Invalid or expired refresh token — please sign in again' });
+  if (!payload) return invalid();
 
-  const user = await prisma.user.findFirst({ where: { id: payload.sub }, include: userRelations });
-  if (!user) return res.status(401).json({ error: 'Invalid or expired refresh token — please sign in again' });
-  if (!user.isActive) return res.status(403).json({ error: 'This account has been deactivated' });
+  const user = await findUserById(payload.sub);
+  if (!user || user.tokenVersion !== payload.ver) return invalid();
+  if (rejectIfBlocked(user, res)) return;
 
-  const role = roleMap[user.role] ?? 'cashier';
-  const tokens = issueTokens(user.id, user.tenantId, role, user.rbacRoleId);
+  const tokens = issueTokens(user);
   if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
 
-  res.json({ ...tokens, user: serializeUser(user) });
+  res.json({ ...tokens, user: await serializeUser(user) });
 });
 
-// "Am I still logged in, and who am I?" — what a mobile app's splash screen
-// calls on launch against whatever token it has stored, instead of forcing a
-// fresh login every time the app is reopened. requireAuth already 401s on a
-// missing/expired/invalid token, so the client's answer is just: 200 means
-// carry on, 401 means try /refresh (or fall back to login if that fails too).
+// Ends every session for this user: bumping tokenVersion invalidates all
+// outstanding refresh tokens. Access tokens expire on their own (≤15 min).
+router.post('/logout', requireAuth, async (req, res) => {
+  const user = await prisma.user.update({
+    where: { id: req.authUser!.sub },
+    data: { tokenVersion: { increment: 1 } },
+  });
+  await logAudit(user.tenantId, user.name, 'LOGOUT', `${user.name} signed out`, 'LOW', req.ip);
+  res.status(204).end();
+});
+
+// "Am I still logged in, and who am I?" — 200 means carry on, 401 means
+// try /refresh (or fall back to login if that fails too).
 router.get('/me', requireAuth, async (req, res) => {
-  const user = await prisma.user.findFirst({ where: { id: req.authUser!.sub }, include: userRelations });
+  const user = await findUserById(req.authUser!.sub);
   if (!user) return res.status(401).json({ error: 'Invalid or expired token' });
-  res.json(serializeUser(user));
+  res.json(await serializeUser(user));
 });
 
 export default router;

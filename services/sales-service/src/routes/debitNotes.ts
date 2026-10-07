@@ -16,8 +16,8 @@ const include = {
 } as const;
 
 router.get('/debit-notes', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const notes = await prisma.debitNote.findMany({ where: { storeId }, include, orderBy: { createdAt: 'desc' } });
   res.json(notes);
 });
@@ -30,8 +30,8 @@ router.post('/debit-notes', requirePermission('sales:manage'), async (req, res) 
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const { invoiceId, reason, amount } = parsed.data;
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
-  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
+  const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const invoice = await prisma.invoice.findFirst({ where: { id: invoiceId, storeId } });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
@@ -47,7 +47,7 @@ router.post('/debit-notes', requirePermission('sales:manage'), async (req, res) 
 });
 
 router.post('/debit-notes/:id/cancel', requirePermission('sales:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const existing = await prisma.debitNote.findFirst({ where: { id: req.params.id, tenantId } });
   if (!existing) return res.status(404).json({ error: 'Debit note not found' });
   if (existing.status === 'CANCELLED') return res.status(400).json({ error: 'Debit note is already cancelled' });

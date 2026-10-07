@@ -19,7 +19,7 @@ const include = {
 } as const;
 
 router.get('/warehouse-transfers', async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const transfers = await prisma.warehouseTransfer.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(transfers);
 });
@@ -28,7 +28,7 @@ router.post('/warehouse-transfers', requirePermission('inventory:manage'), async
   const parsed = transferInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const { sourceWarehouseId, destinationWarehouseId, items, carrier } = parsed.data;
 
   if (sourceWarehouseId === destinationWarehouseId) {
@@ -65,7 +65,7 @@ router.post('/warehouse-transfers', requirePermission('inventory:manage'), async
 });
 
 router.post('/warehouse-transfers/:id/complete', requirePermission('inventory:manage'), async (req, res) => {
-  const tenantId = await resolveTenantId(req.header('x-tenant-id') ?? undefined);
+  const tenantId = await resolveTenantId(req);
   const transfer = await prisma.warehouseTransfer.findFirst({ where: { id: req.params.id, tenantId } });
   if (!transfer) return res.status(404).json({ error: 'Transfer not found' });
   if (transfer.status === 'COMPLETED') return res.status(400).json({ error: 'Transfer is already marked completed' });
