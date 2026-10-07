@@ -89,11 +89,15 @@ model Tenant {
   warehouseDamageReports WarehouseDamageReport[]
   customerWalletTransactions CustomerWalletTransaction[]
   membershipPlans            MembershipPlan[]
+  reportSchedules            ReportSchedule[]
 
   @@map("tenants")
 }
 
 enum UserRole {
+  // Platform operator (manages every tenant). Belongs to the platform's own
+  // tenant row purely to satisfy User.tenantId.
+  SUPER_ADMIN
   TENANT_OWNER
   BRANCH_ADMIN
   STORE_MANAGER
@@ -129,6 +133,16 @@ model User {
   isActive       Boolean   @default(true)
   lastActivityAt DateTime?
   createdAt      DateTime  @default(now())
+  // Embedded in refresh tokens; bumping it (logout, password change/reset,
+  // deactivation) revokes every refresh token issued before.
+  tokenVersion        Int       @default(0)
+  // Null until the owner confirms the emailed code after self-serve signup.
+  emailVerifiedAt     DateTime?
+  // Brute-force lockout for password and PIN logins.
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  otps AuthOtp[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -211,6 +225,28 @@ model Store {
   @@map("stores")
 }
 
+enum AuthOtpPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFY
+}
+
+// One-time 6-digit codes emailed for password reset and signup email
+// verification. Only a bcrypt hash of the code is stored.
+model AuthOtp {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose    AuthOtpPurpose
+  codeHash   String
+  attempts   Int            @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@index([userId, purpose])
+  @@map("auth_otps")
+}
+
 // ---------- Tenant business profile / settings ----------
 // Split out from Tenant rather than adding ~20 columns directly to it — Tenant
 // is queried by every service (resolveTenantId), while this is purely
@@ -288,6 +324,8 @@ model CnameDomain {
 enum PaymentGateway {
   RAZORPAY
   STRIPE
+  CASHFREE
+  PHONEPE
 }
 
 enum PlatformInvoiceStatus {
@@ -576,9 +614,18 @@ model Invoice {
   status        InvoiceStatus @default(DRAFT)
   paymentMethod PaymentMethod @default(CASH)
   subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  // Invoice-level discount, applied per line before GST (tax is on the
+  // post-discount value). total = subtotal - discountTotal + taxTotal.
+  discountTotal Decimal       @default(0) @db.Decimal(12, 2)
   taxTotal      Decimal       @default(0) @db.Decimal(12, 2)
   total         Decimal       @default(0) @db.Decimal(12, 2)
   createdAt     DateTime      @default(now())
+  // The user who rang up the sale (null for system/back-office paths) —
+  // feeds the cashier leaderboard.
+  createdById         String?
+  // Exactly what checkout credited, so a refund can reverse it precisely.
+  loyaltyPointsEarned Int       @default(0)
+  refundedAt          DateTime?
   // Client-generated key for safe retry of a sale that was queued offline —
   // null for every other caller. Postgres treats multiple NULLs as distinct,
   // so non-idempotent callers never collide with each other here.
@@ -601,6 +648,7 @@ model Invoice {
   walletTransactions     CustomerWalletTransaction[]
 
   @@unique([storeId, invoiceNumber])
+  @@index([storeId, createdAt])
   @@map("invoices")
 }
 
@@ -622,6 +670,8 @@ enum PaymentStatus {
   CREATED
   CAPTURED
   FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 model Payment {
@@ -633,6 +683,12 @@ model Payment {
   gatewayPaymentId String?        @unique
   amount           Decimal        @db.Decimal(12, 2)
   status           PaymentStatus  @default(CREATED)
+  refundedAmount   Decimal        @default(0) @db.Decimal(12, 2)
+  gatewayRefundId  String?
+  // Held-bill completion bookkeeping: a captured payment whose bill hasn't
+  // been turned into a real invoice yet is retried until it is.
+  completionAttempts  Int     @default(0)
+  lastCompletionError String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -745,6 +801,13 @@ model SyncDevice {
   lastSyncAt   DateTime?
   lastSeenAt   DateTime  @default(now())
   createdAt    DateTime  @default(now())
+  // Telemetry reported with each heartbeat (all optional — browsers can't
+  // always see battery or OS details).
+  platform       String?
+  osVersion      String?
+  appVersion     String?
+  batteryPercent Int?
+  peripherals    String[]  @default([])
 
   @@unique([tenantId, deviceId])
   @@map("sync_devices")
@@ -1239,4 +1302,38 @@ model MembershipPlan {
 
   @@unique([tenantId, name])
   @@map("membership_plans")
+}
+
+// ---------- Scheduled analytics reports ----------
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ReportFormat {
+  PDF
+  XLSX
+}
+
+// Emailed analytics report (Reports & Analytics page → "Schedule"). The
+// reporting-service cron sends each due schedule's previous period.
+model ReportSchedule {
+  id        String          @id @default(cuid())
+  tenantId  String
+  tenant    Tenant          @relation(fields: [tenantId], references: [id])
+  email     String
+  frequency ReportFrequency
+  format    ReportFormat    @default(PDF)
+  // Subset of: kpi, topSku, gst
+  modules   String[]
+  storeId   String?
+  isActive  Boolean         @default(true)
+  lastRunAt DateTime?
+  createdBy String?
+  createdAt DateTime        @default(now())
+
+  @@index([tenantId])
+  @@map("report_schedules")
 }

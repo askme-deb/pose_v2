@@ -55,7 +55,7 @@ async function reindexCustomers() {
 }
 
 async function reindexInvoices() {
-  const invoices = await prisma.invoice.findMany();
+  const invoices = await prisma.invoice.findMany({ include: { store: { select: { tenantId: true } } } });
   if (invoices.length === 0) return 0;
   const stats = await es.helpers.bulk({
     datasource: invoices,
@@ -63,6 +63,7 @@ async function reindexInvoices() {
       { index: { _index: 'pospe_invoices', _id: inv.id } },
       {
         id: inv.id,
+        tenantId: inv.store.tenantId,
         storeId: inv.storeId,
         invoiceNumber: inv.invoiceNumber,
         customerName: inv.customerName,

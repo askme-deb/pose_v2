@@ -580,6 +580,7 @@ async function main() {
       role: roleCodeToUserRole[u.roleCode as keyof typeof roleCodeToUserRole],
       passwordHash: demoPasswordHash,
       pinHash: u.pin ? await bcrypt.hash(u.pin, 10) : null,
+      emailVerifiedAt: new Date(),
     };
     const existing = await prisma.user.findFirst({ where: { tenantId: tenant.id, email: u.email } });
     if (existing) {
@@ -697,14 +698,14 @@ async function main() {
   }
 
   const cnameDomainDefs = [
-    { tenantSlug: 'apex', cnameDomain: 'pos.apexsupermarket.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (6ms)' },
-    { tenantSlug: 'metro', cnameDomain: 'billing.metrohyper.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (8ms)' },
-    { tenantSlug: 'quickbite', cnameDomain: 'pos.quickbite.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (12ms)' },
-    { tenantSlug: 'zenithpharma', cnameDomain: 'billing.zenithpharma.com', edgeIngressTarget: 'ingress-virginia-02.apexpos.com', sslSlaStatus: 'DigiCert TLS 1.3', dnsPropagationStatus: 'Propagated (4ms)' },
-    { tenantSlug: 'luxefashion', cnameDomain: 'checkout.luxefashion.com', edgeIngressTarget: 'ingress-frankfurt-03.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (9ms)' },
-    { tenantSlug: 'bharatelectronics', cnameDomain: 'pos.bharatelectronics.com', edgeIngressTarget: 'ingress-virginia-02.apexpos.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (11ms)' },
-    { tenantSlug: 'highlandcoffee', cnameDomain: 'billing.highlandcoffee.com', edgeIngressTarget: 'ingress-frankfurt-03.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (7ms)' },
-    { tenantSlug: 'sundarstores', cnameDomain: 'pos.sundarstores.com', edgeIngressTarget: 'ingress-mumbai-01.apexpos.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (5ms)' },
+    { tenantSlug: 'apex', cnameDomain: 'pos.apexsupermarket.com', edgeIngressTarget: 'ingress-mumbai-01.pospe.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (6ms)' },
+    { tenantSlug: 'metro', cnameDomain: 'billing.metrohyper.com', edgeIngressTarget: 'ingress-mumbai-01.pospe.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (8ms)' },
+    { tenantSlug: 'quickbite', cnameDomain: 'pos.quickbite.com', edgeIngressTarget: 'ingress-mumbai-01.pospe.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (12ms)' },
+    { tenantSlug: 'zenithpharma', cnameDomain: 'billing.zenithpharma.com', edgeIngressTarget: 'ingress-virginia-02.pospe.com', sslSlaStatus: 'DigiCert TLS 1.3', dnsPropagationStatus: 'Propagated (4ms)' },
+    { tenantSlug: 'luxefashion', cnameDomain: 'checkout.luxefashion.com', edgeIngressTarget: 'ingress-frankfurt-03.pospe.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (9ms)' },
+    { tenantSlug: 'bharatelectronics', cnameDomain: 'pos.bharatelectronics.com', edgeIngressTarget: 'ingress-virginia-02.pospe.com', sslSlaStatus: 'Cloudflare TLS 1.3', dnsPropagationStatus: 'Propagated (11ms)' },
+    { tenantSlug: 'highlandcoffee', cnameDomain: 'billing.highlandcoffee.com', edgeIngressTarget: 'ingress-frankfurt-03.pospe.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (7ms)' },
+    { tenantSlug: 'sundarstores', cnameDomain: 'pos.sundarstores.com', edgeIngressTarget: 'ingress-mumbai-01.pospe.com', sslSlaStatus: "Let's Encrypt TLS 1.3", dnsPropagationStatus: 'Propagated (5ms)' },
   ];
 
   for (const d of cnameDomainDefs) {
@@ -726,7 +727,7 @@ async function main() {
     { tenantSlug: 'organicpantry', timestamp: '2026-08-16T13:15:00Z', actor: 'Super Administrator', eventType: 'TENANT_PROVISIONED', details: 'Initialized 14-day trial on Starter POS Single plan.', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
     { tenantSlug: 'metro', timestamp: '2026-08-16T12:45:00Z', actor: 'Super Administrator', eventType: 'STORAGE_SCALE_UP', details: 'Increased database storage allocation from 750GB to 1TB.', ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
     { tenantSlug: 'apex', timestamp: '2026-08-16T10:20:00Z', actor: 'Super Administrator', eventType: 'ADMIN_LOGIN', details: 'Super Admin impersonated login for Alexander Wright.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
-    { tenantSlug: 'zenithpharma', timestamp: '2026-08-15T09:00:00Z', actor: 'System Security', eventType: 'SSL_RENEWED', details: "Wildcard SSL certificate auto-renewed for zenithpharma.apexpos.com.", ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
+    { tenantSlug: 'zenithpharma', timestamp: '2026-08-15T09:00:00Z', actor: 'System Security', eventType: 'SSL_RENEWED', details: "Wildcard SSL certificate auto-renewed for zenithpharma.pospe.com.", ipAddress: '10.0.0.1', riskRating: 'LOW' as const },
     { tenantSlug: 'quickbite', timestamp: '2026-08-14T09:00:00Z', actor: 'Super Administrator', eventType: 'PLAN_UPGRADE', details: 'Upgraded from Starter POS Single to Pro Business Retail.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
     { tenantSlug: 'bharatelectronics', timestamp: '2026-08-13T09:00:00Z', actor: 'Billing Engine', eventType: 'BILLING_FAILED', details: 'Auto-debit declined by issuing bank; tenant marked past due.', ipAddress: '10.0.0.1', riskRating: 'HIGH' as const },
     { tenantSlug: 'sundarstores', timestamp: '2026-08-12T09:00:00Z', actor: 'System Security', eventType: 'STORAGE_ALERT', details: 'Cloud storage usage crossed 80% of allocated quota.', ipAddress: '10.0.0.1', riskRating: 'MEDIUM' as const },
@@ -753,6 +754,29 @@ async function main() {
   console.log(
     `Seeded SaaS platform directory with ${platformTenantDefs.length + 1} total tenants, ${platformInvoiceDefs.length} platform invoices, ${cnameDomainDefs.length} CNAME domains, and ${platformAuditLogDefs.length} platform audit log entries.`,
   );
+
+  // Platform operator for the Super Admin console (subscription-service is
+  // gated on platform:manage, which only SUPER_ADMIN holds). Lives in its own
+  // "platform" tenant purely to satisfy User.tenantId.
+  const operatorTenant = await prisma.tenant.upsert({
+    where: { slug: 'pospe-platform' },
+    update: {},
+    create: { name: 'PosPe Platform', slug: 'pospe-platform', status: 'ACTIVE', plan: 'ENTERPRISE', storesLimit: 1 },
+  });
+  const operatorEmail = process.env.SUPER_ADMIN_EMAIL || 'superadmin@pospe.com';
+  const operatorData = {
+    tenantId: operatorTenant.id,
+    name: 'Platform Super Admin',
+    email: operatorEmail,
+    role: 'SUPER_ADMIN' as const,
+    passwordHash: await bcrypt.hash(process.env.SUPER_ADMIN_PASSWORD || DEMO_PASSWORD, 10),
+    isActive: true,
+    emailVerifiedAt: new Date(),
+  };
+  const existingOperator = await prisma.user.findFirst({ where: { email: operatorEmail } });
+  if (existingOperator) await prisma.user.update({ where: { id: existingOperator.id }, data: operatorData });
+  else await prisma.user.create({ data: operatorData });
+  console.log(`Seeded platform super admin ${operatorEmail}.`);
 }
 
 main()
