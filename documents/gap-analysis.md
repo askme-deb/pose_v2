@@ -1,113 +1,79 @@
-# Gap Analysis — Coverage Report
+# Gap Analysis — Current State
 
-Reconciled against `inventory_pos_billing.docx` (Scope of Work) and `Technology Stack.docx`.
-Every line below was traced to real code — imports, working route logic, real UI wiring — not just dependency lists or mock data.
+Reconciled against `inventory_pos_billing.docx` (Scope of Work) and `Technology Stack.docx`,
+and re-verified against the code (unit tests, a live smoke test through the gateway, and a
+full monorepo build/lint).
 
 ## Summary
 
-The billing, inventory and GST core is genuinely built. Where it thins out is the edges of the
-scope of work: the synchronization engine is an empty shell, RBAC is modeled but never enforced,
-and three of the mobile apps are unstarted scaffolds.
-
-**Totals: 48 items checked — 21 built, 11 partial, 16 missing (44% coverage).**
-
-## Highest-impact gaps
-
-1. **RBAC is modeled but enforced nowhere** — `api-gateway` proxies every route with zero auth check, and no service imports the `permissions` package.
-2. **The Synchronization Engine is an empty stub** despite being a named architectural component and an explicit deliverable.
-3. **Three of eighteen SOW modules — the mobile apps — are unstarted**, each just an Expo placeholder screen.
-4. **Sales module has no documents** — quotations, estimates, delivery challans, credit/debit notes are all promised in the SOW and absent from the schema.
+The October 2026 pass closed the security, correctness and infrastructure gaps found in the
+previous review. **The only module still out of scope is the three mobile apps** (owner,
+manager, cashier), which remain Expo placeholders by decision. Push notifications are
+waiting on those apps.
 
 ---
 
-## Checklist A — Technology Stack
+## Security & multi-tenancy — fixed
 
-### Frontend Applications
+| Gap | Fix | Where |
+|---|---|---|
+| Tenant taken from a client `x-tenant-id` header, falling back to the demo tenant | Tenant comes only from the signed access token; there is no fallback | `packages/permissions/src/middleware.ts` (`tenantIdOf`), every `services/*/src/lib/prisma.ts` |
+| `x-store-id` never validated | Store must belong to the caller's tenant (else 403) | `resolveStoreId` in billing/payment/sales/sync |
+| Any user could manage every tenant (subscription-service) | New `platform:manage` permission, held only by `SUPER_ADMIN`; `*` never grants `platform:*` | `packages/permissions/src/roles.ts`, `subscription-service/src/index.ts` |
+| 2FA bypass: 2FA-pending token accepted as an access token | Access tokens carry `typ: 'access'`; everything else is rejected | `verifyToken` |
+| PIN login matched across all tenants (10k-guess brute force) | Terminal pairing; PINs only match one store's staff; per-store + per-IP throttling; PIN uniqueness per store | `authentication/src/routes/auth.ts`, POS `PosLoginPage` |
+| notification-service unauthenticated; tenant from request body | `requireAuth`; tenant from token; jobs via queue | `notification-service` |
+| `GET /users` returned password/PIN hashes and TOTP secrets | Explicit safe field selection | `authentication/src/routes/users.ts` |
+| 2FA could be disabled with only a session | Requires a current TOTP code | `twoFactor.ts` |
+| Audit log actor was client-supplied | Actor resolved from the authenticated user | `actorOf` in auth/subscription audit libs |
+| Search returned every tenant's data | Index docs carry `tenantId`; queries filter by token tenant | `api-gateway/src/routes/search.ts` |
+| Global idempotency key could return another tenant's invoice | Replay only honoured within the same tenant | `sales-service/src/lib/checkout.ts` |
+| Tenant RBAC matrix edited in the UI but never enforced | Effective permissions derived from the matrix at token issue | `effectivePermissions`, `perms` claim |
+| No logout / revocation; no refresh in clients | Token versioning revokes refresh tokens on logout, password change/reset and deactivation; all clients refresh transparently | `tokens.ts`, `packages/api-client` |
+| No brute-force protection | Account lockout after 5 failures; gateway credential rate limit | `auth.ts`, `api-gateway/src/routes/proxy.ts` |
+| Suspended tenants could still sign in | Login/refresh blocked for `SUSPENDED`/`CANCELLED` | `rejectIfBlocked` |
+| Product categoryId not tenant-checked | Validated on create/update | `inventory-service/src/routes/products.ts` |
 
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 1 | React.js | ✅ Used | Confirmed across every app — baseline as expected. |
-| 2 | Zustand (state) | ✅ Used | `apps/web-pos`, `web-admin`, `desktop-pos`, and all 3 mobile `package.json`. |
-| 3 | React Hook Form | ✅ Used | Real form wiring, e.g. `web-admin/src/pages/crm/CustomersPage.tsx`. |
-| 4 | Material UI | ✅ Used | `@mui/material` in `packages/ui-library`, `web-pos`, `web-admin`. |
-| 5 | ApexCharts | ✅ Used | `react-apexcharts` in 15+ dashboard and report pages. |
-| 6 | TanStack Table | ✅ Used | `useReactTable` wired into `CustomersPage`, `ProductsPage`, `SalesInvoicesPage`. |
-| 7 | React PDF | ❌ Missing | Zero `react-pdf` imports anywhere — PDFs are generated server-side with `pdfkit` in `reporting-service` instead. |
-| 8 | ZXing (barcode/QR) | ✅ Used | `web-pos/src/components/BarcodeScannerModal.tsx` — real camera scanning. |
-| 9 | Vite PWA | ✅ Used | `web-pos/vite.config.ts` configures `VitePWA({ registerType: 'autoUpdate' })`. |
-| 10 | React Native mobile apps | 🟡 Partial | `mobile-owner/cashier/manager` are empty Expo scaffolds — `App.tsx` literally reads "Build out screens in src/screens." |
-| 11 | Electron desktop POS | ✅ Used | `apps/desktop-pos/electron/main.js` — confirmed running. |
+## Correctness — fixed
 
-### Backend Technologies
+| Gap | Fix |
+|---|---|
+| Any DB error in an async handler crashed the service (Express 4) | Async-safe Layer patch + shared `errorHandler` in every service |
+| GST charged before the discount; held bills rounded tax to whole rupees | One calculator (`computeInvoiceTotals`) for checkout, held bills, quotations, credit notes and the POS cart: discount first, GST on the discounted value, paise rounding |
+| Refunds: any status, double refunds, bundles restocked wrongly, no reversals | PAID-only, conditional status flip in the transaction, bundle-aware restock net of credit notes, loyalty points reversed, gateway refund, `billing:refund` permission |
+| Credit notes: ignored discount, could exceed sold quantity, wrong for bundles | Priced like the sale, cumulative quantity check, bundle-aware restock/unstock |
+| Paid held bills failed for non-demo tenants; no amount check; no retry | Tenant-bound internal token, amount verification, idempotent completion, BullMQ retry + sweeper, auto-refund if the bill was cancelled |
+| Split/merge of held bills miscomputed totals; merge could orphan payments | Totals recomputed from items; merge blocked when a payment is attached |
+| GST summary ignored discounts and credit notes | Post-discount taxable value, net of credit notes |
+| Plan limits not enforced | Branch creation enforces `storesLimit` (402) |
+| `database/package.json` deleted in `9ee0cc0` (broke `prisma:generate` and CI) | Restored |
 
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 12 | Node.js + Express | ✅ Used | Confirmed across every service — baseline as expected. |
-| 13 | Prisma ORM | ✅ Used | `database/prisma/schema.prisma` — baseline as expected. |
-| 14 | JWT + Refresh Tokens | ✅ Used | `authentication/src/routes/auth.ts` — real `/login` and `/refresh` rotation. |
-| 15 | RBAC authorization | 🟡 Partial | `packages/permissions` exports a static role→permission map, but zero services import it — no route actually enforces it, including `api-gateway`. |
-| 16 | Swagger / OpenAPI | ❌ Missing | No swagger or openapi references found anywhere in the repo. |
-| 17 | Zod validation | ✅ Used | Present in every service route file for request validation. |
-| 18 | BullMQ | ❌ Missing | Listed as a dependency in 2 services; zero `Queue()`/`Worker()` usage found. |
-| 19 | Node Cron | ❌ Missing | No dependency and no usage anywhere in the repo. |
-| 20 | Pino logging | ✅ Used | `pino-http` wired into every service's `index.ts`. |
-| 21 | Multer (file upload) | ❌ Missing | No dependency, no usage anywhere. |
-| 22 | Socket.IO | ❌ Missing | Listed in `synchronization-service`'s `package.json` but never imported. |
+## Features & stack — now implemented
 
-### Databases
-
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 23 | PostgreSQL | ✅ Used | Primary datastore, confirmed as expected. |
-| 24 | Redis | ❌ Missing | Deployed in `docker-compose`, but no `ioredis`/`redis` client code anywhere — not used as cache or queue. |
-| 25 | Elasticsearch | ✅ Used | Real `@elastic/elasticsearch` client + write-time indexing in inventory and sales services, plus a real cross-entity search endpoint in `api-gateway`. |
-| 26 | Offline SQLite | 🟡 Partial | `web-pos` actually uses Dexie/IndexedDB, not SQLite; `desktop-pos` genuinely uses `better-sqlite3`; mobile apps have no offline store at all. |
-
-### Multi-Tenant & Offline Sync
-
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 27 | Synchronization engine | ❌ Missing | `services/synchronization-service`'s `src/` is Express boilerplate + a health check — no sync or conflict-resolution logic exists. |
-| 28 | Client-side offline sync | 🟡 Partial | `web-pos/src/sync/syncEngine.ts` replays a queued-sales table on reconnect; no true conflict merge — failures just sit for manual retry. |
-
-### Payments & Notifications
-
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 29 | Payment gateways | 🟡 Partial | Only Razorpay is real (`payment-service/src/lib/razorpay.ts` — order creation + webhooks); Cashfree/PhonePe/Paytm/CCAvenue/Juspay exist only as text in a package description. |
-| 30 | Notifications (Email/SMS/Push/WhatsApp) | 🟡 Partial | Email is real — nodemailer, genuinely triggered by low-stock events. SMS, push and WhatsApp are just a TypeScript union type with no provider wired in. |
-
-### Infrastructure & Ops
-
-| # | Item | Status | Evidence |
-|---|------|--------|----------|
-| 31 | Prometheus + Grafana | ✅ Used | `prom-client` wired into every service via `packages/utilities/src/metrics.ts`. |
-| 32 | Sentry | ❌ Missing | No `@sentry` reference anywhere in the repo. |
-| 33 | Kubernetes | ✅ Used | `k8s/` holds real manifests for all 11 services — present and complete, not verified deployed. |
-| 34 | GitHub Actions CI/CD | ✅ Used | `.github/workflows/ci.yml` — real build/lint/test plus a per-service Docker build matrix. |
-| 35 | CDN / SSL / Object storage | ❌ Missing | No Cloudflare, Let's Encrypt, or S3-compatible/`aws-sdk` config anywhere. |
-| 36 | ESC/POS printing | ❌ Missing | `PosTouchPage` in both `web-pos` and `desktop-pos` just calls `window.print()` — no printer or cash-drawer driver. |
+| Item | Implementation |
+|---|---|
+| Password reset, email verification, staff invites | 6-digit OTPs (hashed, attempt-limited) via `/password/*`, `/verify-email*`; wired admin pages |
+| Reports & Analytics page (was mock data) | `reporting-service` `/reports/analytics`, PDF/XLSX export (pdfkit/exceljs), scheduled email reports (node-cron) |
+| Terminal fleet page (was mock data) | Real devices + heartbeat telemetry; remote "force sync" over Socket.IO |
+| Redis + BullMQ | Notification queue and payment-completion retries (fail-fast fallback to HTTP) |
+| Multer + object storage | Product image upload to S3/R2/MinIO (local disk fallback for dev) |
+| Sentry | `initObservability` in every service (enabled by `SENTRY_DSN`) |
+| Payment gateways | Razorpay, Cashfree, PhonePe adapters (orders, webhooks, refunds) |
+| SMS / WhatsApp / payment alerts | Twilio channels; payment captured/refunded alerts |
+| ESC/POS printing & cash drawer | Shared encoder; Web Serial (web POS), TCP 9100 + silent OS print (desktop POS) |
+| Cashier leaderboard | `Invoice.createdById` recorded at checkout |
+| Tests | Unit tests (pricing, errors, tokens/RBAC, gateway signatures, ESC/POS) + `scripts/smoke-test.mjs` |
+| Infra | Compose: env-driven credentials, ES security on, MinIO, Redis AOF. K8s: pinned images (kustomize), HPAs, 2 replicas, cert-manager TLS, `/socket.io` ingress route |
 
 ---
 
-## Checklist B — SOW Modules
+## Remaining gaps
 
-| # | Module | Status | Evidence |
-|---|--------|--------|----------|
-| 1 | Module 1 — SaaS Management | 🟡 Partial | Tenant CRUD, plans, activation/suspension and white-label branding are real (`subscription-service/routes/tenants.ts`). Self-serve registration is fake — `RegisterPage` shows a toast with no API call — and storage/usage tracking is a hardcoded literal. |
-| 2 | Module 4 — POS Billing | 🟡 Partial | Hold, split, merge and refund are real Prisma transactions (`billing-service`, `sales-service`). No dedicated routes for advance payments, credit billing or partial payments beyond the base Payment model. |
-| 3 | Module 5 — Inventory (batching/bundles) | ❌ Missing | No batch tracking, serial numbers, product bundles/combos or dead-stock reports — absent from both the schema and the routes. |
-| 4 | Module 6 — Purchase (GRN/Returns/Ledger) | ❌ Missing | `purchase-service` only has `purchaseOrders.ts` and `suppliers.ts`. No GRN model, no purchase returns, no vendor ledger — a PO just flips straight to `RECEIVED`. |
-| 5 | Module 7 — Sales documents | ❌ Missing | No quotations, estimates, delivery challans, credit notes or debit notes anywhere in the schema or `sales-service` routes. |
-| 6 | Module 8 — Warehouse | 🟡 Partial | Transfers are real. Racks are a single `totalRacks` counter with no location assignment; no expiry or damaged-goods tracking. |
-| 7 | Module 9 — Customer | 🟡 Partial | Loyalty points and tiers are real, wired to real UI (`CustomersPage.tsx`, not mock data). Customer wallet, membership tiers and birthday offers don't exist. |
-| 8 | Module 11 — GST & Tax | ✅ Used | GSTR1/GSTR3B filing with ARN generation, and a real tax summary computed from live invoice and PO line items (`sales-service/routes/gst.ts`). |
-| 9 | Module 12 — Hardware integration | ❌ Missing | No printer, scanner or cash-drawer driver code anywhere — barcode scanning is camera-based software only. |
-| 10 | Module 13 — Offline billing | 🟡 Partial | Genuinely offline-first on `web-pos` and `desktop-pos` — queued sales, idempotent replay on reconnect. Conflict resolution is minimal, and mobile has no offline story at all. |
-| 11 | Module 15 — Mobile applications | ❌ Missing | All three apps (owner/manager/cashier) are empty Expo scaffolds — one placeholder screen each, nothing wired to the API. |
-| 12 | Module 16 — Notifications | 🟡 Partial | Low-stock emails genuinely fire on real inventory events. Nothing exists for SMS, push, or payment alerts. |
-| 13 | Module 18 — Security | ✅ Used | 2FA is real TOTP via `speakeasy` with an actual verification step, not just a boolean flag. Audit logging is real and wired across auth and tenant actions. |
-
----
-
-*Generated by reading both source documents in full and tracing every claim to a file. Companion visual version: [Coverage Receipt](https://claude.ai/code/artifact/ada28f26-8aaf-4e5a-81e6-31e09b8e2e67).*
+| # | Gap | Notes |
+|---|---|---|
+| 1 | **Mobile apps (owner/manager/cashier)** | Out of scope by decision; still Expo placeholders. The backend APIs they need exist. |
+| 2 | Push notifications | Depends on the mobile apps (needs device push tokens). |
+| 3 | Operating expenses in P&L | No expense ledger yet; the P&L shows profit before overheads and says so. |
+| 4 | Horizontal scaling of sync/reporting | `synchronization-service` needs the Socket.IO Redis adapter + sticky sessions; `reporting-service` cron needs leader election before >1 replica. |
+| 5 | PhonePe API version | Implemented against the v1 salt-key API; merchants onboarded on PhonePe's newer OAuth (v2) API need an adapter update. Sandbox-verify all gateways with real credentials. |
+| 6 | Integration tests in CI | Unit tests run in CI; the smoke test needs a running stack (DB, Redis, ES) and is run manually. |
