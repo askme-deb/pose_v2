@@ -6,7 +6,7 @@ metadata:
   labels:
     app: sales-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: sales-service
@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: sales-service
-          image: pospe/sales-service:latest
+          image: pospe/sales-service
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4005
           envFrom:

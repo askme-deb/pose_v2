@@ -6,6 +6,8 @@ metadata:
   labels:
     app: synchronization-service
 spec:
+  # Single replica: Socket.IO rooms live in process memory. Scaling out needs
+  # the @socket.io/redis-adapter plus sticky sessions on the ingress.
   replicas: 1
   selector:
     matchLabels:
@@ -17,7 +19,8 @@ spec:
     spec:
       containers:
         - name: synchronization-service
-          image: pospe/synchronization-service:latest
+          image: pospe/synchronization-service
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4010
           envFrom:

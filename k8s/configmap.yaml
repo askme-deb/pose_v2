@@ -8,9 +8,15 @@ metadata:
   namespace: pospe
 data:
   NODE_ENV: "production"
-  ELASTICSEARCH_URL: "http://elasticsearch:9200"
+  # ELASTICSEARCH_URL lives in the Secret (it carries credentials).
   SMTP_HOST: "smtp"
-  SMTP_PORT: "1025"
+  SMTP_PORT: "587"
+  # ingress-nginx in front of the gateway: one trusted proxy hop.
+  TRUST_PROXY_HOPS: "1"
+  # Scheduled report emails (reporting-service), Asia/Kolkata.
+  REPORT_CRON: "0 8 * * *"
+  # Held-bill payment completion retry sweep (payment-service).
+  PAYMENT_SWEEP_INTERVAL_MS: "300000"
 
   # Gateway → downstream-service routing (services/api-gateway/src/routes/proxy.ts).
   # Targets are this namespace's ClusterIP Service names — every non-gateway

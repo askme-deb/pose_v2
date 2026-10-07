@@ -6,7 +6,7 @@ metadata:
   labels:
     app: authentication
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: authentication
@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: authentication
-          image: pospe/authentication:latest
+          image: pospe/authentication
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4001
           envFrom:

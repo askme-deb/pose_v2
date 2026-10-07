@@ -6,6 +6,7 @@ metadata:
   labels:
     app: reporting-service
 spec:
+  # Single replica: its cron job would run once per replica (duplicate emails).
   replicas: 1
   selector:
     matchLabels:
@@ -17,7 +18,8 @@ spec:
     spec:
       containers:
         - name: reporting-service
-          image: pospe/reporting-service:latest
+          image: pospe/reporting-service
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4009
           envFrom:

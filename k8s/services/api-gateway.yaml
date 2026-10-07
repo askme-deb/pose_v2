@@ -6,7 +6,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: api-gateway
@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: pospe/api-gateway:latest
+          image: pospe/api-gateway
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000
           envFrom:

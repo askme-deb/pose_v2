@@ -1,0 +1,40 @@
+# kubectl apply -k k8s/   (after creating secret.yaml from secret.example.yaml)
+#
+# Images are pinned here instead of :latest so a deploy is reproducible and
+# rollbacks are a one-line change. CI sets the tag per release, e.g.:
+#   cd k8s && kustomize edit set image pospe/sales-service=pospe/sales-service:$GIT_SHA
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pospe
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - cluster-issuer.yaml
+  - ingress.yaml
+  - autoscaling.yaml
+  - services/api-gateway.yaml
+  - services/authentication.yaml
+  - services/billing-service.yaml
+  - services/inventory-service.yaml
+  - services/notification-service.yaml
+  - services/payment-service.yaml
+  - services/purchase-service.yaml
+  - services/reporting-service.yaml
+  - services/sales-service.yaml
+  - services/subscription-service.yaml
+  - services/synchronization-service.yaml
+
+images:
+  - { name: pospe/api-gateway, newTag: "0.1.0" }
+  - { name: pospe/authentication, newTag: "0.1.0" }
+  - { name: pospe/billing-service, newTag: "0.1.0" }
+  - { name: pospe/inventory-service, newTag: "0.1.0" }
+  - { name: pospe/notification-service, newTag: "0.1.0" }
+  - { name: pospe/payment-service, newTag: "0.1.0" }
+  - { name: pospe/purchase-service, newTag: "0.1.0" }
+  - { name: pospe/reporting-service, newTag: "0.1.0" }
+  - { name: pospe/sales-service, newTag: "0.1.0" }
+  - { name: pospe/subscription-service, newTag: "0.1.0" }
+  - { name: pospe/synchronization-service, newTag: "0.1.0" }

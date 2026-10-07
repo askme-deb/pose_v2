@@ -18,3 +18,4 @@ out/
 !.vscode/extensions.json
 release/
 *.tsbuildinfo
+uploads/

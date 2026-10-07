@@ -6,7 +6,7 @@ metadata:
   labels:
     app: subscription-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: subscription-service
@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: subscription-service
-          image: pospe/subscription-service:latest
+          image: pospe/subscription-service
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4008
           envFrom:
