@@ -40,7 +40,7 @@ function LineItemsEditor({
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Line Items *</p>
+      <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Line Items *</p>
       {items.map((item, idx) => (
         <div key={idx} className="grid grid-cols-12 gap-2 items-end p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <div className="col-span-8">
@@ -231,7 +231,7 @@ export default function SalesDocumentsPage() {
     { header: 'Number', accessorKey: 'quoteNumber', cell: ({ row }) => (
       <div>
         <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.quoteNumber}</p>
-        <p className="text-[10px] text-slate-400">{row.original.kind === 'ESTIMATE' ? 'Estimate' : 'Quotation'}</p>
+        <p className="text-[11px] text-slate-400">{row.original.kind === 'ESTIMATE' ? 'Estimate' : 'Quotation'}</p>
       </div>
     ) },
     { header: 'Customer', accessorKey: 'customerName' },
@@ -270,7 +270,7 @@ export default function SalesDocumentsPage() {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
-          {q.status === 'CONVERTED' && <span className="text-[10px] text-slate-400">Invoiced</span>}
+          {q.status === 'CONVERTED' && <span className="text-[11px] text-slate-400">Invoiced</span>}
         </div>
       );
     } },
@@ -282,10 +282,10 @@ export default function SalesDocumentsPage() {
     { header: 'Transport', id: 'transport', cell: ({ row }) => (
       <div>
         <p className="text-slate-700 dark:text-slate-300">{row.original.vehicleNumber ?? '—'}</p>
-        <p className="text-[10px] text-slate-400">{row.original.transporterName ?? ''}</p>
+        <p className="text-[11px] text-slate-400">{row.original.transporterName ?? ''}</p>
       </div>
     ) },
-    { header: 'Items', id: 'items', cell: ({ row }) => <span className="text-[11px] text-slate-500">{row.original.items.map((i) => `${i.quantity}× ${i.productName}`).join(', ')}</span> },
+    { header: 'Items', id: 'items', cell: ({ row }) => <span className="text-[12px] text-slate-500">{row.original.items.map((i) => `${i.quantity}× ${i.productName}`).join(', ')}</span> },
     { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => {
       const s = getValue() as string;
       return <Badge color={challanStatusColor[s]} dot pill>{s}</Badge>;
@@ -316,7 +316,7 @@ export default function SalesDocumentsPage() {
 
   const creditColumns: ColumnDef<LiveCreditNote, any>[] = [
     { header: 'Number', accessorKey: 'creditNoteNumber' },
-    { header: 'Against Invoice', accessorKey: 'invoiceNumber', cell: ({ getValue }) => <span className="font-mono text-[11px]">{(getValue() as string) ?? '—'}</span> },
+    { header: 'Against Invoice', accessorKey: 'invoiceNumber', cell: ({ getValue }) => <span className="font-mono text-[12px]">{(getValue() as string) ?? '—'}</span> },
     { header: 'Customer', accessorKey: 'customerName' },
     { header: 'Reason', accessorKey: 'reason', cell: ({ getValue }) => <span className="text-slate-600 dark:text-slate-300">{getValue() as string}</span> },
     { header: 'Amount', accessorKey: 'total', cell: ({ getValue }) => <span className="font-bold text-rose-600 dark:text-rose-400">-{formatINR(getValue() as number)}</span> },
@@ -326,13 +326,13 @@ export default function SalesDocumentsPage() {
         <button onClick={() => runAction('Credit note cancelled', () => cancelCreditNote(row.original.id))} className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-rose-600 hover:text-white" title="Cancel">
           <X className="w-3.5 h-3.5" />
         </button>
-      ) : <span className="text-[10px] text-slate-400">&mdash;</span>,
+      ) : <span className="text-[11px] text-slate-400">&mdash;</span>,
     },
   ];
 
   const debitColumns: ColumnDef<LiveDebitNote, any>[] = [
     { header: 'Number', accessorKey: 'debitNoteNumber' },
-    { header: 'Against Invoice', accessorKey: 'invoiceNumber', cell: ({ getValue }) => <span className="font-mono text-[11px]">{(getValue() as string) ?? '—'}</span> },
+    { header: 'Against Invoice', accessorKey: 'invoiceNumber', cell: ({ getValue }) => <span className="font-mono text-[12px]">{(getValue() as string) ?? '—'}</span> },
     { header: 'Customer', accessorKey: 'customerName' },
     { header: 'Reason', accessorKey: 'reason', cell: ({ getValue }) => <span className="text-slate-600 dark:text-slate-300">{getValue() as string}</span> },
     { header: 'Amount', accessorKey: 'amount', cell: ({ getValue }) => <span className="font-bold text-amber-600 dark:text-amber-400">+{formatINR(getValue() as number)}</span> },
@@ -342,7 +342,7 @@ export default function SalesDocumentsPage() {
         <button onClick={() => runAction('Debit note cancelled', () => cancelDebitNote(row.original.id))} className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-500 hover:bg-rose-600 hover:text-white" title="Cancel">
           <X className="w-3.5 h-3.5" />
         </button>
-      ) : <span className="text-[10px] text-slate-400">&mdash;</span>,
+      ) : <span className="text-[11px] text-slate-400">&mdash;</span>,
     },
   ];
 

@@ -480,7 +480,7 @@ export default function UserRolesPage() {
 
   function handleExportRBAC() {
     downloadCSV(
-      'ApexPOS_RBAC_Roles_Matrix.csv',
+      'Pospe_RBAC_Roles_Matrix.csv',
       ['Role Title', 'Role Code', 'Access Scope', 'POS View', 'POS Create', 'Inventory View', 'Inventory Edit', 'Finance View', 'CRM View'],
       rolesState.map((r) => [
         r.title,
@@ -499,7 +499,7 @@ export default function UserRolesPage() {
 
   function handleExportLogs() {
     downloadCSV(
-      'ApexPOS_RBAC_Audit_Logs.csv',
+      'Pospe_RBAC_Audit_Logs.csv',
       ['Timestamp', 'Actor', 'Event Type', 'Details', 'IP Address', 'Risk Rating'],
       auditState.map((l) => [formatDateTime(l.timestamp), l.actor, l.eventType, l.details, l.ipAddress, l.riskRating]),
     );
@@ -515,7 +515,7 @@ export default function UserRolesPage() {
           <Avatar name={row.original.fullName} className="bg-gradient-to-tr from-teal-500 to-emerald-600" />
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white">{row.original.fullName}</h4>
-            <p className="text-[10px] text-slate-400 font-mono">{row.original.email}</p>
+            <p className="text-[11px] text-slate-400 font-mono">{row.original.email}</p>
           </div>
         </div>
       ),
@@ -537,11 +537,11 @@ export default function UserRolesPage() {
       accessorFn: (u) => u.twoFaEnabled,
       cell: ({ row }) =>
         row.original.twoFaEnabled ? (
-          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400">
             <ShieldCheck className="w-3.5 h-3.5" /> Enforced
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-500">
+          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-500">
             <AlertTriangle className="w-3.5 h-3.5" /> Optional
           </span>
         ),
@@ -561,7 +561,7 @@ export default function UserRolesPage() {
       accessorKey: 'lastActivityAt',
       cell: ({ getValue }) => {
         const v = getValue() as string | null;
-        return <span className="text-slate-400 text-[11px]">{v ? formatDateTime(v) : 'Never'}</span>;
+        return <span className="text-slate-400 text-[12px]">{v ? formatDateTime(v) : 'Never'}</span>;
       },
     },
     {
@@ -570,7 +570,7 @@ export default function UserRolesPage() {
       cell: ({ row }) => (
         <button
           onClick={() => openUserModal(row.original)}
-          className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-[11px] transition"
+          className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-[12px] transition"
         >
           Edit Role
         </button>
@@ -582,7 +582,7 @@ export default function UserRolesPage() {
     {
       header: 'Timestamp',
       accessorKey: 'timestamp',
-      cell: ({ getValue }) => <span className="text-slate-400 font-mono text-[11px]">{formatDateTime(getValue() as string)}</span>,
+      cell: ({ getValue }) => <span className="text-slate-400 font-mono text-[12px]">{formatDateTime(getValue() as string)}</span>,
     },
     {
       header: 'Actor',
@@ -593,7 +593,7 @@ export default function UserRolesPage() {
       header: 'Event Type',
       accessorKey: 'eventType',
       cell: ({ getValue }) => (
-        <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-bold text-[10px]">
+        <span className="px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono font-bold text-[11px]">
           {getValue() as string}
         </span>
       ),
@@ -606,7 +606,7 @@ export default function UserRolesPage() {
     {
       header: 'IP Address',
       accessorKey: 'ipAddress',
-      cell: ({ getValue }) => <span className="font-mono text-slate-400 text-[10px]">{getValue() as string}</span>,
+      cell: ({ getValue }) => <span className="font-mono text-slate-400 text-[11px]">{getValue() as string}</span>,
     },
     {
       header: 'Risk Rating',
@@ -724,25 +724,25 @@ export default function UserRolesPage() {
                           </div>
                           <div>
                             <h3 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-teal-600 transition">{role.title}</h3>
-                            <p className="text-[10px] font-mono text-slate-400">{role.code}</p>
+                            <p className="text-[11px] font-mono text-slate-400">{role.code}</p>
                           </div>
                         </div>
-                        <span className={cn('px-2 py-0.5 rounded-lg text-[10px] font-bold border', c.bg, c.text, c.border)}>{role.accessScope}</span>
+                        <span className={cn('px-2 py-0.5 rounded-lg text-[11px] font-bold border', c.bg, c.text, c.border)}>{role.accessScope}</span>
                       </div>
 
                       <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{role.description}</p>
 
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                           🛒 POS: {summary.pos}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                           📦 Inv: {summary.inventory}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                           💰 Fin: {summary.finance}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300">
                           👥 CRM: {summary.crm}
                         </span>
                       </div>
@@ -771,7 +771,7 @@ export default function UserRolesPage() {
                             <Trash2 className="w-4 h-4" />
                           </button>
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">System Role</span>
+                          <span className="text-[11px] text-slate-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">System Role</span>
                         )}
                       </div>
                     </div>
@@ -813,7 +813,7 @@ export default function UserRolesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold bg-slate-50/50 dark:bg-slate-900/50">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[12px] uppercase tracking-wider text-slate-400 font-extrabold bg-slate-50/50 dark:bg-slate-900/50">
                   <th className="py-3 px-4 rounded-l-xl">Module & Action Scope</th>
                   {rolesState.map((r) => (
                     <th key={r.id} className="py-3 px-4 whitespace-nowrap">
@@ -831,7 +831,7 @@ export default function UserRolesPage() {
                           <span className="text-xs">
                             {mod.icon} {mod.matrixLabel}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-500 font-mono">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 font-mono">
                             {action.toUpperCase()}
                           </span>
                         </div>
@@ -987,7 +987,7 @@ export default function UserRolesPage() {
                     <span>
                       {mod.icon} {mod.drawerLabel}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-normal">{mod.drawerGroup}</span>
+                    <span className="text-[11px] text-slate-400 font-normal">{mod.drawerGroup}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {rbacActions.map((action) => (

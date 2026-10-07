@@ -215,7 +215,7 @@ export default function BusinessProfilePage() {
     [receiptSubtotal, profile?.defaultTaxSlab],
   );
   const receiptTotal = Math.round((receiptSubtotal + receiptTax) * 100) / 100;
-  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=apexpos@icici%26pn=ApexSupermarket%26am=${receiptTotal}`;
+  const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi://pay?pa=pospe@icici%26pn=ApexSupermarket%26am=${receiptTotal}`;
 
   if (loading || !profile) {
     return (
@@ -233,7 +233,7 @@ export default function BusinessProfilePage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Business Profile & Settings</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> GST Verified &bull; {profile.registeredName}
             </span>
           </div>
@@ -272,7 +272,7 @@ export default function BusinessProfilePage() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">General Business Identity & Branding</h3>
               <p className="text-xs text-slate-400">Primary legal entity information displayed across customer invoices and public receipts.</p>
             </div>
-            <span className="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 font-bold text-[10px]">Supermarket & Hypermarket Retail</span>
+            <span className="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 font-bold text-[11px]">Supermarket & Hypermarket Retail</span>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -296,7 +296,7 @@ export default function BusinessProfilePage() {
                 <Button type="button" size="sm" variant="ghost" onClick={() => logoInputRef.current?.click()}>
                   Upload Brand Logo
                 </Button>
-                <p className="text-[10px] text-slate-400 mt-1">PNG, SVG or JPG (Max 2MB)</p>
+                <p className="text-[11px] text-slate-400 mt-1">PNG, SVG or JPG (Max 2MB)</p>
               </div>
             </div>
 
@@ -327,7 +327,7 @@ export default function BusinessProfilePage() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Taxation, GSTIN & Invoice Numbering Rules</h3>
               <p className="text-xs text-slate-400">Set statutory tax numbers, automatic invoice serial prefixing, HSN codes, and currency formatting.</p>
             </div>
-            <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[10px]">India GST Compliant (CGST + SGST / IGST)</span>
+            <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">India GST Compliant (CGST + SGST / IGST)</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -370,16 +370,16 @@ export default function BusinessProfilePage() {
                         <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{b.name}</h4>
                         {b.isPrimary && <Badge color="blue">Primary HQ</Badge>}
                       </div>
-                      <p className="text-[10px] font-mono text-slate-400">
+                      <p className="text-[11px] font-mono text-slate-400">
                         {b.code} &bull; {branchTypeOptions.find((t) => t.value === b.type)?.label ?? b.type}
                       </p>
                     </div>
-                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                    <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                       {b.printers} Printers Linked
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{b.address}</p>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                  <div className="grid grid-cols-2 gap-2 text-[12px] pt-1">
                     <div>
                       <span className="text-slate-400">Manager:</span> <span className="font-bold text-slate-700 dark:text-slate-200">{b.manager}</span>
                     </div>
@@ -389,7 +389,7 @@ export default function BusinessProfilePage() {
                   </div>
                 </div>
                 <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Online & Syncing
                   </span>
                   <Button size="sm" variant="secondary" onClick={() => openBranchDrawer(b)}>
@@ -410,7 +410,7 @@ export default function BusinessProfilePage() {
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Thermal POS Receipt Template Customizer</h3>
                 <p className="text-xs text-slate-400">Configure receipt headers, footers, terms, and printer width specs.</p>
               </div>
-              <span className="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 font-bold text-[10px]">{profile.receiptPaperWidth} ESC/POS Thermal</span>
+              <span className="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 font-bold text-[11px]">{profile.receiptPaperWidth} ESC/POS Thermal</span>
             </div>
 
             <Input label="Receipt Header Title (Store Name)" required className="font-mono font-bold" value={profile.receiptHeader} onChange={(e) => setField('receiptHeader', e.target.value)} />
@@ -438,11 +438,11 @@ export default function BusinessProfilePage() {
 
             <div className="bg-amber-50/70 dark:bg-slate-950 p-5 rounded-2xl border border-amber-200/70 dark:border-slate-800 font-mono text-xs shadow-inner space-y-2 text-slate-900 dark:text-slate-100 text-center">
               <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase">{profile.receiptHeader}</h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">{profile.receiptSubHeader}</p>
-              <p className="text-[10px] text-slate-400">GSTIN: {profile.gstin}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">{profile.receiptSubHeader}</p>
+              <p className="text-[11px] text-slate-400">GSTIN: {profile.gstin}</p>
               <div className="border-b border-dashed border-slate-400 dark:border-slate-700 my-2" />
 
-              <div className="flex justify-between text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="flex justify-between text-[12px] text-slate-500 dark:text-slate-400">
                 <span>Date: {new Date().toLocaleString('en-IN')}</span>
                 <span>
                   Inv: #{profile.invoicePrefix}
@@ -451,7 +451,7 @@ export default function BusinessProfilePage() {
               </div>
               <div className="border-b border-dashed border-slate-400 dark:border-slate-700 my-2" />
 
-              <div className="space-y-1 text-left text-[11px]">
+              <div className="space-y-1 text-left text-[12px]">
                 {sampleReceiptItems.map((item) => (
                   <div key={item.label} className="flex justify-between">
                     <span>{item.label}</span>
@@ -461,7 +461,7 @@ export default function BusinessProfilePage() {
               </div>
               <div className="border-b border-dashed border-slate-400 dark:border-slate-700 my-2" />
 
-              <div className="space-y-1 text-right text-[11px]">
+              <div className="space-y-1 text-right text-[12px]">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
                   <span>{formatINR(receiptSubtotal)}</span>
@@ -481,14 +481,14 @@ export default function BusinessProfilePage() {
                 <>
                   <div className="py-2">
                     <img src={qrDataUrl} alt="UPI QR" className="w-24 h-24 mx-auto rounded bg-white p-1 border border-slate-300" />
-                    <p className="text-[9px] text-slate-400 mt-1">Scan UPI QR to Pay & Verify</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Scan UPI QR to Pay & Verify</p>
                   </div>
                   <div className="border-b border-dashed border-slate-400 dark:border-slate-700 my-2" />
                 </>
               )}
 
-              <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{profile.receiptFooter}</p>
-              <p className="text-[9px] text-slate-400 mt-1">{profile.receiptReturnPolicy}</p>
+              <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{profile.receiptFooter}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{profile.receiptReturnPolicy}</p>
             </div>
           </GlassCard>
         </div>
@@ -501,7 +501,7 @@ export default function BusinessProfilePage() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">API Credentials & Cloud Integrations</h3>
               <p className="text-xs text-slate-400">Manage payment gateway webhooks, WhatsApp receipt APIs, and automated backup schedules.</p>
             </div>
-            <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[10px]">2 Services Connected</span>
+            <span className="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">2 Services Connected</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -513,13 +513,13 @@ export default function BusinessProfilePage() {
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">Razorpay POS Gateway</h4>
-                    <p className="text-[10px] text-slate-400">Card EDC & UPI QR Payments</p>
+                    <p className="text-[11px] text-slate-400">Card EDC & UPI QR Payments</p>
                   </div>
                 </div>
                 <Badge color="emerald">Connected</Badge>
               </div>
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px] uppercase tracking-wide">Razorpay Key ID</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[12px] uppercase tracking-wide">Razorpay Key ID</label>
                 <div className="flex gap-2">
                   <input type="password" readOnly value={profile.razorpayKeyId} className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs outline-none" />
                   <Button size="sm" variant="secondary" onClick={copyRazorpayKey}>
@@ -537,13 +537,13 @@ export default function BusinessProfilePage() {
                   </div>
                   <div>
                     <h4 className="font-extrabold text-xs text-slate-900 dark:text-white">WhatsApp Business API</h4>
-                    <p className="text-[10px] text-slate-400">Automated PDF Receipt Dispatch</p>
+                    <p className="text-[11px] text-slate-400">Automated PDF Receipt Dispatch</p>
                   </div>
                 </div>
                 <Badge color="emerald">Connected</Badge>
               </div>
               <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[11px] uppercase tracking-wide">WhatsApp Business Phone ID</label>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-[12px] uppercase tracking-wide">WhatsApp Business Phone ID</label>
                 <div className="flex gap-2">
                   <input type="text" readOnly value={profile.whatsappPhoneId} className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono text-xs outline-none" />
                   <Button size="sm" variant="secondary" onClick={testWhatsApp}>

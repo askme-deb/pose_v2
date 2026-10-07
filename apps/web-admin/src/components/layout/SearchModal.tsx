@@ -73,7 +73,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
           {searching ? (
             <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin shrink-0" />
           ) : (
-            <kbd className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">
+            <kbd className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">
               ESC
             </kbd>
           )}
@@ -89,7 +89,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
             <div className="space-y-3">
               {entityResults.products.length > 0 && (
                 <div className="space-y-0.5">
-                  <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Products</p>
+                  <p className="px-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Products</p>
                   {entityResults.products.map((p) => (
                     <button
                       key={p._id}
@@ -98,14 +98,14 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
                     >
                       <Package className="w-4 h-4 text-indigo-600 shrink-0" />
                       <span className="flex-1 truncate">{p.name}</span>
-                      <span className="text-slate-400 font-mono text-[11px]">{p.sku}</span>
+                      <span className="text-slate-400 font-mono text-[12px]">{p.sku}</span>
                     </button>
                   ))}
                 </div>
               )}
               {entityResults.customers.length > 0 && (
                 <div className="space-y-0.5">
-                  <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Customers</p>
+                  <p className="px-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Customers</p>
                   {entityResults.customers.map((c) => (
                     <button
                       key={c._id}
@@ -114,14 +114,14 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
                     >
                       <Users className="w-4 h-4 text-pink-600 shrink-0" />
                       <span className="flex-1 truncate">{c.name}</span>
-                      <span className="text-slate-400 text-[11px]">{c.email || c.phone || ''}</span>
+                      <span className="text-slate-400 text-[12px]">{c.email || c.phone || ''}</span>
                     </button>
                   ))}
                 </div>
               )}
               {entityResults.invoices.length > 0 && (
                 <div className="space-y-0.5">
-                  <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Invoices</p>
+                  <p className="px-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Invoices</p>
                   {entityResults.invoices.map((inv) => (
                     <button
                       key={inv._id}
@@ -130,7 +130,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
                     >
                       <Receipt className="w-4 h-4 text-blue-600 shrink-0" />
                       <span className="flex-1 truncate">{inv.invoiceNumber} &middot; {inv.customerName}</span>
-                      <span className="text-slate-400 font-mono text-[11px]">{formatINR(inv.total)}</span>
+                      <span className="text-slate-400 font-mono text-[12px]">{formatINR(inv.total)}</span>
                     </button>
                   ))}
                 </div>
@@ -144,7 +144,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
           {results.length > 0 && (
             <div className="space-y-0.5">
               {hasEntityResults && (
-                <p className="px-3 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Pages</p>
+                <p className="px-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Pages</p>
               )}
               {results.map((link) => (
                 <button

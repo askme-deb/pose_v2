@@ -94,7 +94,7 @@ input[type='date']::-webkit-calendar-picker-indicator { cursor: pointer; filter:
 .dark input[type='date']::-webkit-calendar-picker-indicator { filter: invert(0.8) sepia(1) saturate(5) hue-rotate(185deg); }
 input[type='date']:hover::-webkit-calendar-picker-indicator { transform: scale(1.15); }
 
-/* Custom Floating ApexPOS Calendar Popover */
+/* Custom Floating Pospe Calendar Popover */
 #apex-calendar-popover {
   z-index: 9999; width: 320px;
   background: rgba(255, 255, 255, 0.95);

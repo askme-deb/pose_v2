@@ -246,7 +246,7 @@ export default function GstReportsPage() {
       header: 'Filing Details & ARN',
       accessorFn: (r) => r.arn,
       cell: ({ row }) => (
-        <div className="text-[10px] font-mono text-slate-500">
+        <div className="text-[11px] font-mono text-slate-500">
           {row.original.status === 'FILED' ? `ARN: ${row.original.arn}` : 'Return not yet filed'}
         </div>
       ),
@@ -295,7 +295,7 @@ export default function GstReportsPage() {
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               GST Tax Compliance & Return Filing Suite
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> GSTIN: 27AAAAA0000A1Z5 &bull; Q2 FY 2026-27
               Compliant
             </span>

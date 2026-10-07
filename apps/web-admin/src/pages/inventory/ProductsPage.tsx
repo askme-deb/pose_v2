@@ -523,7 +523,7 @@ export default function ProductsPage() {
                   </div>
                   <div className="p-3 space-y-1.5">
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-100 line-clamp-2 min-h-[2rem]">{p.name}</p>
-                    <p className="text-[10px] font-mono text-slate-400">{p.sku}</p>
+                    <p className="text-[11px] font-mono text-slate-400">{p.sku}</p>
                     <div className="flex items-center justify-between pt-1">
                       <span className="text-sm font-black text-slate-900 dark:text-white">{formatINR(p.sellingPrice)}</span>
                       <Badge color={s.color} pill>
@@ -533,13 +533,13 @@ export default function ProductsPage() {
                     <div className="flex items-center gap-1.5 pt-2">
                       <button
                         onClick={() => openEditDrawer(p)}
-                        className="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold hover:text-purple-600 transition flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:text-purple-600 transition flex items-center justify-center gap-1"
                       >
                         <Pencil className="w-3 h-3" /> Edit
                       </button>
                       <button
                         onClick={() => setBarcodeProduct(p)}
-                        className="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold hover:text-purple-600 transition flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:text-purple-600 transition flex items-center justify-center gap-1"
                       >
                         <BarcodeIcon className="w-3 h-3" /> Label
                       </button>
@@ -674,7 +674,7 @@ export default function ProductsPage() {
               }}
               className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold"
             />
-            <p className="text-[10px] text-slate-400">JPEG, PNG or WebP up to 5 MB. Or paste an image URL below.</p>
+            <p className="text-[11px] text-slate-400">JPEG, PNG or WebP up to 5 MB. Or paste an image URL below.</p>
           </div>
           <Input
             label="Product Image URL (optional)"
@@ -855,8 +855,8 @@ export default function ProductsPage() {
                   <div key={p.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs">
                     <div>
                       <p className="font-bold text-slate-800 dark:text-slate-100">{p.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{p.sku} &bull; {p.categoryName} &bull; {p.stockQty} in stock</p>
-                      <p className="text-[10px] text-slate-400">{p.lastSoldAt ? `Last sold ${formatDate(p.lastSoldAt)}` : 'Never sold'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{p.sku} &bull; {p.categoryName} &bull; {p.stockQty} in stock</p>
+                      <p className="text-[11px] text-slate-400">{p.lastSoldAt ? `Last sold ${formatDate(p.lastSoldAt)}` : 'Never sold'}</p>
                     </div>
                     <span className="font-bold text-amber-600 dark:text-amber-400">{formatINR(p.capitalTiedUp)}</span>
                   </div>

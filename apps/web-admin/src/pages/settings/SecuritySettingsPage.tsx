@@ -146,10 +146,10 @@ export default function SecuritySettingsPage() {
               code it shows to finish enabling 2FA.
             </p>
             <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-              <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Manual entry key</p>
+              <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider">Manual entry key</p>
               <p className="font-mono text-sm font-bold text-slate-900 dark:text-white break-all select-all">{setup.secret}</p>
-              <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider pt-2">Setup URI</p>
-              <p className="font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all select-all">{setup.otpauthUrl}</p>
+              <p className="text-[11px] font-extrabold uppercase text-slate-400 tracking-wider pt-2">Setup URI</p>
+              <p className="font-mono text-[12px] text-slate-600 dark:text-slate-300 break-all select-all">{setup.otpauthUrl}</p>
             </div>
             <div className="flex items-end gap-3">
               <Input

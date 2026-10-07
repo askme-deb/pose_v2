@@ -151,7 +151,25 @@ export async function checkoutInvoice(params: CheckoutParams) {
         where: { tenantId },
         data: { nextInvoiceNumber: { increment: 1 } },
       });
-      const invoiceNumber = `${profile.invoicePrefix}${profile.nextInvoiceNumber - 1}`;
+      let invoiceNumber = `${profile.invoicePrefix}${profile.nextInvoiceNumber - 1}`;
+
+      // The counter can fall behind invoices that already exist (a re-seed,
+      // or someone lowering it in Business Profile settings). Rather than
+      // failing every checkout on the unique constraint, resume after the
+      // highest number already issued with this prefix.
+      const taken = await tx.invoice.findFirst({ where: { storeId, invoiceNumber }, select: { id: true } });
+      if (taken) {
+        const prefix = profile.invoicePrefix;
+        const [{ highest }] = await tx.$queryRaw<{ highest: bigint | null }[]>`
+          SELECT MAX(SUBSTRING(i."invoiceNumber" FROM ${prefix.length + 1}::int)::bigint) AS highest
+          FROM invoices i JOIN stores s ON s.id = i."storeId"
+          WHERE s."tenantId" = ${tenantId}
+            AND LEFT(i."invoiceNumber", ${prefix.length}::int) = ${prefix}
+            AND SUBSTRING(i."invoiceNumber" FROM ${prefix.length + 1}::int) ~ '^[0-9]+$'`;
+        const next = Number(highest ?? 0) + 1;
+        await tx.tenantProfile.update({ where: { tenantId }, data: { nextInvoiceNumber: next + 1 } });
+        invoiceNumber = `${prefix}${next}`;
+      }
 
       // Discount first, then GST on the discounted value (see computeInvoiceTotals).
       const totals = computeInvoiceTotals(

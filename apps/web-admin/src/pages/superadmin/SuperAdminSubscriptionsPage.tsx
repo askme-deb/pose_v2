@@ -160,7 +160,7 @@ export default function SuperAdminSubscriptionsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ApexPOS_Subscription_Invoices_Ledger.csv';
+    a.download = 'Pospe_Subscription_Invoices_Ledger.csv';
     a.click();
     window.URL.revokeObjectURL(url);
     showToast('Subscription Invoices Exported to CSV!', 'success');
@@ -177,7 +177,7 @@ export default function SuperAdminSubscriptionsPage() {
       cell: ({ row }) => (
         <div>
           <div className="font-mono font-bold text-slate-900 dark:text-white">{row.original.id}</div>
-          <div className="text-[10px] text-slate-400">{formatDate(row.original.date)}</div>
+          <div className="text-[11px] text-slate-400">{formatDate(row.original.date)}</div>
         </div>
       ),
     },
@@ -197,7 +197,7 @@ export default function SuperAdminSubscriptionsPage() {
         <div className="flex justify-end">
           <button
             onClick={() => setSelectedInvoice(row.original)}
-            className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[11px] hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[12px] hover:bg-slate-200 dark:hover:bg-slate-700"
           >
             View Receipt
           </button>
@@ -215,7 +215,7 @@ export default function SuperAdminSubscriptionsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">SaaS Subscriptions &amp; Billing Engine</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> {formatCompactINR(totalMRR)} Monthly MRR • {totalSubscribers} Active
               Subscriptions
             </span>
@@ -274,7 +274,7 @@ export default function SuperAdminSubscriptionsPage() {
               className="glass-card p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-4 hover:border-emerald-500/50 transition group"
             >
               <div className="space-y-3">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{p.badge}</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{p.badge}</span>
                 <h3 className="text-lg font-black text-slate-900 dark:text-white group-hover:text-emerald-600 transition">{p.name}</h3>
                 <p className="text-2xl font-black text-emerald-600 font-mono">
                   {formatINR(p.monthlyPrice)} <span className="text-xs text-slate-400 font-normal">/ mo</span>
@@ -334,7 +334,7 @@ export default function SuperAdminSubscriptionsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[12px] uppercase tracking-wider text-slate-400 font-extrabold">
                   <th className="py-3 px-4">Platform Module Feature</th>
                   <th className="py-3 px-4 text-center">Starter POS Single</th>
                   <th className="py-3 px-4 text-center">Pro Business Retail</th>
@@ -368,7 +368,7 @@ export default function SuperAdminSubscriptionsPage() {
                 <div className="w-10 h-10 rounded-2xl bg-blue-600/10 text-blue-600 flex items-center justify-center font-bold text-sm">RP</div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">Razorpay Subscriptions (India)</h3>
-                  <p className="text-[10px] text-slate-400">INR Direct Debit, UPI Autopay, eNACH Credit Cards</p>
+                  <p className="text-[11px] text-slate-400">INR Direct Debit, UPI Autopay, eNACH Credit Cards</p>
                 </div>
               </div>
               <Badge color="emerald">CONNECTED</Badge>
@@ -401,7 +401,7 @@ export default function SuperAdminSubscriptionsPage() {
                 <div className="w-10 h-10 rounded-2xl bg-purple-600/10 text-purple-600 flex items-center justify-center font-bold text-sm">ST</div>
                 <div>
                   <h3 className="font-extrabold text-slate-900 dark:text-white text-sm">Stripe Global SaaS Gateway</h3>
-                  <p className="text-[10px] text-slate-400">USD/EUR Multi-Currency Enterprise Accounts</p>
+                  <p className="text-[11px] text-slate-400">USD/EUR Multi-Currency Enterprise Accounts</p>
                 </div>
               </div>
               <Badge color="emerald">CONNECTED</Badge>

@@ -71,7 +71,7 @@ function NavDropdown({ label, links, badgeColor, align = 'left', columns = 3 }: 
         </button>
       )}
     >
-      <div className="px-2.5 py-1.5 mb-1 font-bold uppercase text-[10px] tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+      <div className="px-2.5 py-1.5 mb-1 font-bold uppercase text-[11px] tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
         {label}
       </div>
       <div className={`grid ${gridColsClass} gap-0.5 p-0.5`}>
@@ -134,7 +134,7 @@ export default function AppShell() {
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
         <div className="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setMobileOpen(true)}
               className="md:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition"
@@ -142,7 +142,7 @@ export default function AppShell() {
               <Menu className="w-5 h-5" />
             </button>
 
-            <Link to="/dashboard" className="flex items-center gap-2.5 group">
+            <Link to="/dashboard" className="flex items-center gap-2.5 group shrink-0">
               <img src={logo} alt="Pospe Logo" className="h-8 md:h-9 group-hover:scale-105 transition-transform" />
             </Link>
 
@@ -152,7 +152,7 @@ export default function AppShell() {
                 trigger={({ toggle }) => (
                   <button
                     onClick={toggle}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition"
                   >
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span>{tenant}</span>
@@ -160,7 +160,7 @@ export default function AppShell() {
                   </button>
                 )}
               >
-                <div className="px-3 py-1.5 font-bold uppercase text-[10px] text-slate-400">Select Business Tenant</div>
+                <div className="px-3 py-1.5 font-bold uppercase text-[11px] text-slate-400">Select Business Tenant</div>
                 {tenants.map((t) => (
                   <DropdownMenuItem key={t} onClick={() => selectTenant(t)}>
                     <span className="flex-1 text-left">{t}</span>
@@ -174,7 +174,7 @@ export default function AppShell() {
                 trigger={({ toggle }) => (
                   <button
                     onClick={toggle}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition"
                   >
                     <Store className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>{branch}</span>
@@ -182,7 +182,7 @@ export default function AppShell() {
                   </button>
                 )}
               >
-                <div className="px-3 py-1.5 font-bold uppercase text-[10px] text-slate-400">Select Branch</div>
+                <div className="px-3 py-1.5 font-bold uppercase text-[11px] text-slate-400">Select Branch</div>
                 {branches.map((b) => (
                   <DropdownMenuItem key={b} onClick={() => selectBranch(b)}>
                     <span className="flex-1 text-left">{b}</span>
@@ -193,7 +193,7 @@ export default function AppShell() {
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center max-w-md w-full mx-4">
+          <div className="hidden lg:flex items-center max-w-md w-full min-w-0 flex-1 mx-4">
             <button
               onClick={() => setSearchOpen(true)}
               className="w-full flex items-center justify-between px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-xs hover:border-blue-400 transition shadow-inner"
@@ -202,13 +202,13 @@ export default function AppShell() {
                 <Search className="w-4 h-4" />
                 Search tenants, invoices, products...
               </span>
-              <kbd className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[10px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">
+              <kbd className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-[11px] font-mono text-slate-500 dark:text-slate-400 font-semibold border border-slate-300 dark:border-slate-700">
                 <Command className="w-3 h-3" />K
               </kbd>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-2.5">
+          <div className="flex items-center gap-2 md:gap-2.5 shrink-0">
             <button
               onClick={() => setSearchOpen(true)}
               className="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"
@@ -218,7 +218,7 @@ export default function AppShell() {
 
             <a
               href={import.meta.env.VITE_POS_URL ?? 'http://localhost:5174/pos'}
-              className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition transform hover:scale-[1.02]"
+              className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-2xl whitespace-nowrap bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition transform hover:scale-[1.02]"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               POS Terminal
@@ -247,7 +247,7 @@ export default function AppShell() {
             >
               <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-800">
                 <p className="font-bold text-slate-900 dark:text-white">{user?.name ?? 'Guest User'}</p>
-                <p className="text-[10px] text-slate-400">{user?.email}</p>
+                <p className="text-[11px] text-slate-400">{user?.email}</p>
               </div>
               <DropdownMenuItem onClick={() => navigate('/settings/security')}>Security</DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/settings/business-profile')}>Company Settings</DropdownMenuItem>

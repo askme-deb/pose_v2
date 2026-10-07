@@ -12,7 +12,7 @@ export default function PublicLayout() {
 
       <header className="relative z-10 flex items-center justify-between px-4 lg:px-8 py-4">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <img src={logo} alt="ApexPOS Logo" className="h-8 group-hover:scale-105 transition-transform" />
+          <img src={logo} alt="Pospe Logo" className="h-8 group-hover:scale-105 transition-transform" />
         </Link>
         <div className="flex items-center gap-3">
           <button
@@ -34,8 +34,8 @@ export default function PublicLayout() {
         <Outlet />
       </main>
 
-      <footer className="relative z-10 text-center text-[11px] text-slate-400 py-6">
-        © {new Date().getFullYear()} ApexPOS Enterprise. All rights reserved.
+      <footer className="relative z-10 text-center text-[12px] text-slate-400 py-6">
+        © {new Date().getFullYear()} Pospe Enterprise. All rights reserved.
       </footer>
     </div>
   );

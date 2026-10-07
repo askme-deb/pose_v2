@@ -15,6 +15,15 @@ export default {
         cyan: { 500: '#06b6d4' },
       },
       fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] },
+      // ~1px larger than Tailwind's defaults across the body-text range, for
+      // readability. Headings (2xl and up) keep the default scale.
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }],
+        sm: ['0.9375rem', { lineHeight: '1.375rem' }],
+        base: ['1.0625rem', { lineHeight: '1.625rem' }],
+        lg: ['1.1875rem', { lineHeight: '1.75rem' }],
+        xl: ['1.3125rem', { lineHeight: '1.875rem' }],
+      },
     },
   },
   plugins: [],

@@ -75,7 +75,7 @@ function TransferLineItemsEditor({ items, products, onChange }: TransferLineItem
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Items &amp; SKU Selection *</p>
+      <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Items &amp; SKU Selection *</p>
       <div className="space-y-2">
         {items.map((item, idx) => (
           <div
@@ -402,7 +402,7 @@ export default function WarehouseTransfersPage() {
       { header: 'Product', accessorKey: 'productName', cell: ({ row }) => (
         <div>
           <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.productName}</p>
-          <p className="text-[10px] font-mono text-slate-400">{row.original.productSku}</p>
+          <p className="text-[11px] font-mono text-slate-400">{row.original.productSku}</p>
         </div>
       ) },
       { header: 'Warehouse', accessorKey: 'warehouseName' },
@@ -424,7 +424,7 @@ export default function WarehouseTransfersPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.transferNumber}</div>
-            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
+            <div className="text-[11px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
           </div>
         ),
       },
@@ -601,7 +601,7 @@ export default function WarehouseTransfersPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <h4 className="font-extrabold text-base text-slate-900 dark:text-white">{wh.facilityName}</h4>
-                    <span className="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[10px] font-bold">
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-mono text-[11px] font-bold">
                       {wh.facilityCode}
                     </span>
                   </div>
@@ -617,11 +617,11 @@ export default function WarehouseTransfersPage() {
 
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Total Racks</span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase">Total Racks</span>
                   <div className="font-extrabold text-sm text-amber-600 dark:text-amber-400 mt-0.5">{wh.totalRacks} Racks</div>
                 </div>
                 <div className="p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/60">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Manager</span>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase">Manager</span>
                   <div className="font-bold text-xs text-slate-800 dark:text-slate-200 mt-0.5 line-clamp-1">{wh.manager}</div>
                 </div>
               </div>
@@ -793,7 +793,7 @@ export default function WarehouseTransfersPage() {
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
                       Rack {rack.code} {rack.capacity ? <span className="text-slate-400 font-normal">&middot; capacity {rack.capacity}</span> : null}
                     </p>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[11px] text-slate-400">
                       {rack.items.length === 0 ? 'Empty' : rack.items.map((i) => `${i.quantity}× ${i.productName}`).join(', ')}
                     </p>
                   </div>
@@ -812,7 +812,7 @@ export default function WarehouseTransfersPage() {
 
           {racks.length > 0 && (
             <form onSubmit={handleAssignToRack} className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assign Stock to a Rack</p>
+              <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assign Stock to a Rack</p>
               <Select
                 label="Rack"
                 options={racks.map((r) => ({ value: r.id, label: `Rack ${r.code}` }))}

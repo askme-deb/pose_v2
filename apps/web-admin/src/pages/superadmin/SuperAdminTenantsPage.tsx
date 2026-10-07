@@ -234,7 +234,7 @@ export default function SuperAdminTenantsPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ApexPOS_MultiTenant_Directory.csv';
+    a.download = 'Pospe_MultiTenant_Directory.csv';
     a.click();
     window.URL.revokeObjectURL(url);
     showToast('Multi-Tenant Directory Exported to CSV!', 'success');
@@ -253,7 +253,7 @@ export default function SuperAdminTenantsPage() {
           <Avatar name={row.original.organizationName} size="sm" />
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white">{row.original.organizationName}</h4>
-            <p className="text-[10px] text-slate-400 font-mono">{tenantDomain(row.original)}</p>
+            <p className="text-[11px] text-slate-400 font-mono">{tenantDomain(row.original)}</p>
           </div>
         </div>
       ),
@@ -286,7 +286,7 @@ export default function SuperAdminTenantsPage() {
         <div className="flex justify-end gap-1.5">
           <button
             onClick={() => setDetailsTenant(row.original)}
-            className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[11px] hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[12px] hover:bg-slate-200 dark:hover:bg-slate-700"
           >
             Manage
           </button>
@@ -301,7 +301,7 @@ export default function SuperAdminTenantsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Multi-Tenant Enterprise Management</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> {totalTenants} Tenants Onboarded • {totalOutlets} Store Outlets
             </span>
           </div>
@@ -395,7 +395,7 @@ export default function SuperAdminTenantsPage() {
                           <Avatar name={t.organizationName} size="md" />
                           <div>
                             <h3 className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 transition">{t.organizationName}</h3>
-                            <p className="text-[10px] font-mono text-slate-400">{tenantDomain(t)}</p>
+                            <p className="text-[11px] font-mono text-slate-400">{tenantDomain(t)}</p>
                           </div>
                         </div>
                         <Badge color={statusColor[t.status]}>{statusLabels[t.status]}</Badge>
@@ -419,7 +419,7 @@ export default function SuperAdminTenantsPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                        <div className="flex justify-between text-[11px] font-bold text-slate-400">
                           <span>Storage Quota</span>
                           <span>
                             {t.storageUsedGB} GB / {t.storageLimitGB} GB ({pctStorage}%)
@@ -432,11 +432,11 @@ export default function SuperAdminTenantsPage() {
                     </div>
 
                     <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-bold">{t.ownerName}</span>
+                      <span className="text-[11px] text-slate-400 font-bold">{t.ownerName}</span>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => setDetailsTenant(t)}
-                          className="px-3 py-1 rounded-xl bg-indigo-600 text-white font-bold text-[11px] hover:bg-indigo-700 shadow-sm"
+                          className="px-3 py-1 rounded-xl bg-indigo-600 text-white font-bold text-[12px] hover:bg-indigo-700 shadow-sm"
                         >
                           View Details
                         </button>
@@ -490,7 +490,7 @@ export default function SuperAdminTenantsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-extrabold">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-[12px] uppercase tracking-wider text-slate-400 font-extrabold">
                   <th className="py-3 px-4">Tenant Organization</th>
                   <th className="py-3 px-4">Isolated DB Instance Pod</th>
                   <th className="py-3 px-4">Region / Data Center</th>
@@ -506,7 +506,7 @@ export default function SuperAdminTenantsPage() {
                     <td className="py-3 px-4 font-mono text-indigo-600 font-bold">{t.dbInstancePod}</td>
                     <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{regionLabels[t.region]}</td>
                     <td className="py-3 px-4 font-mono font-bold text-purple-600">{formatStorage(t.storageUsedGB)}</td>
-                    <td className="py-3 px-4 text-slate-400 text-[11px]">Today at 03:00 AM</td>
+                    <td className="py-3 px-4 text-slate-400 text-[12px]">Today at 03:00 AM</td>
                     <td className="py-3 px-4 text-right">
                       <Badge color="emerald">Optimal (100%)</Badge>
                     </td>
@@ -534,11 +534,11 @@ export default function SuperAdminTenantsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900 dark:text-white">{l.tenantName}</span>
-                    <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono text-[9px] font-bold">{l.eventType}</span>
+                    <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-600 font-mono text-[10px] font-bold">{l.eventType}</span>
                   </div>
-                  <p className="text-slate-500 text-[11px] mt-0.5">{l.details}</p>
+                  <p className="text-slate-500 text-[12px] mt-0.5">{l.details}</p>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono">{formatDateTime(l.timestamp)}</span>
+                <span className="text-[11px] text-slate-400 font-mono">{formatDateTime(l.timestamp)}</span>
               </div>
             ))}
           </div>
@@ -568,7 +568,7 @@ export default function SuperAdminTenantsPage() {
       >
         <Input label="Organization Business Name" required value={formOrgName} onChange={(e) => setFormOrgName(e.target.value)} placeholder="e.g. Zenith Retail Group" />
         <div className="space-y-1.5">
-          <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          <label className="block text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Tenant Subdomain <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -580,7 +580,7 @@ export default function SuperAdminTenantsPage() {
               placeholder="zenith"
               className="w-full px-3 py-2 bg-transparent outline-none font-mono font-bold text-xs text-slate-900 dark:text-slate-100"
             />
-            <span className="px-3 text-slate-400 font-mono text-[11px] border-l border-slate-300 dark:border-slate-700">.apexpos.com</span>
+            <span className="px-3 text-slate-400 font-mono text-[12px] border-l border-slate-300 dark:border-slate-700">.pospe.com</span>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -660,7 +660,7 @@ export default function SuperAdminTenantsPage() {
             <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
               <Avatar name={detailsTenant.organizationName} size="lg" />
               <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Organization</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase">Organization</span>
                 <p className="text-sm font-bold text-slate-900 dark:text-white">{detailsTenant.organizationName}</p>
               </div>
             </div>

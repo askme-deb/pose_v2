@@ -392,7 +392,7 @@ export default function ReportsAnalyticsPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-bold text-slate-900 dark:text-white">{row.original.name}</div>
-            <div className="text-[10px] text-slate-400 font-mono">{row.original.sku}</div>
+            <div className="text-[11px] text-slate-400 font-mono">{row.original.sku}</div>
           </div>
         ),
       },
@@ -442,7 +442,7 @@ export default function ReportsAnalyticsPage() {
           <div className="text-right">
             <button
               onClick={() => openProductModal(row.original.productId)}
-              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition"
+              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[12px] transition"
             >
               View Details
             </button>
@@ -465,7 +465,7 @@ export default function ReportsAnalyticsPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-bold text-slate-900 dark:text-white">{row.original.name}</div>
-            <div className="text-[10px] text-slate-400 font-mono">{row.original.contact}</div>
+            <div className="text-[11px] text-slate-400 font-mono">{row.original.contact}</div>
           </div>
         ),
       },
@@ -496,7 +496,7 @@ export default function ReportsAnalyticsPage() {
       {
         accessorKey: 'lastPurchase',
         header: 'Last Purchase',
-        cell: (info) => <div className="text-center text-slate-400 text-[11px]">{formatDate(info.getValue<string>())}</div>,
+        cell: (info) => <div className="text-center text-slate-400 text-[12px]">{formatDate(info.getValue<string>())}</div>,
       },
       {
         id: 'action',
@@ -505,7 +505,7 @@ export default function ReportsAnalyticsPage() {
           <div className="text-right">
             <button
               onClick={() => showToast(`Customer profile loaded for ${row.original.name}`, 'info')}
-              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition"
+              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[12px] transition"
             >
               CRM Profile
             </button>
@@ -534,7 +534,7 @@ export default function ReportsAnalyticsPage() {
           <div className="text-right">
             <button
               onClick={() => showToast(`Register log requested for ${row.original.name}`, 'info')}
-              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[11px] transition"
+              className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white font-bold text-[12px] transition"
             >
               Audit
             </button>
@@ -977,13 +977,13 @@ export default function ReportsAnalyticsPage() {
                     >
                       <div>
                         <h4 className="font-bold text-xs text-slate-900 dark:text-white">{product.name}</h4>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[11px] text-slate-400">
                           {product.sku} | {product.stockQty} units left
                         </span>
                       </div>
                       <button
                         onClick={() => handleReorderPo(product)}
-                        className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition whitespace-nowrap"
+                        className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[12px] font-bold hover:bg-blue-700 transition whitespace-nowrap"
                       >
                         Reorder PO
                       </button>
@@ -1032,7 +1032,7 @@ export default function ReportsAnalyticsPage() {
               <div>
                 <div className="text-xs text-slate-400 font-bold uppercase">New Customers Acquired</div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white">{crmStats.newCustomers} buyers</div>
-                <div className="text-[11px] text-emerald-500 font-bold mt-0.5">+{crmStats.newCustomersGrowthPct}% this period</div>
+                <div className="text-[12px] text-emerald-500 font-bold mt-0.5">+{crmStats.newCustomersGrowthPct}% this period</div>
               </div>
             </GlassCard>
 
@@ -1043,7 +1043,7 @@ export default function ReportsAnalyticsPage() {
               <div>
                 <div className="text-xs text-slate-400 font-bold uppercase">Avg Customer Lifetime Value</div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white">{formatINR(crmStats.avgLifetimeValue)}</div>
-                <div className="text-[11px] text-blue-500 font-bold mt-0.5">Top Tier VIP cohort</div>
+                <div className="text-[12px] text-blue-500 font-bold mt-0.5">Top Tier VIP cohort</div>
               </div>
             </GlassCard>
 
@@ -1054,7 +1054,7 @@ export default function ReportsAnalyticsPage() {
               <div>
                 <div className="text-xs text-slate-400 font-bold uppercase">Wallet Credit Redeemed</div>
                 <div className="text-2xl font-black text-slate-900 dark:text-white">{formatINR(crmStats.walletCreditRedeemed)}</div>
-                <div className="text-[11px] text-purple-500 font-bold mt-0.5">Store credit spent this period</div>
+                <div className="text-[12px] text-purple-500 font-bold mt-0.5">Store credit spent this period</div>
               </div>
             </GlassCard>
           </div>
@@ -1135,7 +1135,7 @@ export default function ReportsAnalyticsPage() {
                 </div>
 
                 <div className="space-y-1 pt-2">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase">Operating Overhead Expenses</div>
+                  <div className="text-[12px] font-bold text-slate-400 uppercase">Operating Overhead Expenses</div>
                   {pnlStatement.overheadLines.length === 0 && (
                     <div className="text-slate-400 italic">Operating expenses (rent, payroll, utilities) are not recorded yet, so profit is shown before overheads.</div>
                   )}
@@ -1201,15 +1201,15 @@ export default function ReportsAnalyticsPage() {
           <div className="space-y-5">
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Units Sold</div>
+                <div className="text-[11px] text-slate-400 font-bold uppercase">Units Sold</div>
                 <div className="text-base font-black text-blue-600 dark:text-blue-400">{selectedProductRow.unitsSold.toLocaleString('en-IN')}</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Total Revenue</div>
+                <div className="text-[11px] text-slate-400 font-bold uppercase">Total Revenue</div>
                 <div className="text-base font-black text-slate-900 dark:text-white">{formatINR(selectedProductRow.revenue)}</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                <div className="text-[10px] text-slate-400 font-bold uppercase">Gross Margin</div>
+                <div className="text-[11px] text-slate-400 font-bold uppercase">Gross Margin</div>
                 <div className="text-base font-black text-emerald-500">{selectedProductRow.marginPercent}%</div>
               </div>
             </div>

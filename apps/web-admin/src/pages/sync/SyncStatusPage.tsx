@@ -80,7 +80,7 @@ export default function SyncStatusPage() {
       cell: ({ row }) => (
         <div>
           <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.label ?? 'Unnamed Terminal'}</p>
-          <p className="text-[10px] font-mono text-slate-400">{row.original.deviceId}</p>
+          <p className="text-[11px] font-mono text-slate-400">{row.original.deviceId}</p>
         </div>
       ),
     },
@@ -138,7 +138,7 @@ export default function SyncStatusPage() {
         return (
           <div>
             <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.reason}</p>
-            <p className="text-[10px] text-slate-400">{items.join(', ')}</p>
+            <p className="text-[11px] text-slate-400">{items.join(', ')}</p>
           </div>
         );
       },
@@ -147,7 +147,7 @@ export default function SyncStatusPage() {
     {
       header: 'Terminal',
       accessorKey: 'deviceId',
-      cell: ({ getValue }) => <span className="text-[10px] font-mono text-slate-400">{getValue() as string}</span>,
+      cell: ({ getValue }) => <span className="text-[11px] font-mono text-slate-400">{getValue() as string}</span>,
     },
     {
       header: 'Detected',
@@ -173,12 +173,12 @@ export default function SyncStatusPage() {
         row.original.status === 'OPEN' ? (
           <button
             onClick={() => openResolveDrawer(row.original)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition"
           >
             <CheckCircle2 className="w-3 h-3" /> Resolve
           </button>
         ) : (
-          <span className="text-[10px] text-slate-400" title={row.original.resolutionNote ?? undefined}>
+          <span className="text-[11px] text-slate-400" title={row.original.resolutionNote ?? undefined}>
             by {row.original.resolvedBy}
           </span>
         ),
@@ -285,12 +285,12 @@ export default function SyncStatusPage() {
           <form id="resolve-conflict-form" onSubmit={handleResolve} className="space-y-4">
             <div className="p-3 rounded-2xl bg-red-500/5 border border-red-500/20 space-y-1">
               <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{activeConflict.reason}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
                 {activeConflict.payload.items
                   .map((i) => `${i.quantity}× ${productById.get(i.productId)?.name ?? i.productId}`)
                   .join(', ')}
               </p>
-              <p className="text-[10px] text-slate-400 font-mono">Terminal {activeConflict.deviceId} &middot; {activeConflict.store.name}</p>
+              <p className="text-[11px] text-slate-400 font-mono">Terminal {activeConflict.deviceId} &middot; {activeConflict.store.name}</p>
             </div>
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">

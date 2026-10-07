@@ -281,12 +281,12 @@ export default function CategoriesBrandsPage() {
                         GST {c.gstRate}%
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 min-h-[2rem]">{c.description}</p>
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 line-clamp-2 min-h-[2rem]">{c.description}</p>
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[11px] font-bold text-cyan-600 dark:text-cyan-400">{c.skuCount} SKUs</span>
+                      <span className="text-[12px] font-bold text-cyan-600 dark:text-cyan-400">{c.skuCount} SKUs</span>
                       <button
                         onClick={() => openEditCategory(c)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-cyan-600 transition text-[10px] font-bold"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-cyan-600 transition text-[11px] font-bold"
                       >
                         <Pencil className="w-3 h-3" /> Edit
                       </button>
@@ -307,9 +307,9 @@ export default function CategoriesBrandsPage() {
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{b.name}</p>
-                  <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">{b.skuCount} SKUs</span>
+                  <span className="text-[12px] font-bold text-purple-600 dark:text-purple-400">{b.skuCount} SKUs</span>
                 </div>
-                <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="flex items-center gap-1.5 text-[12px] text-slate-500 dark:text-slate-400">
                   <Globe className="w-3 h-3" /> {b.countryOfOrigin}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -324,7 +324,7 @@ export default function CategoriesBrandsPage() {
                 </div>
                 <button
                   onClick={() => openEditBrand(b)}
-                  className="w-full mt-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-cyan-600 transition text-[10px] font-bold"
+                  className="w-full mt-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-cyan-600 transition text-[11px] font-bold"
                 >
                   <Pencil className="w-3 h-3" /> Edit Brand
                 </button>
@@ -432,7 +432,7 @@ export default function CategoriesBrandsPage() {
             onChange={(e) => setBrandForm((f) => ({ ...f, countryOfOrigin: e.target.value }))}
           />
           <div className="space-y-1.5">
-            <p className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assigned Categories</p>
+            <p className="block text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Assigned Categories</p>
             <div className="space-y-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 p-3 max-h-48 overflow-y-auto">
               {categoryOptions.map((opt) => (
                 <Checkbox

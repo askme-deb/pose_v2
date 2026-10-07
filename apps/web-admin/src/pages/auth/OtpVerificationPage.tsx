@@ -118,7 +118,7 @@ export default function OtpVerificationPage() {
             />
           ))}
         </div>
-        {error && <p className="text-[11px] text-red-600 dark:text-red-400 font-semibold">{error}</p>}
+        {error && <p className="text-[12px] text-red-600 dark:text-red-400 font-semibold">{error}</p>}
         <Button type="submit" disabled={!complete || submitting} className="w-full !rounded-xl py-3">
           {submitting ? 'Verifying…' : 'Verify & Continue'}
         </Button>

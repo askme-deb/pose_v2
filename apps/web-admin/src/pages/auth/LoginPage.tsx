@@ -159,7 +159,7 @@ export default function LoginPage() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Account Password</label>
-              <Link to="/forgot-password" className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline">
+              <Link to="/forgot-password" className="text-[12px] text-blue-600 dark:text-blue-400 hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -188,7 +188,7 @@ export default function LoginPage() {
               checked={rememberDevice}
               onChange={(e) => setRememberDevice(e.target.checked)}
             />
-            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+            <span className="text-[12px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
               2FA Active
             </span>
@@ -207,7 +207,7 @@ export default function LoginPage() {
 
           {/* Social SSO Buttons */}
           <div className="pt-3 border-t border-slate-200 dark:border-slate-800/80 space-y-2">
-            <div className="text-center text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
+            <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
               Or continue with
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -321,10 +321,10 @@ export default function LoginPage() {
               autoComplete="current-password"
               className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none"
             />
-            <p className="text-[10px] text-slate-400 mt-1.5">If two-factor is enabled you&apos;ll be asked for your authenticator code next.</p>
+            <p className="text-[11px] text-slate-400 mt-1.5">If two-factor is enabled you&apos;ll be asked for your authenticator code next.</p>
           </div>
           {loginError && (
-            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-2">
+            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[12px] text-red-600 dark:text-red-400 flex items-center gap-2">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               {loginError}
             </div>

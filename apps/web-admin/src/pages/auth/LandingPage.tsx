@@ -198,7 +198,7 @@ const faqItems: FaqItem[] = [
   {
     question: 'Can I connect my existing Sunmi/PAX Android POS machine?',
     answer:
-      'Yes! ApexPOS is optimized for Sunmi, PAX, Verifone, and Newland Android POS devices. You can print receipts, scan barcodes, and accept UPI/Card payments natively.',
+      'Yes! Pospe is optimized for Sunmi, PAX, Verifone, and Newland Android POS devices. You can print receipts, scan barcodes, and accept UPI/Card payments natively.',
   },
   {
     question: 'Is GST compliance included automatically?',
@@ -249,7 +249,7 @@ export default function LandingPage() {
       {/* Sticky Glass Navigation Header */}
       <header className="sticky top-0 z-50 w-full glass-panel bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/10 px-6 lg:px-12 py-4 flex items-center justify-between shadow-lg shadow-slate-100/80 dark:shadow-2xl">
         <Link to="/" className="flex items-center gap-3 group">
-          <img src={logo} alt="ApexPOS Logo" className="h-10 group-hover:scale-105 transition-transform" />
+          <img src={logo} alt="Pospe Logo" className="h-10 group-hover:scale-105 transition-transform" />
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -342,17 +342,17 @@ export default function LandingPage() {
                 <span className="w-3 h-3 rounded-full bg-amber-500" />
                 <span className="w-3 h-3 rounded-full bg-emerald-500" />
                 <span className="text-xs font-mono text-slate-500 dark:text-slate-400 ml-2">
-                  https://app.apexpos.com/dashboard
+                  https://app.pospe.com/dashboard
                 </span>
               </div>
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold">
                 POS LIVE FEED
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6 text-left">
               <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">
+                <span className="text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase">
                   Today&apos;s Sales Revenue
                 </span>
                 <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">₹148,920.00</h3>
@@ -361,14 +361,14 @@ export default function LandingPage() {
                 </span>
               </div>
               <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">
+                <span className="text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase">
                   Active POS Counters
                 </span>
                 <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">4 / 4 Online</h3>
                 <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Zero latency sync</span>
               </div>
               <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold uppercase">
+                <span className="text-[12px] text-slate-500 dark:text-slate-400 font-bold uppercase">
                   Net Profit Margin
                 </span>
                 <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">28.6%</h3>
@@ -448,7 +448,7 @@ export default function LandingPage() {
               >
                 <Icon className={`w-6 h-6 ${iconColor}`} />
                 <h4 className="font-bold text-sm text-slate-900 dark:text-white">{pack.title}</h4>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">{pack.description}</p>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400">{pack.description}</p>
               </GlassCard>
             );
           })}
@@ -480,7 +480,7 @@ export default function LandingPage() {
             </button>
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <span>Annual Billing</span>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold">
                 20% OFF
               </span>
             </span>
@@ -499,7 +499,7 @@ export default function LandingPage() {
               }
             >
               {plan.highlighted && (
-                <span className="absolute -top-3.5 right-8 px-3 py-1 rounded-full bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                <span className="absolute -top-3.5 right-8 px-3 py-1 rounded-full bg-blue-600 text-white text-[11px] font-bold uppercase tracking-wider">
                   MOST POPULAR
                 </span>
               )}
@@ -540,7 +540,7 @@ export default function LandingPage() {
       <section id="faq" className="relative z-10 py-20 px-6 lg:px-12 max-w-4xl mx-auto space-y-8">
         <div className="text-center space-y-3">
           <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Frequently Asked Questions</h2>
-          <p className="text-xs text-slate-500">Everything you need to know about ApexPOS SaaS deployment</p>
+          <p className="text-xs text-slate-500">Everything you need to know about Pospe SaaS deployment</p>
         </div>
 
         <div className="space-y-4">
@@ -554,13 +554,13 @@ export default function LandingPage() {
       <footer className="relative z-10 w-full px-6 lg:px-12 py-12 bg-white/80 dark:bg-slate-950 border-t border-slate-200/80 dark:border-white/10 space-y-8 text-slate-600 dark:text-slate-400 text-xs">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-3">
-            <img src={logo} alt="ApexPOS Logo" className="h-9" />
+            <img src={logo} alt="Pospe Logo" className="h-9" />
             <p className="text-slate-500">
               World-Class Enterprise Multi-Tenant POS Billing &amp; Inventory Management SaaS Platform.
             </p>
           </div>
           <div>
-            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">
+            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[12px]">
               Platform
             </h4>
             <ul className="space-y-2">
@@ -587,7 +587,7 @@ export default function LandingPage() {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">
+            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[12px]">
               SaaS Accounts
             </h4>
             <ul className="space-y-2">
@@ -609,14 +609,14 @@ export default function LandingPage() {
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[11px]">
+            <h4 className="font-bold text-slate-900 dark:text-white mb-3 uppercase tracking-wider text-[12px]">
               Security &amp; Compliance
             </h4>
             <div className="space-y-2">
-              <span className="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+              <span className="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
                 PCI-DSS Level 1 Certified
               </span>
-              <span className="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] font-mono text-blue-600 dark:text-blue-400">
+              <span className="inline-block px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-mono text-blue-600 dark:text-blue-400">
                 256-Bit SSL Encrypted
               </span>
             </div>
@@ -624,7 +624,7 @@ export default function LandingPage() {
         </div>
 
         <div className="max-w-7xl mx-auto pt-8 border-t border-slate-200 dark:border-slate-900 text-center text-slate-500">
-          &copy; 2026 ApexPOS Enterprise SaaS Inc. All rights reserved.
+          &copy; 2026 Pospe Enterprise SaaS Inc. All rights reserved.
         </div>
       </footer>
     </div>

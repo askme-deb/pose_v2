@@ -244,7 +244,7 @@ export default function SuperAdminWhiteLabelPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+              <label className="block text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                 Brand Logo Image
               </label>
               <div className="flex items-center gap-3">
@@ -261,7 +261,7 @@ export default function SuperAdminWhiteLabelPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+                <label className="block text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
                   Primary Accent Color Theme
                 </label>
                 <div className="flex items-center gap-2">
@@ -301,13 +301,13 @@ export default function SuperAdminWhiteLabelPage() {
                     <img src={logoUrl} alt="Logo" className="h-7" onError={(e) => (e.currentTarget.style.opacity = '0.2')} />
                     <span className="font-extrabold text-xs text-slate-900 dark:text-white">{appTitle}</span>
                   </div>
-                  <div className="px-2.5 py-1 rounded-xl text-white text-[10px] font-bold shadow-sm" style={{ backgroundColor: accentColor }}>
+                  <div className="px-2.5 py-1 rounded-xl text-white text-[11px] font-bold shadow-sm" style={{ backgroundColor: accentColor }}>
                     Tenant Terminal
                   </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                  <div className="flex justify-between text-[11px]">
+                  <div className="flex justify-between text-[12px]">
                     <span className="text-slate-400">Sample POS Cart Subtotal:</span>
                     <span className="font-bold text-slate-900 dark:text-white font-mono">₹4,850.00</span>
                   </div>
@@ -318,7 +318,7 @@ export default function SuperAdminWhiteLabelPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 text-center">
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 text-[12px] text-slate-400 text-center">
               Changes apply instantaneously across all tenant store branches.
             </div>
           </GlassCard>
@@ -331,7 +331,7 @@ export default function SuperAdminWhiteLabelPage() {
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Custom CNAME Domain Mappings & SSL Status</h3>
               <p className="text-xs text-slate-400">
-                Active custom domains configured by Enterprise Ultimate subscribers pointing to ApexPOS cloud edge ingress.
+                Active custom domains configured by Enterprise Ultimate subscribers pointing to Pospe cloud edge ingress.
               </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => setAddOpen(true)}>+ Add CNAME Mapping</Button>
@@ -402,7 +402,7 @@ export default function SuperAdminWhiteLabelPage() {
             onChange={(e) => setNewDomainHost(e.target.value)}
             className="font-mono"
           />
-          <Input label="ApexPOS Ingress Edge Target" value="ingress-mumbai-01.apexpos.com" disabled className="font-mono text-slate-500" />
+          <Input label="Pospe Ingress Edge Target" value="ingress-mumbai-01.pospe.com" disabled className="font-mono text-slate-500" />
           <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-slate-800">
             <Button type="button" variant="ghost" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button type="submit" className="!bg-rose-600 hover:!bg-rose-700 !bg-none !shadow-rose-500/25">Provision SSL & Bind</Button>

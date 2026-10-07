@@ -14,7 +14,7 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
 
   const section = (title: string, links: typeof tenantOperationsLinks) => (
     <div className="space-y-1">
-      <p className="px-2 text-[10px] font-bold uppercase text-slate-400">{title}</p>
+      <p className="px-2 text-[11px] font-bold uppercase text-slate-400">{title}</p>
       {links.map((link) => (
         <Link
           key={link.href}
@@ -49,7 +49,7 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
             <Avatar name={user?.name ?? 'Guest User'} />
             <div>
               <p className="text-xs font-bold text-slate-900 dark:text-white">{user?.name ?? 'Guest User'}</p>
-              <p className="text-[10px] text-slate-400">{user?.email}</p>
+              <p className="text-[11px] text-slate-400">{user?.email}</p>
             </div>
           </div>
           <button

@@ -150,7 +150,7 @@ export default function StockAdjustmentsPage() {
       cell: ({ row }) => (
         <div>
           <p className="font-bold text-slate-800 dark:text-slate-100">{row.original.productName}</p>
-          <p className="text-[10px] font-mono text-slate-400">{row.original.productSku}</p>
+          <p className="text-[11px] font-mono text-slate-400">{row.original.productSku}</p>
         </div>
       ),
     },
@@ -196,12 +196,12 @@ export default function StockAdjustmentsPage() {
         row.original.status === 'PENDING' ? (
           <button
             onClick={() => handleApprove(row.original.id)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold transition"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition"
           >
             <CheckCircle2 className="w-3 h-3" /> Approve
           </button>
         ) : (
-          <span className="text-[10px] text-slate-400">&mdash;</span>
+          <span className="text-[11px] text-slate-400">&mdash;</span>
         ),
     },
   ];

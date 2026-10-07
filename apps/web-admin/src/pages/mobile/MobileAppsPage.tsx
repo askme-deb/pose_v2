@@ -156,7 +156,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
               type="text"
               readOnly
               placeholder="Search item or scan barcode..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-[11px] text-slate-900 dark:text-white outline-none"
+              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-[12px] text-slate-900 dark:text-white outline-none"
             />
           </div>
           <button onClick={() => onToast('Simulating Mobile Barcode Camera Viewfinder Scan...', 'info')} className="p-1.5 rounded-xl bg-sky-600 text-white shadow-md shadow-sky-500/20">
@@ -176,20 +176,20 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
               onClick={() => onToast(`Added ${item.name} (₹${item.price}) to Mobile Cart!`, 'success')}
               className="p-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 transition cursor-pointer"
             >
-              <div className="font-bold text-[11px] text-slate-900 dark:text-white truncate">{item.name}</div>
-              <div className="text-[10px] text-sky-600 font-mono font-bold mt-0.5">{formatINR(item.price)}</div>
+              <div className="font-bold text-[12px] text-slate-900 dark:text-white truncate">{item.name}</div>
+              <div className="text-[11px] text-sky-600 font-mono font-bold mt-0.5">{formatINR(item.price)}</div>
             </div>
           ))}
         </div>
 
         <div className="p-3 rounded-2xl bg-gradient-to-br from-sky-600 to-blue-700 text-white space-y-2 shadow-lg">
-          <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="flex items-center justify-between text-[12px] font-bold">
             <span>Mobile Cart (3 Items)</span>
             <span className="font-mono text-xs">{formatINR(750)}</span>
           </div>
           <button
             onClick={() => onToast('Tap-to-Pay NFC Contactless Payment Initiated on Mobile!', 'success')}
-            className="w-full py-2 rounded-xl bg-white text-sky-700 font-bold text-[11px] shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition"
+            className="w-full py-2 rounded-xl bg-white text-sky-700 font-bold text-[12px] shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition"
           >
             <Radio className="w-3.5 h-3.5 animate-pulse" />
             <span>TAP TO PAY (NFC CONTACTLESS)</span>
@@ -209,7 +209,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
 
         <div className="w-full h-32 rounded-2xl bg-slate-900 text-white flex flex-col items-center justify-center relative overflow-hidden border-2 border-dashed border-purple-500">
           <ScanLine className="w-8 h-8 text-purple-400 animate-bounce" />
-          <span className="text-[10px] text-slate-400 mt-1">Align barcode in rectangle</span>
+          <span className="text-[11px] text-slate-400 mt-1">Align barcode in rectangle</span>
         </div>
 
         <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
@@ -224,7 +224,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
           </div>
           <button
             onClick={() => onToast('Recorded stock audit count for SKU-1082!', 'success')}
-            className="w-full py-2 rounded-xl bg-purple-600 text-white font-bold text-[11px]"
+            className="w-full py-2 rounded-xl bg-purple-600 text-white font-bold text-[12px]"
           >
             Confirm Stock Count
           </button>
@@ -238,7 +238,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
       <div className="space-y-3 animate-fade-in text-xs">
         <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 font-bold flex items-center justify-between">
           <span>Active Driver Dispatch Manifest</span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px]">3 Deliveries Left</span>
+          <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px]">3 Deliveries Left</span>
         </div>
 
         <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
@@ -246,12 +246,12 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
             <span className="text-slate-900 dark:text-white">Order #ORD-9021</span>
             <span className="text-emerald-600">En Route</span>
           </div>
-          <div className="text-[11px] text-slate-500">Customer: Sophia Martinez (Downtown Flagship)</div>
-          <div className="text-[10px] text-slate-400">124 Commercial Blvd, Suite 400</div>
+          <div className="text-[12px] text-slate-500">Customer: Sophia Martinez (Downtown Flagship)</div>
+          <div className="text-[11px] text-slate-400">124 Commercial Blvd, Suite 400</div>
 
           <button
             onClick={() => onToast('Opening mobile E-signature pad...', 'info')}
-            className="w-full py-2 rounded-xl bg-emerald-600 text-white font-bold text-[11px] flex items-center justify-center gap-1.5"
+            className="w-full py-2 rounded-xl bg-emerald-600 text-white font-bold text-[12px] flex items-center justify-center gap-1.5"
           >
             <PenTool className="w-3.5 h-3.5" />
             <span>CAPTURE E-SIGNATURE</span>
@@ -267,20 +267,20 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
         <div className="p-4 rounded-3xl bg-gradient-to-tr from-pink-600 to-rose-600 text-white space-y-3 shadow-lg">
           <div className="flex justify-between items-center">
             <span className="font-bold text-xs uppercase">Apex Loyalty Pass</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-[9px] font-bold">VIP DIAMOND</span>
+            <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">VIP DIAMOND</span>
           </div>
           <div>
-            <div className="text-[10px] opacity-80">Active Balance</div>
+            <div className="text-[11px] opacity-80">Active Balance</div>
             <div className="text-2xl font-black font-mono">4,890 Pts</div>
           </div>
-          <div className="pt-2 border-t border-white/20 flex justify-between text-[10px] opacity-90">
+          <div className="pt-2 border-t border-white/20 flex justify-between text-[11px] opacity-90">
             <span>Dr. Aris Thorne</span>
             <span>ID: CUST-901</span>
           </div>
         </div>
 
         <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center space-y-2">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Scan Pass at POS Register</span>
+          <span className="text-[11px] font-bold text-slate-400 uppercase">Scan Pass at POS Register</span>
           <div className="w-36 h-12 mx-auto bg-slate-900 text-white rounded-xl flex items-center justify-center font-mono font-bold tracking-widest text-xs">
             |||| ||| ||||| |||
           </div>
@@ -297,10 +297,10 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         </div>
         <div>
-          <div className="text-[10px] opacity-80">Today&apos;s Mobile Revenue</div>
+          <div className="text-[11px] opacity-80">Today&apos;s Mobile Revenue</div>
           <div className="text-2xl font-black font-mono">{formatINR(142890)}</div>
         </div>
-        <div className="pt-2 border-t border-white/20 flex justify-between text-[10px] opacity-90">
+        <div className="pt-2 border-t border-white/20 flex justify-between text-[11px] opacity-90">
           <span>Target: ₹1.5L (95.2%)</span>
           <span>142 Bills</span>
         </div>
@@ -312,7 +312,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
           <span className="text-emerald-600">Peak Volume</span>
         </div>
         <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-slate-400">
+          <div className="flex justify-between text-[11px] text-slate-400">
             <span>Mobile Billing Share</span>
             <span className="font-bold text-slate-700 dark:text-slate-300">42.8%</span>
           </div>
@@ -322,7 +322,7 @@ function PhoneAppBody({ mode, onToast }: { mode: AppMode; onToast: (message: str
         </div>
         <button
           onClick={() => onToast('Refreshing Manager Mobile Telemetry Feed...', 'info')}
-          className="w-full py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-[11px] mt-1"
+          className="w-full py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-[12px] mt-1"
         >
           Refresh Telemetry
         </button>
@@ -447,9 +447,9 @@ export default function MobileAppsPage() {
             <div>
               <div className="font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>{d.deviceName}</span>
-                <span className="text-[10px] font-mono text-slate-400 font-normal">({d.id})</span>
+                <span className="text-[11px] font-mono text-slate-400 font-normal">({d.id})</span>
               </div>
-              <div className="text-[10px] text-slate-400 font-mono">{d.serial}</div>
+              <div className="text-[11px] text-slate-400 font-mono">{d.serial}</div>
             </div>
           </div>
         );
@@ -462,7 +462,7 @@ export default function MobileAppsPage() {
       cell: ({ row }) => (
         <div>
           <div className="font-bold text-slate-700 dark:text-slate-200">{row.original.assignedBranch}</div>
-          <div className="text-[10px] text-slate-400">{row.original.register}</div>
+          <div className="text-[11px] text-slate-400">{row.original.register}</div>
         </div>
       ),
     },
@@ -471,7 +471,7 @@ export default function MobileAppsPage() {
       header: 'OS & Build Version',
       accessorFn: (d) => d.osVersion,
       cell: ({ row }) => (
-        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+        <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
           {osLabel(row.original)}
         </span>
       ),
@@ -481,7 +481,7 @@ export default function MobileAppsPage() {
       header: 'Paired Peripherals',
       accessorFn: (d) => d.pairedPeripherals.join(', '),
       cell: ({ row }) => (
-        <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 max-w-[180px] truncate">
+        <div className="text-[12px] font-medium text-slate-500 dark:text-slate-400 max-w-[180px] truncate">
           {row.original.pairedPeripherals.join(', ') || 'None'}
         </div>
       ),
@@ -493,13 +493,13 @@ export default function MobileAppsPage() {
       cell: ({ row }) => {
         const pct = row.original.batteryPercent;
         const tone = batteryTone(pct);
-        if (pct === null) return <span className="text-[11px] text-slate-400">Mains / n/a</span>;
+        if (pct === null) return <span className="text-[12px] text-slate-400">Mains / n/a</span>;
         return (
           <div className="space-y-1 w-20">
             <div className={cn('flex items-center gap-1.5 font-mono font-bold text-xs', tone.text)}>
               <Battery className="w-3.5 h-3.5" />
               <span>{pct}%</span>
-              {pct === 100 && <span className="text-[9px] text-emerald-600 font-sans font-bold">⚡</span>}
+              {pct === 100 && <span className="text-[10px] text-emerald-600 font-sans font-bold">⚡</span>}
             </div>
             <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
               <div className={cn('h-full rounded-full', tone.bar)} style={{ width: `${pct}%` }} />
@@ -610,7 +610,7 @@ export default function MobileAppsPage() {
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Pospe Mobile Ecosystem &amp; App Studio
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 border border-sky-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 border border-sky-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" /> v4.2.0 Native Build • PWA Ready • {kpis.total} Registered Terminals
             </span>
           </div>
@@ -675,7 +675,7 @@ export default function MobileAppsPage() {
                       </div>
                       <div>
                         <div className="font-bold text-xs text-slate-900 dark:text-white">{mode.label}</div>
-                        <div className="text-[10px] text-slate-400">{mode.desc}</div>
+                        <div className="text-[11px] text-slate-400">{mode.desc}</div>
                       </div>
                     </div>
                     <ChevronRight className={cn('w-4 h-4', active ? 'text-sky-600' : 'text-slate-400')} />
@@ -750,7 +750,7 @@ export default function MobileAppsPage() {
                 id="phone-screen"
                 className="w-full h-full bg-slate-50 dark:bg-slate-900 rounded-[36px] overflow-hidden flex flex-col justify-between pt-7 transition-colors duration-300"
               >
-                <div className="px-5 py-1.5 flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-200 select-none">
+                <div className="px-5 py-1.5 flex items-center justify-between text-[12px] font-bold text-slate-800 dark:text-slate-200 select-none">
                   <span>9:41</span>
                   <div className="flex items-center gap-1.5">
                     <SignalIcon className="w-3 h-3" />
@@ -763,7 +763,7 @@ export default function MobileAppsPage() {
                   <PhoneAppBody mode={appMode} onToast={showToast} />
                 </div>
 
-                <div className="px-4 py-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-around text-[10px] font-bold">
+                <div className="px-4 py-2 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-around text-[11px] font-bold">
                   {PHONE_NAV_ITEMS.map((item) => {
                     const Icon = item.icon;
                     const active = phoneNav === item.id;
@@ -848,7 +848,7 @@ export default function MobileAppsPage() {
               </h3>
               <p className="text-xs text-slate-400">Hourly breakdown of mobile POS transactions across all handheld devices.</p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 border border-sky-500/20 uppercase whitespace-nowrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/10 text-sky-600 border border-sky-500/20 uppercase whitespace-nowrap">
               Live Hourly Feed
             </span>
           </div>
@@ -866,7 +866,7 @@ export default function MobileAppsPage() {
               </h3>
               <p className="text-xs text-slate-400">Tap-to-Pay NFC vs UPI QR vs Card vs Cash.</p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 whitespace-nowrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 whitespace-nowrap">
               NFC Dominant
             </span>
           </div>
@@ -884,7 +884,7 @@ export default function MobileAppsPage() {
               </h3>
               <p className="text-xs text-slate-400">Active daily sessions and task executions split across POS, Stock Audit, Logistics, and Loyalty Scanner modes.</p>
             </div>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 border border-purple-500/20 whitespace-nowrap">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-600 border border-purple-500/20 whitespace-nowrap">
               Daily Aggregated
             </span>
           </div>
@@ -901,7 +901,7 @@ export default function MobileAppsPage() {
             <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Globe className="w-4 h-4 text-sky-600" /> PWA Web App Telemetry
             </h4>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">Active Service Worker</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[11px] font-bold">Active Service Worker</span>
           </div>
           <p className="text-xs text-slate-400">Progressive Web App caching enables zero-network offline billing and instant installation on iOS &amp; Android browsers.</p>
           <div className="space-y-1.5 text-xs pt-2">
@@ -922,7 +922,7 @@ export default function MobileAppsPage() {
             <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Download className="w-4 h-4 text-purple-600" /> Native Build Downloads
             </h4>
-            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 text-[10px] font-bold">v4.2.0 Enterprise</span>
+            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 text-[11px] font-bold">v4.2.0 Enterprise</span>
           </div>
           <p className="text-xs text-slate-400">Direct standalone APK packages for Android Zebra/Honeywell handhelds and MDM profiles for iOS TestFlight deployment.</p>
           <div className="space-y-1.5 text-xs pt-2">
@@ -943,7 +943,7 @@ export default function MobileAppsPage() {
             <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Bluetooth className="w-4 h-4 text-emerald-600" /> Hardware SDK &amp; Pairings
             </h4>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[10px] font-bold">WebBluetooth / USB</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 text-[11px] font-bold">WebBluetooth / USB</span>
           </div>
           <p className="text-xs text-slate-400">Pair ESC/POS thermal printers, Socket Mobile Bluetooth scanners, and NFC Tap-to-Pay hardware directly.</p>
           <div className="space-y-1.5 text-xs pt-2">
@@ -974,7 +974,7 @@ export default function MobileAppsPage() {
         {selectedDevice && (
           <div className="space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Device Status</span>
+              <span className="text-[11px] text-slate-400 font-bold uppercase">Device Status</span>
               <Badge color={STATUS_BADGE[selectedDevice.status].color} pill>
                 {STATUS_BADGE[selectedDevice.status].label}
               </Badge>
@@ -982,31 +982,31 @@ export default function MobileAppsPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Store Branch</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase">Store Branch</span>
                 <div className="font-bold text-slate-900 dark:text-white">{selectedDevice.assignedBranch}</div>
-                <div className="text-[10px] text-slate-500">{selectedDevice.register}</div>
+                <div className="text-[11px] text-slate-500">{selectedDevice.register}</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">OS &amp; Build</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase">OS &amp; Build</span>
                 <div className="font-bold text-slate-900 dark:text-white">
                   {osLabel(selectedDevice)}
                 </div>
-                <div className="text-[10px] text-sky-600 font-mono font-bold">v4.2.0 Build</div>
+                <div className="text-[11px] text-sky-600 font-mono font-bold">v4.2.0 Build</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Battery Telemetry</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase">Battery Telemetry</span>
                 <div className={cn('font-mono font-bold', batteryTone(selectedDevice.batteryPercent).text)}>{selectedDevice.batteryPercent === null ? 'Not reported' : `${selectedDevice.batteryPercent}% Charged`}</div>
-                <div className="text-[10px] text-slate-500">Health: Normal (98%)</div>
+                <div className="text-[11px] text-slate-500">Health: Normal (98%)</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Sync Queue</span>
+                <span className="text-[11px] text-slate-400 font-bold uppercase">Sync Queue</span>
                 <div className="font-bold text-slate-900 dark:text-white">{selectedDevice.syncQueueCount} Pending Records</div>
-                <div className="text-[10px] text-slate-500">Status: {STATUS_BADGE[selectedDevice.status].label}</div>
+                <div className="text-[11px] text-slate-500">Status: {STATUS_BADGE[selectedDevice.status].label}</div>
               </div>
             </div>
 
             <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Paired Peripherals</span>
+              <span className="text-[11px] text-slate-400 font-bold uppercase">Paired Peripherals</span>
               <div className="font-semibold text-slate-800 dark:text-slate-200">{selectedDevice.pairedPeripherals.join(', ') || 'None paired'}</div>
             </div>
 
@@ -1062,7 +1062,7 @@ export default function MobileAppsPage() {
             <div className="w-32 h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl p-3 flex items-center justify-center border border-slate-200 dark:border-slate-700">
               <QrCode className="w-full h-full text-slate-900 dark:text-white" />
             </div>
-            <span className="text-[10px] text-slate-400 uppercase font-bold">Scan to Install</span>
+            <span className="text-[11px] text-slate-400 uppercase font-bold">Scan to Install</span>
           </div>
         </div>
 

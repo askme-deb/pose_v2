@@ -207,9 +207,13 @@ async function main() {
     razorpayKeyId: 'rzp_live_98820199481729',
     whatsappPhoneId: '+91 98201 99887',
   };
+  // The invoice counter is only seeded on create: re-running the seed must
+  // never rewind it below invoices that already exist, or every checkout
+  // collides on @@unique([storeId, invoiceNumber]).
+  const { nextInvoiceNumber: _seedCounter, ...tenantProfileUpdate } = tenantProfileData;
   await prisma.tenantProfile.upsert({
     where: { tenantId: tenant.id },
-    update: tenantProfileData,
+    update: tenantProfileUpdate,
     create: { tenantId: tenant.id, ...tenantProfileData },
   });
 

@@ -110,7 +110,7 @@ export default function SalesInvoicesPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.invoiceNumber}</div>
-            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
+            <div className="text-[11px] text-slate-400 font-mono mt-0.5">{formatDateTime(row.original.createdAt)}</div>
           </div>
         ),
       },
@@ -283,25 +283,25 @@ export default function SalesInvoicesPage() {
           <div id="receipt-modal-body" className="space-y-4 font-mono text-xs text-slate-800 dark:text-slate-200">
             <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-300 dark:border-slate-700">
               <div className="font-black text-sm uppercase tracking-wider">APEX SUPERMARKET CHAIN</div>
-              <div className="text-[10px] text-slate-400">Downtown Flagship Store &bull; GSTIN: 27AAACA1234F1Z9</div>
-              <div className="text-[10px] text-slate-400">Ph: +91 98200 11223 &bull; Support: help@apexpos.com</div>
+              <div className="text-[11px] text-slate-400">Downtown Flagship Store &bull; GSTIN: 27AAACA1234F1Z9</div>
+              <div className="text-[11px] text-slate-400">Ph: +91 98200 11223 &bull; Support: help@pospe.com</div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] font-bold">
+            <div className="flex items-center justify-between text-[12px] font-bold">
               <span>INVOICE: {receiptInvoice.invoiceNumber}</span>
               <span>{formatDateTime(receiptInvoice.createdAt)}</span>
             </div>
 
-            <div className="text-[11px]">
+            <div className="text-[12px]">
               <span>CUSTOMER: </span>
               <span className="font-bold">{receiptInvoice.customerName}</span>
             </div>
 
-            <div className="py-2 border-y border-dashed border-slate-300 dark:border-slate-700 space-y-1 text-[11px]">
+            <div className="py-2 border-y border-dashed border-slate-300 dark:border-slate-700 space-y-1 text-[12px]">
               <div className="font-bold line-clamp-2">{receiptInvoice.itemsSummary}</div>
             </div>
 
-            <div className="space-y-1 text-right text-[11px] pt-1">
+            <div className="space-y-1 text-right text-[12px] pt-1">
               <div className="flex justify-between">
                 <span>Subtotal Excl Tax:</span> <span>{formatINR(receiptInvoice.subtotal)}</span>
               </div>
@@ -316,11 +316,11 @@ export default function SalesInvoicesPage() {
               </div>
             </div>
 
-            <div className="text-center pt-3 text-[10px] text-slate-400 border-t border-dashed border-slate-300 dark:border-slate-700">
+            <div className="text-center pt-3 text-[11px] text-slate-400 border-t border-dashed border-slate-300 dark:border-slate-700">
               <div>
                 Payment via {paymentBadgeLabel[receiptInvoice.paymentMethod]} &bull; Status: {receiptInvoice.status}
               </div>
-              <div className="mt-1 font-bold">Thank you for shopping at ApexPOS Supermarket!</div>
+              <div className="mt-1 font-bold">Thank you for shopping at Pospe Supermarket!</div>
             </div>
           </div>
         )}

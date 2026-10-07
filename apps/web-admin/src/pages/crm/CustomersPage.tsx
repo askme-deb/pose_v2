@@ -473,7 +473,7 @@ export default function CustomersPage() {
             </div>
             <div>
               <div className="font-bold text-xs text-slate-900 dark:text-white">{c.fullName}</div>
-              <div className="text-[10px] text-slate-400 font-mono">{c.id.slice(0, 10)}</div>
+              <div className="text-[11px] text-slate-400 font-mono">{c.id.slice(0, 10)}</div>
             </div>
           </div>
         );
@@ -486,7 +486,7 @@ export default function CustomersPage() {
       cell: ({ row }) => (
         <div>
           <div className="font-mono text-slate-700 dark:text-slate-200 font-semibold">{row.original.phone}</div>
-          <div className="text-[10px] text-slate-400">{row.original.email}</div>
+          <div className="text-[11px] text-slate-400">{row.original.email}</div>
         </div>
       ),
     },
@@ -500,7 +500,7 @@ export default function CustomersPage() {
             {tierIcon[row.original.tier]} {tierLabel[row.original.tier]}
           </Badge>
           {row.original.membershipPlanName && (
-            <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
+            <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
               <Sparkles className="w-3 h-3" /> {row.original.membershipPlanName} ({row.original.membershipDiscountPercent}% off)
             </div>
           )}
@@ -597,7 +597,7 @@ export default function CustomersPage() {
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Customer CRM & Loyalty Rewards Hub
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400 border border-pink-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400 border border-pink-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" /> {customers.length} Members &bull;{' '}
               {totalPoints.toLocaleString('en-IN')} Loyalty Points Total
             </span>
@@ -704,7 +704,7 @@ export default function CustomersPage() {
                     </Badge>
                   </div>
                   {!p.isActive && (
-                    <span className="px-2.5 py-1 rounded-xl bg-slate-500/10 text-slate-500 font-bold text-[10px] uppercase">Inactive</span>
+                    <span className="px-2.5 py-1 rounded-xl bg-slate-500/10 text-slate-500 font-bold text-[11px] uppercase">Inactive</span>
                   )}
                 </div>
 
@@ -850,7 +850,7 @@ export default function CustomersPage() {
             onChange={(e) => setForm((f) => ({ ...f, membershipPlanId: e.target.value }))}
           />
         </div>
-        <p className="text-[11px] text-slate-400 leading-relaxed">
+        <p className="text-[12px] text-slate-400 leading-relaxed">
           Setting a date of birth enrolls this customer in the automated birthday wallet-credit job. A paid
           membership plan&apos;s discount is enforced server-side at checkout — it can never be undercut by a tampered
           request, only matched or beaten by a larger manual discount.
@@ -954,7 +954,7 @@ export default function CustomersPage() {
                     <Badge color={walletTxColor[tx.type]} pill>
                       {walletTxLabel[tx.type]}
                     </Badge>
-                    {tx.note && <div className="text-[10px] text-slate-400">{tx.note}</div>}
+                    {tx.note && <div className="text-[11px] text-slate-400">{tx.note}</div>}
                   </div>
                   <div className="text-right">
                     <div
@@ -965,7 +965,7 @@ export default function CustomersPage() {
                       {tx.type === 'REDEEM' ? '-' : '+'}
                       {formatINR(tx.amount)}
                     </div>
-                    <div className="text-[10px] text-slate-400">{formatDate(tx.createdAt)}</div>
+                    <div className="text-[11px] text-slate-400">{formatDate(tx.createdAt)}</div>
                   </div>
                 </div>
               ))}

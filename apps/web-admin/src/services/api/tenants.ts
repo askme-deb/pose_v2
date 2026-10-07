@@ -109,7 +109,7 @@ function actorName(): string {
   return useAuthStore.getState().user?.name ?? 'Super Administrator';
 }
 
-export const tenantDomain = (t: LiveTenant): string => `${t.subdomain}.apexpos.com`;
+export const tenantDomain = (t: LiveTenant): string => `${t.subdomain}.pospe.com`;
 
 export async function listTenants(): Promise<LiveTenant[]> {
   const tenants = await apiClient.get<ApiTenant[]>('/api/subscription/tenants');

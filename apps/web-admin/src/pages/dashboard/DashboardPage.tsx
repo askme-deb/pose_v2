@@ -287,7 +287,7 @@ export default function DashboardPage() {
         cell: ({ row }) => (
           <div>
             <span className="font-mono font-bold text-blue-600">#{row.original.invoiceNumber}</span>
-            <div className="text-[10px] text-slate-400">{minutesAgoLabel(row.original.createdAt)}</div>
+            <div className="text-[11px] text-slate-400">{minutesAgoLabel(row.original.createdAt)}</div>
           </div>
         ),
       },
@@ -340,7 +340,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Executive Intelligence Center
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" /> Live Stream
             </span>
           </div>
@@ -461,7 +461,7 @@ export default function DashboardPage() {
           <div className="relative w-full h-48 flex items-center justify-center">
             <Chart options={paymentOptions} series={paymentSeries} type="donut" height="100%" width="100%" />
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-[10px] font-extrabold uppercase text-slate-400">Total Volume</span>
+              <span className="text-[11px] font-extrabold uppercase text-slate-400">Total Volume</span>
               <span className="text-lg font-black text-slate-900 dark:text-white">{formatCompactINR(kpis?.revenue ?? 0)}</span>
             </div>
           </div>
@@ -487,7 +487,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="mt-1 flex items-baseline justify-between">
                     <span className="font-extrabold text-slate-900 dark:text-white">{slice.pct}%</span>
-                    <span className="text-[10px] font-mono text-slate-400">{formatCompactINR(((kpis?.revenue ?? 0) * slice.pct) / 100)}</span>
+                    <span className="text-[11px] font-mono text-slate-400">{formatCompactINR(((kpis?.revenue ?? 0) * slice.pct) / 100)}</span>
                   </div>
                 </div>
               );
@@ -504,7 +504,7 @@ export default function DashboardPage() {
               <BarChart2 className="w-4 h-4 text-purple-600" />
               <span>Top Sales Categories</span>
             </h3>
-            <Link to="/inventory/categories" className="text-[11px] font-semibold text-blue-600 hover:underline">
+            <Link to="/inventory/categories" className="text-[12px] font-semibold text-blue-600 hover:underline">
               View Catalog
             </Link>
           </div>
@@ -519,7 +519,7 @@ export default function DashboardPage() {
               <Store className="w-4 h-4 text-blue-600" />
               <span>Branch Performance</span>
             </h3>
-            <span className="text-[11px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">{branchPerf.length} Outlets</span>
+            <span className="text-[12px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">{branchPerf.length} Outlets</span>
           </div>
           <div className="relative w-full h-56">
             <Chart options={branchOptions} series={branchSeries} type="bar" height="100%" width="100%" />
@@ -532,7 +532,7 @@ export default function DashboardPage() {
               <Clock className="w-4 h-4 text-amber-500" />
               <span>Hourly Footfall &amp; Peak Hours</span>
             </h3>
-            <span className="text-[11px] text-slate-400 font-semibold">Peak: 7 PM</span>
+            <span className="text-[12px] text-slate-400 font-semibold">Peak: 7 PM</span>
           </div>
           <div className="relative w-full h-56">
             <Chart options={footfallOptions} series={footfallSeries} type="bar" height="100%" width="100%" />
@@ -591,7 +591,7 @@ export default function DashboardPage() {
               value={widgetTab}
               onChange={(v) => setWidgetTab(v as 'top-skus' | 'low-stock')}
             />
-            <Link to="/inventory/products" className="text-[11px] text-blue-600 font-semibold hover:underline">
+            <Link to="/inventory/products" className="text-[12px] text-blue-600 font-semibold hover:underline">
               Manage Catalog
             </Link>
           </div>
@@ -607,12 +607,12 @@ export default function DashboardPage() {
                     <img src={sku.imageUrl} className="w-10 h-10 rounded-xl object-cover" alt={sku.name} />
                     <div>
                       <h4 className="font-bold text-xs text-slate-900 dark:text-white">{sku.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-mono">{sku.sku}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">{sku.sku}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-black text-xs text-slate-900 dark:text-white">{sku.unitsSold} sold</div>
-                    <div className="text-[10px] font-bold text-emerald-600">{formatINR(sku.revenue)}</div>
+                    <div className="text-[11px] font-bold text-emerald-600">{formatINR(sku.revenue)}</div>
                   </div>
                 </div>
               ))}
@@ -634,7 +634,7 @@ export default function DashboardPage() {
                       <span className={cn('w-2 h-2 rounded-full', alert.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500')} />
                       {alert.name}
                     </h4>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[11px] text-slate-400">
                       Stock:{' '}
                       <span className={cn('font-bold', alert.severity === 'critical' ? 'text-red-500' : 'text-amber-500')}>
                         {alert.stockQty} units left
@@ -645,7 +645,7 @@ export default function DashboardPage() {
                   <Link
                     to="/purchases"
                     className={cn(
-                      'px-3 py-1 rounded-xl text-white font-bold text-[10px] shadow-sm transition',
+                      'px-3 py-1 rounded-xl text-white font-bold text-[11px] shadow-sm transition',
                       alert.severity === 'critical' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700',
                     )}
                   >

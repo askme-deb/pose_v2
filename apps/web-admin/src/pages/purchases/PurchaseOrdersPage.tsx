@@ -92,7 +92,7 @@ function LineItemsEditor({ items, products, onChange }: LineItemsEditorProps) {
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Order Line Items *</p>
+      <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Order Line Items *</p>
       <div className="space-y-2">
         {items.map((item, idx) => (
           <div
@@ -456,7 +456,7 @@ export default function PurchaseOrdersPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">{row.original.poNumber}</div>
-            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{formatDate(row.original.createdAt)}</div>
+            <div className="text-[11px] text-slate-400 font-mono mt-0.5">{formatDate(row.original.createdAt)}</div>
           </div>
         ),
       },
@@ -572,7 +572,7 @@ export default function PurchaseOrdersPage() {
         cell: ({ row }) => (
           <div>
             <div className="font-mono text-slate-600 dark:text-slate-300">{row.original.phone}</div>
-            <div className="text-[10px] text-slate-400">{row.original.email}</div>
+            <div className="text-[11px] text-slate-400">{row.original.email}</div>
           </div>
         ),
       },
@@ -602,7 +602,7 @@ export default function PurchaseOrdersPage() {
         cell: ({ row }) => (
           <button
             onClick={() => openLedgerDrawer(row.original)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-600 hover:text-white text-indigo-600 text-[10px] font-bold transition"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-600 hover:text-white text-indigo-600 text-[11px] font-bold transition"
           >
             <Wallet className="w-3 h-3" /> View Ledger
           </button>
@@ -886,7 +886,7 @@ export default function PurchaseOrdersPage() {
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-7">
                       <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{item.productName}</p>
-                      <p className="text-[10px] text-slate-400">{item.receivedQty} of {item.qty} received &bull; {remaining} outstanding</p>
+                      <p className="text-[11px] text-slate-400">{item.receivedQty} of {item.qty} received &bull; {remaining} outstanding</p>
                     </div>
                     <div className="col-span-5">
                       <Input
@@ -961,7 +961,7 @@ export default function PurchaseOrdersPage() {
                 <div key={item.productId} className="grid grid-cols-12 gap-2 items-end p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                   <div className="col-span-7">
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{item.productName}</p>
-                    <p className="text-[10px] text-slate-400">{item.receivedQty} received</p>
+                    <p className="text-[11px] text-slate-400">{item.receivedQty} received</p>
                   </div>
                   <div className="col-span-5">
                     <Input
@@ -1007,7 +1007,7 @@ export default function PurchaseOrdersPage() {
               <div key={e.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-900 text-xs">
                 <div>
                   <p className="font-bold text-slate-800 dark:text-slate-100">{e.label}</p>
-                  <p className="text-[10px] text-slate-400">{e.type === 'PURCHASE_ORDER' ? 'Purchase Order' : e.type === 'PAYMENT' ? 'Payment Made' : 'Purchase Return'} &bull; {formatDateTime(e.date)}</p>
+                  <p className="text-[11px] text-slate-400">{e.type === 'PURCHASE_ORDER' ? 'Purchase Order' : e.type === 'PAYMENT' ? 'Payment Made' : 'Purchase Return'} &bull; {formatDateTime(e.date)}</p>
                 </div>
                 <span className={`font-bold ${e.amount < 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}`}>
                   {e.amount < 0 ? '-' : '+'}{formatINR(Math.abs(e.amount))}
@@ -1017,7 +1017,7 @@ export default function PurchaseOrdersPage() {
           </div>
 
           <form onSubmit={handleRecordPayment} className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Record a Payment</p>
+            <p className="text-[12px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Record a Payment</p>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Amount" type="number" min={1} step="0.01" value={paymentForm.amount} onChange={(e) => setPaymentForm((f) => ({ ...f, amount: e.target.value }))} />
               <Select
