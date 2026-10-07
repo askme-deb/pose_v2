@@ -852,7 +852,7 @@ export default function CustomersPage() {
         </div>
         <p className="text-[11px] text-slate-400 leading-relaxed">
           Setting a date of birth enrolls this customer in the automated birthday wallet-credit job. A paid
-          membership plan's discount is enforced server-side at checkout — it can never be undercut by a tampered
+          membership plan&apos;s discount is enforced server-side at checkout — it can never be undercut by a tampered
           request, only matched or beaten by a larger manual discount.
         </p>
       </Drawer>

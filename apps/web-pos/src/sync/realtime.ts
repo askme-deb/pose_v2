@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 import { usePosSessionStore } from '../store/usePosSessionStore';
+import { getDeviceId } from './deviceId';
 import { upsertProducts } from '../db/offlineDb';
 import type { LiveProduct } from '../services/api/products';
 
@@ -18,11 +19,18 @@ let socket: Socket | null = null;
 // server broadcasts the real, already-updated product rows — not just their
 // ids — so this patches the local cache directly with no refetch of any
 // kind: genuinely incremental, not "poll on push."
-export function startRealtimeSync(): () => void {
-  const token = usePosSessionStore.getState().token;
-  if (!token) return () => {};
+export function startRealtimeSync(onSyncRequested?: () => void): () => void {
+  if (!usePosSessionStore.getState().token) return () => {};
 
-  socket = io(SYNC_WS_URL, { auth: { token }, transports: ['websocket', 'polling'] });
+  // auth as a function: every (re)connect sends the current access token,
+  // which the API client refreshes every ~15 minutes.
+  socket = io(SYNC_WS_URL, {
+    auth: (cb) => cb({ token: usePosSessionStore.getState().token, deviceId: getDeviceId() }),
+    transports: ['websocket', 'polling'],
+  });
+
+  // A manager pressed "Force sync" for this terminal in the back office.
+  socket.on('sync:requested', () => onSyncRequested?.());
 
   socket.on('inventory:changed', (payload: { storeId: string; products: LiveProduct[] }) => {
     if (!payload.products?.length) return;

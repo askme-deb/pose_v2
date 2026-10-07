@@ -49,7 +49,7 @@ function toLiveProduct(p: ApiProduct): LiveProduct {
     costPrice: Number(p.costPrice),
     stockQty: p.stockQty,
     minThreshold: p.minThreshold,
-    imageUrl: p.imageUrl ?? '',
+    imageUrl: resolveImageUrl(p.imageUrl),
     trackBatches: p.trackBatches,
     trackSerials: p.trackSerials,
     isBundle: p.isBundle,
@@ -94,4 +94,20 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Li
 
 export async function deleteProduct(id: string): Promise<void> {
   await apiClient.delete(`/api/inventory/products/${id}`);
+}
+
+/** Uploads a product photo (JPEG/PNG/WebP, ≤5 MB) to object storage. */
+export async function uploadProductImage(id: string, file: File): Promise<LiveProduct> {
+  const form = new FormData();
+  form.append('image', file);
+  const product = await apiClient.upload<ApiProduct>(`/api/inventory/products/${id}/image`, form);
+  return toLiveProduct(product);
+}
+
+// Locally stored uploads come back as gateway-relative paths
+// (/api/inventory/uploads/...); S3/CDN uploads are already absolute.
+function resolveImageUrl(url: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('/')) return `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000'}${url}`;
+  return url;
 }

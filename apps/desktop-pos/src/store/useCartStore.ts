@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { computeInvoiceTotals } from '@pospe/utilities/src/pricing';
 import {
   holdBill,
   listHeldBills,
@@ -107,10 +108,12 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 }));
 
+// Same pricing as the server (discount first, GST on the discounted value),
+// so the total on screen is exactly what checkout charges.
 export function cartTotals(items: CartItem[], discountPercent = 0) {
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const gst = items.reduce((sum, i) => sum + i.price * i.qty * (i.gstRate / 100), 0);
-  const discount = subtotal * (discountPercent / 100);
-  const total = subtotal + gst - discount;
-  return { subtotal, gst, discount, total };
+  const t = computeInvoiceTotals(
+    items.map((i) => ({ price: i.price, quantity: i.qty, gstRate: i.gstRate })),
+    discountPercent,
+  );
+  return { subtotal: t.subtotal, gst: t.taxTotal, discount: t.discountTotal, total: t.total };
 }

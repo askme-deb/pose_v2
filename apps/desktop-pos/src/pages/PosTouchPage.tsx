@@ -17,6 +17,10 @@ import {
 import { Button, Input, Select, Drawer, EmptyState, useToast } from '@pospe/ui-library';
 import { useCartStore, cartTotals } from '../store/useCartStore';
 import { usePosSessionStore } from '../store/usePosSessionStore';
+import { useTerminalStore } from '../store/useTerminalStore';
+import { usePrinterStore } from '../printing/printerStore';
+import { printReceipt } from '../printing/transport';
+import type { ReceiptData } from '../printing/escpos';
 import { useSyncStatusStore } from '../store/useSyncStatusStore';
 import { listProducts, type LiveProduct } from '../services/api/products';
 import { listCategories, type LiveCategory } from '../services/api/categories';
@@ -72,6 +76,34 @@ interface ReceiptSnapshot {
   offline?: boolean;
 }
 
+function toReceiptData(receipt: ReceiptSnapshot, storeName: string, register: string, cashier: string): ReceiptData {
+  const subtotal = receipt.invoice.items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
+  const gst = Number(receipt.invoice.taxTotal);
+  const total = Number(receipt.invoice.total);
+  return {
+    storeName,
+    invoiceNumber: receipt.invoice.invoiceNumber ?? 'RECEIPT',
+    cashier,
+    register,
+    createdAt: receipt.invoice.createdAt,
+    customerName: receipt.invoice.customerName,
+    items: receipt.invoice.items.map((i) => ({
+      name: i.product.name,
+      quantity: i.quantity,
+      unitPrice: Number(i.price),
+      lineTotal: Number(i.price) * i.quantity,
+    })),
+    subtotal,
+    discount: Math.max(0, Math.round((subtotal + gst - total) * 100) / 100) || undefined,
+    gst,
+    total,
+    method: receipt.method,
+    tendered: receipt.tendered,
+    change: receipt.change,
+    offline: receipt.offline,
+  };
+}
+
 export default function PosTouchPage() {
   const {
     items,
@@ -91,6 +123,7 @@ export default function PosTouchPage() {
     clearCart,
   } = useCartStore();
   const { session } = usePosSessionStore();
+  const storeName = useTerminalStore((s) => s.storeName) ?? 'PosPe Store';
   const { refreshCounts } = useSyncStatusStore();
   const { showToast } = useToast();
 
@@ -109,6 +142,27 @@ export default function PosTouchPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
+
+  async function handlePrintReceipt(snapshot: ReceiptSnapshot | null = receipt) {
+    if (!snapshot) return;
+    try {
+      const printed = await printReceipt(
+        toReceiptData(snapshot, storeName, session?.registerName ?? 'Register', session?.cashierName ?? 'Cashier'),
+        snapshot.tendered !== undefined,
+      );
+      if (!printed) window.print();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Printer error', 'danger');
+    }
+  }
+
+  useEffect(() => {
+    if (!receipt || !usePrinterStore.getState().autoPrint) return;
+    // Let the receipt drawer render first (the browser/system modes print the DOM).
+    const timer = window.setTimeout(() => void handlePrintReceipt(receipt), 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt]);
   const [heldBillsOpen, setHeldBillsOpen] = useState(false);
   const [holdModalOpen, setHoldModalOpen] = useState(false);
   const [holdLabel, setHoldLabel] = useState('');
@@ -658,7 +712,7 @@ export default function PosTouchPage() {
         width="sm"
         footer={
           <>
-            <Button variant="primary" className="flex-1" onClick={() => window.print()}>
+            <Button variant="primary" className="flex-1" onClick={() => void handlePrintReceipt()}>
               Print Thermal Receipt
             </Button>
             <Button variant="ghost" onClick={() => setReceipt(null)}>
@@ -675,8 +729,7 @@ export default function PosTouchPage() {
               </div>
             )}
             <div className="text-center space-y-0.5">
-              <p className="text-sm font-black">ApexPOS Enterprise</p>
-              <p>Downtown Flagship Store</p>
+              <p className="text-sm font-black">{storeName}</p>
               <p className="font-bold">{receipt.invoice.invoiceNumber}</p>
               <p>{session?.registerName ?? 'Register 02'} &middot; Cashier: {session?.cashierName ?? 'Cashier'}</p>
               <p>{new Date(receipt.invoice.createdAt).toLocaleString('en-IN')}</p>

@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, KeyRound, Eye, EyeOff, ShieldCheck, ShieldAlert, Globe, Building, Delete, AlertCircle } from 'lucide-react';
-import { Button, Checkbox } from '@pospe/ui-library';
-import { useAuthStore } from '../../store/useAuthStore';
+import { Button, Checkbox, useToast } from '@pospe/ui-library';
 import { apiClient } from '../../services/api/client';
-import type { Role } from '@pospe/permissions';
+import { describeLoginError, landingPathFor, startSession, type LoginResponse } from './session';
 
 type LoginRole = 'tenant' | 'cashier' | 'superadmin';
 
@@ -12,7 +11,7 @@ const POS_URL = (import.meta.env.VITE_POS_URL as string | undefined) ?? 'http://
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const login = useAuthStore((s) => s.login);
+  const { showToast } = useToast();
 
   const [role, setRole] = useState<LoginRole>('tenant');
 
@@ -28,39 +27,51 @@ export default function LoginPage() {
   const [pin, setPin] = useState('');
 
   // Super Admin form state
-  const [masterAdminId, setMasterAdminId] = useState('superadmin@apexpos.com');
-  const [otpCode, setOtpCode] = useState('892-041');
+  const [masterAdminId, setMasterAdminId] = useState('superadmin@pospe.com');
+  const [superAdminPassword, setSuperAdminPassword] = useState('');
 
-  const handleTenantSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Shared by the tenant and super-admin forms: both are the same
+  // email/password login; the role in the response decides where to land.
+  const signIn = async (loginEmail: string, loginPassword: string, expectSuperAdmin: boolean) => {
     setLoginError(null);
     setSubmitting(true);
     try {
-      const res = await apiClient.post<
-        { requiresTwoFactor: true; pendingToken: string } | { token: string; user: { name: string; email: string; role: Role } }
-      >('/api/auth/login', { email, password });
+      const res = await apiClient.post<LoginResponse>('/api/auth/login', { email: loginEmail, password: loginPassword });
       if ('requiresTwoFactor' in res) {
         navigate('/2fa', { state: { pendingToken: res.pendingToken } });
         return;
       }
-      login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
-      navigate('/dashboard');
-    } catch {
-      setLoginError('Invalid email or password.');
+      if (expectSuperAdmin && res.user.role !== 'super_admin') {
+        setLoginError('This account is not a platform administrator.');
+        return;
+      }
+      startSession(res);
+      navigate(landingPathFor(res.user.role));
+    } catch (err) {
+      const failure = describeLoginError(err);
+      if (failure.requiresEmailVerification) {
+        showToast('Verify your email to finish setting up your account.', 'info');
+        navigate('/otp-verification', { state: { email: failure.email ?? loginEmail, purpose: 'verify' } });
+        return;
+      }
+      setLoginError(failure.message);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleTenantSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void signIn(email, password, false);
+  };
+
   const handleSuperAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    login({ name: 'Priya Menon', email: 'superadmin@apexpos.com', role: 'super_admin' });
-    navigate('/superadmin');
+    void signIn(masterAdminId, superAdminPassword, true);
   };
 
   const handleSso = () => {
-    login({ name: 'Alexander Wright', email, role: 'tenant_owner' });
-    navigate('/dashboard');
+    showToast('SSO sign-in is not available yet. Use email and password.', 'warning');
   };
 
   const appendPin = (digit: string) => {
@@ -288,10 +299,10 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-              Master Admin ID
+              Platform Admin Email
             </label>
             <input
-              type="text"
+              type="email"
               value={masterAdminId}
               onChange={(e) => setMasterAdminId(e.target.value)}
               required
@@ -300,21 +311,30 @@ export default function LoginPage() {
           </div>
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-              Hardware Security Key / OTP Code
+              Password
             </label>
             <input
-              type="text"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
+              type="password"
+              value={superAdminPassword}
+              onChange={(e) => setSuperAdminPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white font-mono text-center tracking-widest outline-none"
+              autoComplete="current-password"
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none"
             />
+            <p className="text-[10px] text-slate-400 mt-1.5">If two-factor is enabled you&apos;ll be asked for your authenticator code next.</p>
           </div>
+          {loginError && (
+            <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              {loginError}
+            </div>
+          )}
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-lg shadow-purple-500/25"
+            disabled={submitting}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold text-xs shadow-lg shadow-purple-500/25 disabled:opacity-60"
           >
-            Authenticate Super Admin Session
+            {submitting ? 'Authenticating…' : 'Authenticate Super Admin Session'}
           </button>
         </form>
       )}

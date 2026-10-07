@@ -10,6 +10,11 @@ export interface SyncDevice {
   lastSyncAt: string | null;
   lastSeenAt: string;
   online: boolean;
+  platform: string | null;
+  osVersion: string | null;
+  appVersion: string | null;
+  batteryPercent: number | null;
+  peripherals: string[];
 }
 
 export type SyncConflictStatus = 'OPEN' | 'RESOLVED';
@@ -40,4 +45,9 @@ export function listSyncConflicts(status: SyncConflictStatus | 'ALL' = 'OPEN'): 
 
 export function resolveSyncConflict(id: string, note: string, resolvedBy: string): Promise<SyncConflict> {
   return apiClient.post<SyncConflict>(`/api/sync/conflicts/${id}/resolve`, { note, resolvedBy });
+}
+
+/** Asks a connected terminal to flush its offline queue now. */
+export function requestDeviceSync(deviceId: string): Promise<{ requested: boolean; connected: boolean }> {
+  return apiClient.post(`/api/sync/devices/${encodeURIComponent(deviceId)}/sync-request`, {});
 }

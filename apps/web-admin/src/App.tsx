@@ -4,6 +4,7 @@ import { ToastProvider } from '@pospe/ui-library';
 import AppShell from './layouts/AppShell';
 import PublicLayout from './layouts/PublicLayout';
 import RoleGate from './routes/RoleGate';
+import RequireAuth from './routes/RequireAuth';
 
 import LandingPage from './pages/auth/LandingPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -51,29 +52,31 @@ export default function App() {
             <Route path="/otp-verification" element={<OtpVerificationPage />} />
           </Route>
 
-          <Route element={<AppShell />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/inventory/products" element={<ProductsPage />} />
-            <Route path="/inventory/categories" element={<CategoriesBrandsPage />} />
-            <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
-            <Route path="/purchases" element={<PurchaseOrdersPage />} />
-            <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
-            <Route path="/sales/documents" element={<SalesDocumentsPage />} />
-            <Route path="/warehouse/transfers" element={<WarehouseTransfersPage />} />
-            <Route path="/crm/customers" element={<CustomersPage />} />
-            <Route path="/gst/reports" element={<GstReportsPage />} />
-            <Route path="/reports/analytics" element={<ReportsAnalyticsPage />} />
-            <Route path="/settings/business-profile" element={<BusinessProfilePage />} />
-            <Route path="/settings/security" element={<SecuritySettingsPage />} />
-            <Route path="/roles" element={<UserRolesPage />} />
-            <Route path="/mobile-apps" element={<MobileAppsPage />} />
-            <Route path="/sync/status" element={<SyncStatusPage />} />
-
-            <Route element={<RoleGate allow={['super_admin']} />}>
-              <Route path="/superadmin" element={<SuperAdminDashboardPage />} />
-              <Route path="/superadmin/tenants" element={<SuperAdminTenantsPage />} />
-              <Route path="/superadmin/subscriptions" element={<SuperAdminSubscriptionsPage />} />
-              <Route path="/superadmin/white-label" element={<SuperAdminWhiteLabelPage />} />
+          <Route element={<RequireAuth />}>
+            <Route element={<AppShell />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/inventory/products" element={<ProductsPage />} />
+              <Route path="/inventory/categories" element={<CategoriesBrandsPage />} />
+              <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
+              <Route path="/purchases" element={<PurchaseOrdersPage />} />
+              <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
+              <Route path="/sales/documents" element={<SalesDocumentsPage />} />
+              <Route path="/warehouse/transfers" element={<WarehouseTransfersPage />} />
+              <Route path="/crm/customers" element={<CustomersPage />} />
+              <Route path="/gst/reports" element={<GstReportsPage />} />
+              <Route path="/reports/analytics" element={<ReportsAnalyticsPage />} />
+              <Route path="/settings/business-profile" element={<BusinessProfilePage />} />
+              <Route path="/settings/security" element={<SecuritySettingsPage />} />
+              <Route path="/roles" element={<UserRolesPage />} />
+              <Route path="/mobile-apps" element={<MobileAppsPage />} />
+              <Route path="/sync/status" element={<SyncStatusPage />} />
+  
+              <Route element={<RoleGate allow={['super_admin']} />}>
+                <Route path="/superadmin" element={<SuperAdminDashboardPage />} />
+                <Route path="/superadmin/tenants" element={<SuperAdminTenantsPage />} />
+                <Route path="/superadmin/subscriptions" element={<SuperAdminSubscriptionsPage />} />
+                <Route path="/superadmin/white-label" element={<SuperAdminWhiteLabelPage />} />
+              </Route>
             </Route>
           </Route>
 

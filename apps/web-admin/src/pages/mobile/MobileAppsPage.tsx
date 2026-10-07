@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import Chart from 'react-apexcharts';
 import {
@@ -46,7 +46,42 @@ import {
   useToast,
   cn,
 } from '@pospe/ui-library';
-import { fleetDevices as initialFleetDevices, fleetBranchOptions, type FleetDevice } from '../../services/mockData/fleetDevices';
+import { listSyncDevices, requestDeviceSync, type SyncDevice } from '../../services/api/sync';
+
+// One row per registered terminal (POS web/desktop apps), built from the
+// sync service's device registry and each terminal's heartbeat telemetry.
+interface FleetDevice {
+  id: string;
+  deviceName: string;
+  serial: string;
+  assignedBranch: string;
+  register: string;
+  os: string;
+  osVersion: string;
+  pairedPeripherals: string[];
+  batteryPercent: number | null;
+  status: 'online' | 'offline' | 'syncing';
+  syncQueueCount: number;
+}
+
+function toFleetDevice(d: SyncDevice): FleetDevice {
+  return {
+    id: d.deviceId,
+    deviceName: d.label ?? `Terminal ${d.deviceId.slice(0, 8)}`,
+    serial: d.appVersion ? `App v${d.appVersion}` : d.deviceId,
+    assignedBranch: d.store.name,
+    register: d.lastSyncAt ? `Last sync ${new Date(d.lastSyncAt).toLocaleString('en-IN')}` : 'Never synced',
+    os: (d.platform ?? 'unknown').toLowerCase(),
+    osVersion: d.osVersion ?? '',
+    pairedPeripherals: d.peripherals,
+    batteryPercent: d.batteryPercent,
+    status: !d.online ? 'offline' : d.pendingCount > 0 ? 'syncing' : 'online',
+    syncQueueCount: d.pendingCount,
+  };
+}
+
+const OS_LABEL: Record<string, string> = { ios: 'iOS', android: 'Android', windows: 'Windows', macos: 'macOS', linux: 'Linux', web: 'Web', unknown: 'Unknown' };
+const osLabel = (d: FleetDevice) => `${OS_LABEL[d.os] ?? d.os} ${d.osVersion}`.trim();
 import { formatINR } from '../../utils/format';
 import { useThemeStore } from '../../store/useThemeStore';
 
@@ -97,7 +132,8 @@ const MODE_BAR_COLORS = ['#0284c7', '#16a34a', '#7c3aed', '#d97706'];
 const PAYMENT_DONUT_LIGHT = ['#0ea5e9', '#6366f1', '#10b981', '#f59e0b'];
 const PAYMENT_DONUT_DARK = ['#0284c7', '#4f46e5', '#059669', '#d97706'];
 
-function batteryTone(percent: number) {
+function batteryTone(percent: number | null) {
+  if (percent === null) return { text: 'text-slate-400', bar: 'bg-slate-300' };
   if (percent < 30) return { text: 'text-rose-500', bar: 'bg-rose-500' };
   if (percent < 60) return { text: 'text-amber-500', bar: 'bg-amber-500' };
   return { text: 'text-emerald-500', bar: 'bg-emerald-500' };
@@ -299,7 +335,17 @@ export default function MobileAppsPage() {
   const { showToast } = useToast();
   const dark = useThemeStore((s) => s.dark);
 
-  const [devices, setDevices] = useState<FleetDevice[]>(initialFleetDevices);
+  const [devices, setDevices] = useState<FleetDevice[]>([]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    listSyncDevices()
+      .then((rows) => setDevices(rows.map(toFleetDevice)))
+      .catch(() => showToast('Could not load registered terminals', 'danger'));
+    // Online/offline is derived from heartbeats; refresh it periodically.
+    const timer = setInterval(() => setReloadKey((k) => k + 1), 30_000);
+    return () => clearInterval(timer);
+  }, [reloadKey, showToast]);
   const [appMode, setAppMode] = useState<AppMode>('pos');
   const [phoneModel, setPhoneModel] = useState<PhoneModel>('iphone');
   const [phoneDark, setPhoneDark] = useState(false);
@@ -333,20 +379,23 @@ export default function MobileAppsPage() {
     const offline = devices.filter((d) => d.status === 'offline').length;
     const pendingDevices = devices.filter((d) => d.syncQueueCount > 0).length;
     const pendingRecords = devices.reduce((sum, d) => sum + d.syncQueueCount, 0);
-    const syncedPct = Math.round(((total - pendingDevices) / total) * 100);
-    const avgBattery = Math.round(devices.reduce((sum, d) => sum + d.batteryPercent, 0) / total);
-    const lowBattery = devices.filter((d) => d.batteryPercent < 20).length;
+    const syncedPct = total ? Math.round(((total - pendingDevices) / total) * 100) : 100;
+    const withBattery = devices.filter((d) => d.batteryPercent !== null);
+    const avgBattery = withBattery.length ? Math.round(withBattery.reduce((sum, d) => sum + (d.batteryPercent ?? 0), 0) / withBattery.length) : 0;
+    const lowBattery = withBattery.filter((d) => (d.batteryPercent ?? 100) < 20).length;
     const allPeripherals = devices.flatMap((d) => d.pairedPeripherals);
     const printerCount = allPeripherals.filter((p) => p.toLowerCase().includes('printer')).length;
     const otherHardwareCount = allPeripherals.length - printerCount;
     return { total, online, syncing, offline, pendingRecords, syncedPct, avgBattery, lowBattery, allPeripherals, printerCount, otherHardwareCount };
   }, [devices]);
 
-  const branchSelectOptions = [{ value: 'all', label: 'All Store Branches' }, ...fleetBranchOptions];
+  const branchSelectOptions = [
+    { value: 'all', label: 'All Store Branches' },
+    ...Array.from(new Set(devices.map((d) => d.assignedBranch))).map((b) => ({ value: b, label: b })),
+  ];
   const osSelectOptions = [
-    { value: 'all', label: 'All OS Builds' },
-    { value: 'ios', label: 'iOS Build' },
-    { value: 'android', label: 'Android Build' },
+    { value: 'all', label: 'All Platforms' },
+    ...Array.from(new Set(devices.map((d) => d.os))).map((o) => ({ value: o, label: OS_LABEL[o] ?? o })),
   ];
   const statusSelectOptions = [
     { value: 'all', label: 'All Statuses' },
@@ -357,13 +406,19 @@ export default function MobileAppsPage() {
 
   function handlePing(device: FleetDevice, e?: React.MouseEvent) {
     e?.stopPropagation();
-    showToast(`Ping sent to ${device.deviceName}! Response latency: 42ms. Telemetry active.`, 'success');
+    setReloadKey((k) => k + 1);
+    showToast(device.status === 'offline' ? `${device.deviceName} has not sent a heartbeat recently.` : `${device.deviceName} is online.`, device.status === 'offline' ? 'warning' : 'success');
   }
 
-  function handleSync(device: FleetDevice, e?: React.MouseEvent) {
+  async function handleSync(device: FleetDevice, e?: React.MouseEvent) {
     e?.stopPropagation();
-    setDevices((prev) => prev.map((d) => (d.id === device.id ? { ...d, syncQueueCount: 0, status: 'online' } : d)));
-    showToast(`Force SQLite Sync triggered for ${device.id}. 0 Pending records remaining.`, 'info');
+    try {
+      const res = await requestDeviceSync(device.id);
+      showToast(res.connected ? `Sync requested on ${device.deviceName}.` : `${device.deviceName} isn't connected; it will sync when it comes back online.`, res.connected ? 'info' : 'warning');
+      setTimeout(() => setReloadKey((k) => k + 1), 3000);
+    } catch {
+      showToast('Could not request a sync', 'danger');
+    }
   }
 
   function handleOpenDetail(device: FleetDevice, e?: React.MouseEvent) {
@@ -383,7 +438,7 @@ export default function MobileAppsPage() {
       accessorFn: (d) => d.deviceName,
       cell: ({ row }) => {
         const d = row.original;
-        const Icon = d.os === 'ios' ? Smartphone : TabletIcon;
+        const Icon = d.os === 'ios' || d.os === 'android' ? Smartphone : TabletIcon;
         return (
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 flex items-center justify-center shrink-0">
@@ -417,7 +472,7 @@ export default function MobileAppsPage() {
       accessorFn: (d) => d.osVersion,
       cell: ({ row }) => (
         <span className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-          {row.original.os === 'ios' ? 'iOS' : 'Android'} {row.original.osVersion}
+          {osLabel(row.original)}
         </span>
       ),
     },
@@ -427,7 +482,7 @@ export default function MobileAppsPage() {
       accessorFn: (d) => d.pairedPeripherals.join(', '),
       cell: ({ row }) => (
         <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 max-w-[180px] truncate">
-          {row.original.pairedPeripherals.join(', ')}
+          {row.original.pairedPeripherals.join(', ') || 'None'}
         </div>
       ),
     },
@@ -438,6 +493,7 @@ export default function MobileAppsPage() {
       cell: ({ row }) => {
         const pct = row.original.batteryPercent;
         const tone = batteryTone(pct);
+        if (pct === null) return <span className="text-[11px] text-slate-400">Mains / n/a</span>;
         return (
           <div className="space-y-1 w-20">
             <div className={cn('flex items-center gap-1.5 font-mono font-bold text-xs', tone.text)}>
@@ -552,7 +608,7 @@ export default function MobileAppsPage() {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              ApexPOS Mobile Ecosystem &amp; App Studio
+              Pospe Mobile Ecosystem &amp; App Studio
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/10 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400 border border-sky-500/20 uppercase tracking-wider flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" /> v4.2.0 Native Build • PWA Ready • {kpis.total} Registered Terminals
@@ -933,13 +989,13 @@ export default function MobileAppsPage() {
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">OS &amp; Build</span>
                 <div className="font-bold text-slate-900 dark:text-white">
-                  {selectedDevice.os === 'ios' ? 'iOS' : 'Android'} {selectedDevice.osVersion}
+                  {osLabel(selectedDevice)}
                 </div>
                 <div className="text-[10px] text-sky-600 font-mono font-bold">v4.2.0 Build</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Battery Telemetry</span>
-                <div className={cn('font-mono font-bold', batteryTone(selectedDevice.batteryPercent).text)}>{selectedDevice.batteryPercent}% Charged</div>
+                <div className={cn('font-mono font-bold', batteryTone(selectedDevice.batteryPercent).text)}>{selectedDevice.batteryPercent === null ? 'Not reported' : `${selectedDevice.batteryPercent}% Charged`}</div>
                 <div className="text-[10px] text-slate-500">Health: Normal (98%)</div>
               </div>
               <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
@@ -951,7 +1007,7 @@ export default function MobileAppsPage() {
 
             <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/80 space-y-1">
               <span className="text-[10px] text-slate-400 font-bold uppercase">Paired Peripherals</span>
-              <div className="font-semibold text-slate-800 dark:text-slate-200">{selectedDevice.pairedPeripherals.join(', ')}</div>
+              <div className="font-semibold text-slate-800 dark:text-slate-200">{selectedDevice.pairedPeripherals.join(', ') || 'None paired'}</div>
             </div>
 
             <div className="pt-2 flex gap-2">
@@ -977,7 +1033,7 @@ export default function MobileAppsPage() {
       <Drawer
         open={pwaModalOpen}
         onClose={() => setPwaModalOpen(false)}
-        title="Install ApexPOS PWA App"
+        title="Install Pospe PWA App"
         subtitle="Run the native POS client app on iOS, Android, or Desktop."
         width="md"
       >
@@ -1026,7 +1082,7 @@ export default function MobileAppsPage() {
         open={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
         title="Scan Mobile App QR"
-        subtitle="Scan with your smartphone camera to download the ApexPOS Mobile APK or launch the PWA instance instantly."
+        subtitle="Scan with your smartphone camera to download the Pospe Mobile APK or launch the PWA instance instantly."
         width="sm"
       >
         <div className="w-48 h-48 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 flex items-center justify-center border border-slate-200 dark:border-slate-700">

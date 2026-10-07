@@ -198,7 +198,7 @@ export default function SyncStatusPage() {
             </Badge>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Live view of every POS terminal's sync state and any offline sales that couldn't be honestly replayed —
+            Live view of every POS terminal&apos;s sync state and any offline sales that couldn&apos;t be honestly replayed —
             e.g. two terminals selling the last unit of the same SKU while offline.
           </p>
         </div>

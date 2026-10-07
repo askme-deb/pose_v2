@@ -2,17 +2,29 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { KeyRound, ArrowLeft } from 'lucide-react';
 import { Button, Input, useToast } from '@pospe/ui-library';
+import { apiClient } from '../../services/api/client';
+import { apiErrorMessage } from './session';
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const [email, setEmail] = useState('admin@apexsupermarket.com');
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('Reset OTP sent to your email!', 'success');
-    navigate('/login');
+    setSubmitting(true);
+    try {
+      // The server answers the same way whether or not the email exists.
+      await apiClient.post('/api/auth/password/forgot', { email: email.trim() });
+      showToast('If that email has an account, a reset code is on its way.', 'success');
+      navigate('/reset-password', { state: { email: email.trim() } });
+    } catch (err) {
+      showToast(apiErrorMessage(err, 'Could not send a reset code. Try again.'), 'danger');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -27,7 +39,7 @@ export default function ForgotPasswordPage() {
           Reset Account Password
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Enter your business email to receive an OTP reset link.
+          Enter your business email and we&apos;ll send you a 6-digit reset code.
         </p>
       </div>
 
@@ -36,15 +48,19 @@ export default function ForgotPasswordPage() {
           label="Registered Business Email"
           type="email"
           required
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Button type="submit" className="w-full !rounded-xl py-3">
-          Send Password Reset OTP
+        <Button type="submit" disabled={submitting} className="w-full !rounded-xl py-3">
+          {submitting ? 'Sending…' : 'Send Reset Code'}
         </Button>
       </form>
 
-      <div className="text-center">
+      <div className="text-center space-y-2">
+        <Link to="/reset-password" state={{ email }} className="block text-xs text-slate-500 dark:text-slate-400 hover:underline">
+          Already have a code?
+        </Link>
         <Link
           to="/login"
           className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline"

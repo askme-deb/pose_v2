@@ -21,6 +21,11 @@ export function confirmTwoFa(token: string): Promise<{ success: boolean }> {
   return apiClient.post<{ success: boolean }>('/api/auth/2fa/confirm', { token });
 }
 
-export function disableTwoFa(): Promise<{ success: boolean }> {
-  return apiClient.post<{ success: boolean }>('/api/auth/2fa/disable', {});
+// Requires a current authenticator code, so a stolen session can't strip 2FA.
+export function disableTwoFa(token: string): Promise<{ success: boolean }> {
+  return apiClient.post<{ success: boolean }>('/api/auth/2fa/disable', { token });
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean }> {
+  return apiClient.post<{ success: boolean }>('/api/auth/password/change', { currentPassword, newPassword });
 }

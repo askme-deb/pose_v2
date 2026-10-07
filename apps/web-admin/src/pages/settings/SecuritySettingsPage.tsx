@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, ShieldOff, KeyRound } from 'lucide-react';
 import { Badge, Button, GlassCard, Input, useToast } from '@pospe/ui-library';
-import { getTwoFaStatus, setupTwoFa, confirmTwoFa, disableTwoFa, type TwoFaSetup } from '../../services/api/twoFactor';
+import { getTwoFaStatus, setupTwoFa, confirmTwoFa, disableTwoFa, changePassword, type TwoFaSetup } from '../../services/api/twoFactor';
+import { apiErrorMessage } from '../auth/session';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export default function SecuritySettingsPage() {
   const { showToast } = useToast();
@@ -11,6 +13,11 @@ export default function SecuritySettingsPage() {
   const [setup, setSetup] = useState<TwoFaSetup | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   function refreshStatus() {
     return getTwoFaStatus()
@@ -55,13 +62,32 @@ export default function SecuritySettingsPage() {
   async function handleDisable() {
     setBusy(true);
     try {
-      await disableTwoFa();
+      await disableTwoFa(code);
+      setCode('');
       await refreshStatus();
       showToast('Two-factor authentication disabled', 'success');
-    } catch {
-      showToast('Failed to disable 2FA', 'danger');
+    } catch (err) {
+      showToast(apiErrorMessage(err, 'Failed to disable 2FA'), 'danger');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) return setPasswordError('New password must be at least 8 characters.');
+    if (newPassword !== confirmPassword) return setPasswordError('Passwords do not match.');
+    setPasswordError('');
+    setSavingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      // Changing the password revokes every session, including this one.
+      showToast('Password changed. Please sign in again.', 'success');
+      useAuthStore.getState().logout();
+    } catch (err) {
+      setPasswordError(apiErrorMessage(err, 'Could not change your password.'));
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -97,10 +123,21 @@ export default function SecuritySettingsPage() {
               <ShieldCheck className="w-5 h-5 shrink-0" />
               <span>Two-factor authentication is protecting this account. You&apos;ll be asked for a code every time you sign in.</span>
             </div>
-            <Button variant="danger" onClick={handleDisable} disabled={busy}>
-              <ShieldOff className="w-4 h-4" />
-              Disable Two-Factor Authentication
-            </Button>
+            <div className="flex items-end gap-3">
+              <Input
+                label="Current authenticator code"
+                inputMode="numeric"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="123456"
+                className="font-mono tracking-widest"
+              />
+              <Button variant="danger" onClick={handleDisable} disabled={busy || code.length !== 6}>
+                <ShieldOff className="w-4 h-4" />
+                Disable 2FA
+              </Button>
+            </div>
           </div>
         ) : setup ? (
           <div className="space-y-4">
@@ -141,6 +178,30 @@ export default function SecuritySettingsPage() {
             </Button>
           </div>
         )}
+      </GlassCard>
+
+      <GlassCard className="space-y-6 max-w-xl">
+        <div className="border-b border-slate-200/60 dark:border-slate-800 pb-4">
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Change Password</h3>
+          <p className="text-xs text-slate-400">You&apos;ll be signed out of every device afterwards.</p>
+        </div>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <Input label="Current password" type="password" autoComplete="current-password" required value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+          <Input label="New password" type="password" autoComplete="new-password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <Input
+            label="Confirm new password"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={passwordError}
+          />
+          <Button type="submit" disabled={savingPassword}>
+            <KeyRound className="w-4 h-4" />
+            {savingPassword ? 'Saving…' : 'Change Password'}
+          </Button>
+        </form>
       </GlassCard>
     </div>
   );

@@ -125,8 +125,8 @@ export default function SalesDocumentsPage() {
   }, []);
 
   const productOptions = useMemo(() => products.map((p) => ({ value: p.id, label: `${p.name} (${p.sku})` })), [products]);
-  const customerOptions = useMemo(() => [{ value: '', label: 'Walk-in Customer' }, ...customers.map((c) => ({ value: c.id, label: c.name }))], [customers]);
-  const invoiceOptions = useMemo(() => invoices.map((i) => ({ value: i.id, label: `${i.invoiceNumber ?? i.id} — ${formatINR(i.total)}` })), [invoices]);
+  const customerOptions = useMemo(() => [{ value: '', label: 'Walk-in Customer' }, ...customers.map((c) => ({ value: c.id, label: c.fullName }))], [customers]);
+  const invoiceOptions = useMemo(() => invoices.map((i) => ({ value: i.id, label: `${i.invoiceNumber ?? i.id} — ${formatINR(i.totalAmount)}` })), [invoices]);
 
   function openQuoteDrawer() {
     setQuoteForm({ kind: 'QUOTATION', customerId: '', items: [{ productId: products[0]?.id ?? '', quantity: 1 }], validUntil: '', notes: '' });

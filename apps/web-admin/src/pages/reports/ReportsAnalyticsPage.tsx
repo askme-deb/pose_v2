@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
@@ -30,7 +30,6 @@ import {
   Calculator,
   FileCheck2,
   Box,
-  Star,
   FileText,
 } from 'lucide-react';
 import {
@@ -50,30 +49,18 @@ import {
 } from '@pospe/ui-library';
 import { formatINR, formatDate } from '../../utils/format';
 import { useThemeStore } from '../../store/useThemeStore';
-import { products, stockStatus as computeStockStatus, type Product } from '../../services/mockData/products';
-import { categories } from '../../services/mockData/categories';
+import { ApiError } from '@pospe/api-client';
 import {
-  revenueSeries,
-  paymentMethodSplit,
-  hourlyFootfall,
-  categoryMargin,
-  topProducts,
-  reorderAlerts,
-  crmStats,
-  vipCustomers,
-  cashierLeaderboard,
-  pnlStatement,
-  gstTaxSlabSummary,
-  gstTotal,
-  branchOptions,
-  categoryFilterOptions,
-  paymentModeOptions,
-  datePresetOptions,
-  BASE_ORDERS,
+  getAnalytics,
+  downloadAnalytics,
+  createReportSchedule,
+  EMPTY_ANALYTICS,
+  type AnalyticsReport,
+  type ProductRow,
   type VipCustomer,
   type CashierPerformance,
   type GstTaxSlab,
-} from '../../services/mockData/analyticsData';
+} from '../../services/api/reports';
 
 type TabValue = 'sales' | 'products' | 'crm' | 'cashier' | 'financial';
 type ChartMetric = 'revenue' | 'profit' | 'orders';
@@ -86,36 +73,56 @@ const tabOptions: { value: TabValue; label: string }[] = [
   { value: 'financial', label: 'P&L & Tax Audit Suite' },
 ];
 
-interface ProductRow {
-  productId: string;
-  name: string;
-  sku: string;
-  categoryName: string;
-  unitsSold: number;
-  revenue: number;
-  profit: number;
-  marginPercent: number;
-  stockQty: number;
-  gstRate: number;
-  status: 'in-stock' | 'low-stock' | 'out-of-stock';
-}
+const datePresetOptions = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last7', label: 'Last 7 Days' },
+  { value: 'last30', label: 'Last 30 Days' },
+  { value: 'thisMonth', label: 'This Month' },
+  { value: 'lastMonth', label: 'Last Month' },
+  { value: 'custom', label: 'Custom Range' },
+];
 
-function buildProductRow(productId: string, unitsSold: number, revenue: number, profit: number, marginPercent: number): ProductRow {
-  const product = products.find((p) => p.id === productId) as Product;
-  const category = categories.find((c) => c.id === product.categoryId);
-  return {
-    productId,
-    name: product.name,
-    sku: product.sku,
-    categoryName: category?.name ?? 'Uncategorized',
-    unitsSold,
-    revenue,
-    profit,
-    marginPercent,
-    stockQty: product.stockQty,
-    gstRate: product.gstRate,
-    status: computeStockStatus(product),
-  };
+const paymentModeOptions = [
+  { value: 'all', label: 'All Payment Modes' },
+  { value: 'UPI', label: 'UPI / QR Payment' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'CASH', label: 'Cash Tender' },
+  { value: 'SPLIT', label: 'Split Tender' },
+];
+
+const SCHEDULE_FREQUENCIES = [
+  { value: 'DAILY', label: 'Daily at 8:00 AM (Morning Recap)' },
+  { value: 'WEEKLY', label: 'Weekly, Monday at 8:00 AM' },
+  { value: 'MONTHLY', label: 'Monthly, 1st day at 8:00 AM' },
+];
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+/** The [from, to] window for a date preset, in the browser's local time. */
+function presetRange(preset: string, customStart: string, customEnd: string): { from: Date; to: Date } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = 86_400_000;
+  switch (preset) {
+    case 'yesterday':
+      return { from: new Date(today.getTime() - day), to: new Date(today.getTime() - 1) };
+    case 'last7':
+      return { from: new Date(today.getTime() - 6 * day), to: now };
+    case 'last30':
+      return { from: new Date(today.getTime() - 29 * day), to: now };
+    case 'thisMonth':
+      return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now };
+    case 'lastMonth':
+      return { from: new Date(now.getFullYear(), now.getMonth() - 1, 1), to: new Date(new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1) };
+    case 'custom': {
+      const from = new Date(`${customStart}T00:00:00`);
+      const to = new Date(`${customEnd}T23:59:59.999`);
+      return from <= to ? { from, to } : { from: to, to: from };
+    }
+    default:
+      return { from: today, to: now };
+  }
 }
 
 function stockBadgeColor(status: ProductRow['status']): BadgeColor {
@@ -136,23 +143,6 @@ function gstSlabColor(ratePercent: number): BadgeColor {
   if (ratePercent === 12) return 'cyan';
   if (ratePercent === 18) return 'purple';
   return 'red';
-}
-
-function StarRating({ value }: { value: number }) {
-  const rounded = Math.round(value);
-  return (
-    <div className="flex items-center justify-center gap-1.5">
-      <div className="flex">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Star
-            key={i}
-            className={cn('w-3 h-3', i <= rounded ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-700')}
-          />
-        ))}
-      </div>
-      <span className="font-bold text-amber-500">{value.toFixed(2).replace(/0$/, '').replace(/\.$/, '.0')}</span>
-    </div>
-  );
 }
 
 function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
@@ -179,9 +169,9 @@ export default function ReportsAnalyticsPage() {
 
   const [activeTab, setActiveTab] = useState<TabValue>('sales');
   const [datePreset, setDatePreset] = useState('today');
-  const [customStart, setCustomStart] = useState('2026-08-16');
-  const [customEnd, setCustomEnd] = useState('2026-08-16');
-  const [branchFilter, setBranchFilter] = useState('downtown');
+  const [customStart, setCustomStart] = useState(todayIso);
+  const [customEnd, setCustomEnd] = useState(todayIso);
+  const [branchFilter, setBranchFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [chartMetric, setChartMetric] = useState<ChartMetric>('revenue');
@@ -194,97 +184,119 @@ export default function ReportsAnalyticsPage() {
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'excel'>('pdf');
   const [exportModules, setExportModules] = useState({ kpi: true, topSku: true, gst: true });
-  const [scheduleEmail, setScheduleEmail] = useState('executive.management@apexpos.com');
-  const [scheduleFrequency, setScheduleFrequency] = useState('Daily at 8:00 AM (Morning Recap)');
+  const [scheduleEmail, setScheduleEmail] = useState('executive.management@pospe.com');
+  const [scheduleFrequency, setScheduleFrequency] = useState('DAILY');
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------
-  // KPI computation — scales the base (current) period figures by the
-  // active date preset's factor, mirroring the HTML prototype's behaviour.
+  // Live analytics from reporting-service for the selected window/filters.
   // ---------------------------------------------------------------------
-  const kpi = useMemo(() => {
-    const preset = datePresetOptions.find((d) => d.value === datePreset) ?? datePresetOptions[0];
-    const factor = preset.factor;
-    const grossSales = Math.round(pnlStatement.grossSales * factor);
-    const netProfit = Math.round(pnlStatement.finalNetOperatingProfit * factor);
-    const gst = Math.round(gstTotal * factor);
-    const orders = Math.round(BASE_ORDERS * factor);
-    const returns = Math.round(pnlStatement.returns * factor);
-    const aov = orders > 0 ? grossSales / orders : 0;
-    const marginPct = grossSales > 0 ? (netProfit / grossSales) * 100 : 0;
-    const returnsRate = grossSales > 0 ? (returns / grossSales) * 100 : 0;
+  const [report, setReport] = useState<AnalyticsReport>(EMPTY_ANALYTICS);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const query = useMemo(() => {
+    const { from, to } = presetRange(datePreset, customStart, customEnd);
     return {
-      grossSales,
-      netProfit,
-      gst,
-      orders,
-      returns,
-      aov,
-      marginPct,
-      returnsRate,
-      cgst: gst / 2,
-      sgst: gst / 2,
+      from,
+      to,
+      storeId: branchFilter === 'all' ? undefined : branchFilter,
+      categoryId: categoryFilter === 'all' ? undefined : categoryFilter,
+      paymentMethod: paymentFilter === 'all' ? undefined : paymentFilter,
     };
-  }, [datePreset]);
+  }, [datePreset, customStart, customEnd, branchFilter, categoryFilter, paymentFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRefreshing(true);
+    getAnalytics(query)
+      .then((data) => {
+        if (cancelled) return;
+        setReport(data);
+        setLoadError(null);
+        setLastSyncLabel(`Updated ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`);
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof ApiError ? err.serverMessage : 'Could not load analytics');
+      })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [query, reloadKey]);
+
+  const {
+    kpi,
+    revenueSeries,
+    paymentMethodSplit,
+    hourlyFootfall,
+    categoryMargin,
+    topProducts,
+    reorderAlerts,
+    crmStats,
+    vipCustomers,
+    cashierLeaderboard,
+    pnlStatement,
+    gstTaxSlabSummary,
+    gstTotal,
+  } = report;
+  const branchOptions = useMemo(() => [{ value: 'all', label: 'All Branches Combined' }, ...report.options.branches], [report.options.branches]);
+  const categoryFilterOptions = useMemo(() => [{ value: 'all', label: 'All Categories' }, ...report.options.categories], [report.options.categories]);
 
   // ---------------------------------------------------------------------
   // Filters
   // ---------------------------------------------------------------------
   function handleDatePreset(value: string) {
     setDatePreset(value);
-    const preset = datePresetOptions.find((d) => d.value === value);
-    showToast(`Analytics filtered for preset: ${(preset?.label ?? value).toUpperCase()}`, 'info');
   }
 
-  function notifyFiltersApplied(branch: string, category: string) {
-    showToast(`Filter applied: Branch [${branch.toUpperCase()}], Category [${category.toUpperCase()}]`, 'success');
-  }
+  // Any filter change re-queries reporting-service via the effect above; a
+  // custom date switches the preset to the custom range.
+  function notifyFiltersApplied(_branch: string, _category: string) {}
 
   // ---------------------------------------------------------------------
   // Title banner actions
   // ---------------------------------------------------------------------
   function handleRefresh() {
-    setRefreshing(true);
     setLastSyncLabel('Syncing...');
-    showToast('Syncing real-time terminal telemetry...', 'info');
-    setTimeout(() => {
-      setRefreshing(false);
-      setLastSyncLabel('Live Sync: Just now');
-      showToast('All reports and analytics updated with latest sales data!', 'success');
-    }, 800);
+    setReloadKey((k) => k + 1);
   }
 
   function handleExportCsv() {
     const stamp = new Date().toISOString().slice(0, 10);
     if (activeTab === 'products') {
       downloadCsv(
-        `ApexPOS_TopProducts_${stamp}.csv`,
+        `Pospe_TopProducts_${stamp}.csv`,
         ['Product Name', 'SKU', 'Category', 'Units Sold', 'Revenue (INR)', 'Profit (INR)', 'Margin (%)'],
         productRows.map((r) => [r.name, r.sku, r.categoryName, r.unitsSold, r.revenue, r.profit, r.marginPercent]),
       );
     } else if (activeTab === 'crm') {
       downloadCsv(
-        `ApexPOS_VipCustomers_${stamp}.csv`,
+        `Pospe_VipCustomers_${stamp}.csv`,
         ['Customer Name', 'Contact', 'Tier', 'Visits', 'Lifetime Spend (INR)', 'Avg Basket (INR)', 'Last Purchase'],
         vipCustomers.map((c) => [c.name, c.contact, c.tier, c.visits, c.lifetimeSpend, c.avgBasket, c.lastPurchase]),
       );
     } else if (activeTab === 'cashier') {
       downloadCsv(
-        `ApexPOS_CashierLeaderboard_${stamp}.csv`,
-        ['Cashier Name', 'Terminal', 'Invoices Handled', 'Revenue (INR)', 'Avg Speed (sec/bill)', 'Void Count', 'Rating'],
-        cashierLeaderboard.map((c) => [c.name, c.terminal, c.invoicesHandled, c.revenue, c.avgSpeedSeconds, c.voidCount, c.ratingStars]),
+        `Pospe_CashierLeaderboard_${stamp}.csv`,
+        ['Cashier Name', 'Store', 'Invoices Handled', 'Revenue (INR)', 'Avg Basket (INR)', 'Refunds'],
+        cashierLeaderboard.map((c) => [c.name, c.terminal, c.invoicesHandled, c.revenue, c.avgBasket, c.voidCount]),
       );
     } else if (activeTab === 'financial') {
       downloadCsv(
-        `ApexPOS_GSTTaxSlabs_${stamp}.csv`,
+        `Pospe_GSTTaxSlabs_${stamp}.csv`,
         ['Tax Slab', 'Taxable Amount (INR)', 'CGST (INR)', 'SGST (INR)', 'Total Tax (INR)'],
         gstTaxSlabSummary.map((g) => [g.slabLabel, g.taxableAmount, g.cgst, g.sgst, g.total]),
       );
     } else {
       downloadCsv(
-        `ApexPOS_RevenuePerformance_${stamp}.csv`,
+        `Pospe_RevenuePerformance_${stamp}.csv`,
         ['Date', 'Revenue (INR)', 'Profit (INR)', 'Orders'],
         revenueSeries.map((d) => [d.date, d.revenue, d.profit, d.orders]),
       );
@@ -292,17 +304,44 @@ export default function ReportsAnalyticsPage() {
     showToast('CSV Report Downloaded Successfully!', 'success');
   }
 
-  function handleDownloadReport() {
-    showToast(`Generating ${exportFormat.toUpperCase()} report file...`, 'info');
-    setTimeout(() => {
-      showToast(`ApexPOS_Analytics_Report_${Date.now()}.${exportFormat}`, 'success');
+  const selectedModules = () => (Object.keys(exportModules) as (keyof typeof exportModules)[]).filter((m) => exportModules[m]);
+
+  async function handleDownloadReport() {
+    const modules = selectedModules();
+    if (modules.length === 0) {
+      showToast('Choose at least one section to export', 'warning');
+      return;
+    }
+    setDownloading(true);
+    try {
+      await downloadAnalytics(query, exportFormat === 'excel' ? 'xlsx' : 'pdf', modules);
+      showToast('Report downloaded', 'success');
       setExportModalOpen(false);
-    }, 1000);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.serverMessage : 'Could not generate the report', 'danger');
+    } finally {
+      setDownloading(false);
+    }
   }
 
-  function handleScheduleSave() {
-    showToast('Automated schedule saved successfully!', 'success');
-    setScheduleModalOpen(false);
+  async function handleScheduleSave() {
+    const modules = selectedModules();
+    setSavingSchedule(true);
+    try {
+      await createReportSchedule({
+        email: scheduleEmail.trim(),
+        frequency: scheduleFrequency as 'DAILY' | 'WEEKLY' | 'MONTHLY',
+        format: exportFormat === 'excel' ? 'XLSX' : 'PDF',
+        modules: modules.length ? modules : ['kpi', 'topSku', 'gst'],
+        storeId: branchFilter === 'all' ? undefined : branchFilter,
+      });
+      showToast(`Scheduled — ${scheduleEmail} will receive this report automatically`, 'success');
+      setScheduleModalOpen(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.serverMessage : 'Could not save the schedule', 'danger');
+    } finally {
+      setSavingSchedule(false);
+    }
   }
 
   function handleChartMetric(metric: ChartMetric) {
@@ -313,10 +352,7 @@ export default function ReportsAnalyticsPage() {
   // ---------------------------------------------------------------------
   // Product & Inventory Matrix data
   // ---------------------------------------------------------------------
-  const allProductRows: ProductRow[] = useMemo(
-    () => topProducts.map((tp) => buildProductRow(tp.productId, tp.unitsSold, tp.revenue, tp.profit, tp.marginPercent)),
-    [],
-  );
+  const allProductRows: ProductRow[] = topProducts;
 
   const productRows = useMemo(() => {
     const q = productSearch.trim().toLowerCase();
@@ -336,7 +372,7 @@ export default function ReportsAnalyticsPage() {
     setProductModalOpen(true);
   }
 
-  function handleReorderPo(row: ProductRow) {
+  function handleReorderPo(row: { sku: string }) {
     showToast(`Reorder PO drafted for ${row.sku}`, 'success');
     navigate('/purchases');
   }
@@ -486,12 +522,11 @@ export default function ReportsAnalyticsPage() {
   const cashierColumns: ColumnDef<CashierPerformance, any>[] = useMemo(
     () => [
       { accessorKey: 'name', header: 'Cashier Name', cell: (info) => <span className="font-bold text-slate-900 dark:text-white">{info.getValue<string>()}</span> },
-      { accessorKey: 'terminal', header: 'Register Terminal', cell: (info) => <span className="text-slate-500 dark:text-slate-400 font-medium">{info.getValue<string>()}</span> },
+      { accessorKey: 'terminal', header: 'Store', cell: (info) => <span className="text-slate-500 dark:text-slate-400 font-medium">{info.getValue<string>()}</span> },
       { accessorKey: 'invoicesHandled', header: 'Invoices Handled', cell: (info) => <div className="text-center font-bold">{info.getValue<number>().toLocaleString('en-IN')}</div> },
       { accessorKey: 'revenue', header: 'Revenue Generated', cell: (info) => <div className="text-right font-black text-slate-900 dark:text-white">{formatINR(info.getValue<number>())}</div> },
-      { accessorKey: 'avgSpeedSeconds', header: 'Avg Speed/Bill', cell: (info) => <div className="text-center font-semibold text-blue-600 dark:text-blue-400">{info.getValue<number>()} sec/bill</div> },
-      { accessorKey: 'voidCount', header: 'Void/Return Count', cell: (info) => <div className="text-center font-semibold text-rose-500">{info.getValue<number>()} voids</div> },
-      { accessorKey: 'ratingStars', header: 'Performance Rating', cell: (info) => <StarRating value={info.getValue<number>()} /> },
+      { accessorKey: 'avgBasket', header: 'Avg Basket', cell: (info) => <div className="text-right font-semibold text-blue-600 dark:text-blue-400">{formatINR(info.getValue<number>())}</div> },
+      { accessorKey: 'voidCount', header: 'Refunds', cell: (info) => <div className="text-center font-semibold text-rose-500">{info.getValue<number>()} refunds</div> },
       {
         id: 'audit',
         header: 'Audit',
@@ -543,7 +578,7 @@ export default function ReportsAnalyticsPage() {
       return { name: 'Orders Count', data: revenueSeries.map((d) => d.orders), color: '#9333ea', money: false };
     }
     return { name: 'Gross Sales (₹)', data: revenueSeries.map((d) => d.revenue), color: '#3b82f6', money: true };
-  }, [chartMetric]);
+  }, [chartMetric, revenueSeries]);
 
   const lineChartOptions: ApexOptions = {
     chart: { type: 'area', toolbar: { show: false }, fontFamily, background: 'transparent' },
@@ -615,7 +650,9 @@ export default function ReportsAnalyticsPage() {
   const footfallSeries = [{ name: 'Invoices Issued', data: hourlyFootfall.map((h) => h.invoices) }];
 
   const peakIdx = hourlyFootfall.reduce((maxI, cur, i, arr) => (cur.invoices > arr[maxI].invoices ? i : maxI), 0);
-  const peakLabel = `${hourlyFootfall[Math.max(0, peakIdx - 1)].hour} - ${hourlyFootfall[Math.min(hourlyFootfall.length - 1, peakIdx + 1)].hour}`;
+  const peakLabel = hourlyFootfall.length
+    ? `${hourlyFootfall[Math.max(0, peakIdx - 1)].hour} - ${hourlyFootfall[Math.min(hourlyFootfall.length - 1, peakIdx + 1)].hour}`
+    : '—';
 
   const categoryChartOptions: ApexOptions = {
     chart: { type: 'bar', toolbar: { show: false }, fontFamily, background: 'transparent' },
@@ -692,6 +729,12 @@ export default function ReportsAnalyticsPage() {
         </div>
       </div>
 
+      {loadError && (
+        <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-semibold">
+          {loadError}
+        </div>
+      )}
+
       {/* Global Filter Bar */}
       <GlassCard padding="sm" className="space-y-4 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -720,7 +763,7 @@ export default function ReportsAnalyticsPage() {
                 value={customStart}
                 onChange={(e) => {
                   setCustomStart(e.target.value);
-                  notifyFiltersApplied(branchFilter, categoryFilter);
+                  setDatePreset('custom');
                 }}
                 className="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs"
               />
@@ -730,7 +773,7 @@ export default function ReportsAnalyticsPage() {
                 value={customEnd}
                 onChange={(e) => {
                   setCustomEnd(e.target.value);
-                  notifyFiltersApplied(branchFilter, categoryFilter);
+                  setDatePreset('custom');
                 }}
                 className="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs"
               />
@@ -925,12 +968,11 @@ export default function ReportsAnalyticsPage() {
               </div>
 
               <div className="space-y-3">
-                {reorderAlerts.map((alert) => {
-                  const product = products.find((p) => p.id === alert.productId);
-                  if (!product) return null;
+                {reorderAlerts.length === 0 && <p className="text-xs text-slate-400">Every product is above its reorder threshold.</p>}
+                {reorderAlerts.map((product) => {
                   return (
                     <div
-                      key={alert.productId}
+                      key={product.productId}
                       className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2"
                     >
                       <div>
@@ -940,7 +982,7 @@ export default function ReportsAnalyticsPage() {
                         </span>
                       </div>
                       <button
-                        onClick={() => handleReorderPo(buildProductRow(product.id, 0, 0, 0, 0))}
+                        onClick={() => handleReorderPo(product)}
                         className="px-3 py-1.5 rounded-xl bg-blue-600 text-white text-[11px] font-bold hover:bg-blue-700 transition whitespace-nowrap"
                       >
                         Reorder PO
@@ -1010,9 +1052,9 @@ export default function ReportsAnalyticsPage() {
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-bold uppercase">Loyalty Points Redeemed</div>
-                <div className="text-2xl font-black text-slate-900 dark:text-white">{crmStats.loyaltyPointsRedeemed.toLocaleString('en-IN')} pts</div>
-                <div className="text-[11px] text-purple-500 font-bold mt-0.5">Value {formatINR(crmStats.loyaltyPointsRedeemed)} credit</div>
+                <div className="text-xs text-slate-400 font-bold uppercase">Wallet Credit Redeemed</div>
+                <div className="text-2xl font-black text-slate-900 dark:text-white">{formatINR(crmStats.walletCreditRedeemed)}</div>
+                <div className="text-[11px] text-purple-500 font-bold mt-0.5">Store credit spent this period</div>
               </div>
             </GlassCard>
           </div>
@@ -1094,6 +1136,9 @@ export default function ReportsAnalyticsPage() {
 
                 <div className="space-y-1 pt-2">
                   <div className="text-[11px] font-bold text-slate-400 uppercase">Operating Overhead Expenses</div>
+                  {pnlStatement.overheadLines.length === 0 && (
+                    <div className="text-slate-400 italic">Operating expenses (rent, payroll, utilities) are not recorded yet, so profit is shown before overheads.</div>
+                  )}
                   {pnlStatement.overheadLines.map((line) => (
                     <div key={line.label} className="flex justify-between text-slate-500 dark:text-slate-400">
                       <span>{line.label}</span>
@@ -1202,8 +1247,8 @@ export default function ReportsAnalyticsPage() {
             <Button variant="ghost" onClick={() => setExportModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleDownloadReport}>
-              Download File
+            <Button variant="primary" onClick={handleDownloadReport} disabled={downloading}>
+              {downloading ? 'Generating…' : 'Download File'}
             </Button>
           </>
         }
@@ -1273,6 +1318,7 @@ export default function ReportsAnalyticsPage() {
             </Button>
             <Button
               onClick={handleScheduleSave}
+              disabled={savingSchedule}
               className="!bg-amber-500 hover:!bg-amber-600 !from-amber-500 !to-amber-500 hover:!from-amber-600 hover:!to-amber-600 shadow-amber-500/20"
             >
               Enable Auto-Mail
@@ -1292,9 +1338,7 @@ export default function ReportsAnalyticsPage() {
             value={scheduleFrequency}
             onChange={(e) => setScheduleFrequency(e.target.value)}
             options={[
-              { value: 'Daily at 8:00 AM (Morning Recap)', label: 'Daily at 8:00 AM (Morning Recap)' },
-              { value: 'Weekly every Monday morning', label: 'Weekly every Monday morning' },
-              { value: 'Monthly on 1st day at midnight', label: 'Monthly on 1st day at midnight' },
+              ...SCHEDULE_FREQUENCIES,
             ]}
           />
         </div>

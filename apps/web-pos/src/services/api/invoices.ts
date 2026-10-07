@@ -27,7 +27,7 @@ export interface ApiInvoice {
 export interface CreateInvoiceInput {
   customerId?: string;
   paymentMethod: ApiPaymentMethod;
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; quantity: number; unitPrice?: number }[];
   discountPercent: number;
 }
 

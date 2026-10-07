@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { CreateInvoiceInput } from './invoices';
+import type { DeviceTelemetry } from '../../sync/telemetry';
 
 export interface SyncPushItem {
   idempotencyKey: string;
@@ -19,6 +20,6 @@ export function pushSync(deviceId: string, storeId: string, label: string, items
   return apiClient.post<{ results: SyncPushResult[] }>('/api/sync/push', { deviceId, storeId, label, items });
 }
 
-export function sendHeartbeat(deviceId: string, storeId: string, label: string, pendingCount: number) {
-  return apiClient.post('/api/sync/heartbeat', { deviceId, storeId, label, pendingCount });
+export function sendHeartbeat(deviceId: string, storeId: string, label: string, pendingCount: number, telemetry: DeviceTelemetry) {
+  return apiClient.post('/api/sync/heartbeat', { deviceId, storeId, label, pendingCount, ...telemetry });
 }

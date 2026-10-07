@@ -3,43 +3,18 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Sparkles, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Button, Input, useToast } from '@pospe/ui-library';
 import logo from '../../assets/logo.svg';
-import { useAuthStore } from '../../store/useAuthStore';
 import { apiClient } from '../../services/api/client';
-import type { Role } from '@pospe/permissions';
+import { apiErrorMessage } from './session';
 
 interface RegisterResponse {
-  token: string;
-  refreshToken: string;
-  user: { id: string; name: string; email: string; role: Role; tenantId: string; tenantName: string };
-}
-
-// Registration hits the same catch-all API error shape every other page in
-// this app uses (ApiClient throws `API error ${status}: ${rawBody}`) — the
-// raw body is the zod-flattened validation error or a plain `{error}`
-// message from the backend, so surface it as-is rather than re-deriving it.
-function extractApiError(err: unknown): string {
-  if (!(err instanceof Error)) return 'Could not create your account. Please try again.';
-  const match = err.message.match(/API error \d+: (.+)/s);
-  if (!match) return err.message;
-  try {
-    const body = JSON.parse(match[1]);
-    if (typeof body.error === 'string') return body.error;
-    if (body.error?.fieldErrors) {
-      const firstField = Object.values(body.error.fieldErrors).find((v) => Array.isArray(v) && v.length) as
-        | string[]
-        | undefined;
-      if (firstField) return firstField[0];
-    }
-  } catch {
-    // fall through to raw message
-  }
-  return 'Could not create your account. Please try again.';
+  requiresEmailVerification: true;
+  email: string;
+  tenantName: string;
 }
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const login = useAuthStore((s) => s.login);
 
   const [businessName, setBusinessName] = useState('');
   const [ownerName, setOwnerName] = useState('');
@@ -73,11 +48,11 @@ export default function RegisterPage() {
         password,
         phone: phone.trim() || undefined,
       });
-      login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
-      showToast(`Welcome to ApexPOS, ${res.user.name}! Your workspace "${res.user.tenantName}" is ready.`, 'success');
-      navigate('/dashboard');
+      // No session yet: the owner confirms the 6-digit code we just emailed.
+      showToast(`Workspace "${res.tenantName}" created. Check ${res.email} for your verification code.`, 'success');
+      navigate('/otp-verification', { state: { email: res.email, purpose: 'verify' } });
     } catch (err) {
-      setError(extractApiError(err));
+      setError(apiErrorMessage(err, 'Could not create your account. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -88,7 +63,7 @@ export default function RegisterPage() {
       <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500" />
 
       <div className="text-center space-y-2">
-        <img src={logo} alt="ApexPOS" className="h-10 mx-auto" />
+        <img src={logo} alt="Pospe" className="h-10 mx-auto" />
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
           Start 14-Day Free Trial
         </h1>

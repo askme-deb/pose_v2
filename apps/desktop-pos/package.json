@@ -2,13 +2,17 @@
   "name": "@pospe/desktop-pos",
   "private": true,
   "version": "0.1.0",
+  "description": "PosPe desktop point-of-sale with offline billing",
+  "author": "PosPe",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite --port 5175\" \"wait-on tcp:5175 && electron .\"",
     "build": "tsc -b && vite build",
     "build:electron": "npm run build && electron-builder",
+    "build:win": "npm run build && electron-builder --win",
     "lint": "eslint . --ext ts,tsx",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "clean": "rm -rf dist release node_modules .turbo",
     "postinstall": "electron-rebuild -f -w better-sqlite3 || exit 0"
   },
@@ -26,9 +30,11 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "socket.io-client": "^4.8.1",
-    "zustand": "^5.0.1"
+    "zustand": "^5.0.1",
+    "@pospe/utilities": "*"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "@electron/rebuild": "^3.6.1",
     "@types/better-sqlite3": "^7.6.11",
     "@types/react": "^18.3.12",
@@ -47,8 +53,28 @@
   "build": {
     "appId": "com.pospe.desktoppos",
     "productName": "PosPe Desktop POS",
+    "electronVersion": "33.4.11",
     "files": ["dist/**/*", "electron/**/*"],
-    "directories": { "output": "release" },
-    "asarUnpack": ["**/node_modules/better-sqlite3/**"]
+    "directories": { "output": "release", "buildResources": "build-resources" },
+    "asarUnpack": ["**/node_modules/better-sqlite3/**"],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build-resources/icon.ico",
+      "artifactName": "PosPe-Desktop-POS-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "PosPe POS",
+      "installerIcon": "build-resources/icon.ico",
+      "uninstallerIcon": "build-resources/icon.ico",
+      "installerHeaderIcon": "build-resources/icon.ico",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
+const net = require('node:net');
+const os = require('node:os');
 const Database = require('better-sqlite3');
 
 const isDev = !app.isPackaged;
@@ -111,6 +113,46 @@ function registerIpcHandlers() {
   });
 }
 
+// Receipt printing. Raw ESC/POS goes straight to a network thermal printer
+// on TCP 9100 (the de-facto "JetDirect" raw port); "system" printing prints
+// the current page (print CSS isolates the receipt) silently to an installed
+// OS printer, which covers USB printers with a vendor driver.
+function registerPrinterHandlers() {
+  ipcMain.handle('printer:sendRaw', (_event, host, port, bytes) => {
+    if (typeof host !== 'string' || !/^[a-zA-Z0-9.-]{1,253}$/.test(host)) throw new Error('Invalid printer host');
+    const portNum = Number(port);
+    if (!Number.isInteger(portNum) || portNum < 1 || portNum > 65535) throw new Error('Invalid printer port');
+    const data = Buffer.from(bytes);
+    return new Promise((resolve, reject) => {
+      const socket = net.createConnection({ host, port: portNum, timeout: 5000 }, () => {
+        socket.end(data, () => resolve(true));
+      });
+      socket.on('timeout', () => {
+        socket.destroy();
+        reject(new Error(`Printer ${host}:${portNum} did not respond`));
+      });
+      socket.on('error', (err) => reject(new Error(`Printer ${host}:${portNum}: ${err.message}`)));
+    });
+  });
+
+  ipcMain.handle('printer:list', async (event) => {
+    const printers = await event.sender.getPrintersAsync();
+    return printers.map((p) => p.name);
+  });
+
+  ipcMain.handle(
+    'printer:printSystem',
+    (event, deviceName) =>
+      new Promise((resolve, reject) => {
+        event.sender.print({ silent: true, deviceName: deviceName || undefined, printBackground: false }, (ok, reason) =>
+          ok ? resolve(true) : reject(new Error(reason || 'Print failed')),
+        );
+      }),
+  );
+
+  ipcMain.handle('device:info', () => ({ platform: process.platform, osVersion: os.release(), appVersion: app.getVersion() }));
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -132,6 +174,7 @@ function createWindow() {
 app.whenReady().then(() => {
   initDb();
   registerIpcHandlers();
+  registerPrinterHandlers();
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -4,6 +4,7 @@ export interface HeldBillItem {
   productId: string;
   name: string;
   price: number;
+  catalogPrice: number;
   gstRate: number;
   quantity: number;
 }
@@ -40,7 +41,7 @@ export interface RecalledBill {
 
 export interface HoldBillInput {
   customerId?: string;
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; quantity: number; unitPrice?: number }[];
   discountPercent: number;
   label: string;
 }

@@ -11,24 +11,28 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   token: string | null;
-  login: (user: AuthUser, token?: string) => void;
+  refreshToken: string | null;
+  login: (user: AuthUser, token?: string, refreshToken?: string) => void;
+  setTokens: (token: string, refreshToken: string) => void;
   logout: () => void;
 }
-
-const defaultUser: AuthUser = {
-  name: 'Alexander Wright',
-  email: 'admin@apexsupermarket.com',
-  role: 'tenant_owner',
-};
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: defaultUser,
+      user: null,
       token: null,
-      login: (user, token) => set({ user, token: token ?? null }),
-      logout: () => set({ user: null, token: null }),
+      refreshToken: null,
+      login: (user, token, refreshToken) => set({ user, token: token ?? null, refreshToken: refreshToken ?? null }),
+      setTokens: (token, refreshToken) => set({ token, refreshToken }),
+      logout: () => set({ user: null, token: null, refreshToken: null }),
     }),
-    { name: 'pospe-auth' },
+    {
+      name: 'pospe-auth',
+      // v0 shipped a hardcoded demo user with no token; v1 had no refresh
+      // token. Either way, start from a clean signed-out state.
+      version: 2,
+      migrate: () => ({ user: null, token: null, refreshToken: null }),
+    },
   ),
 );

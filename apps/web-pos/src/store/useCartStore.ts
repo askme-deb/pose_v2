@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { computeInvoiceTotals } from '@pospe/utilities/src/pricing';
 import {
   holdBill,
   listHeldBills,
@@ -6,13 +7,22 @@ import {
   voidHeldBill as apiVoidHeldBill,
   type ApiHeldBill,
 } from '../services/api/billing';
+import { canOverridePrice } from '../utils/permissions';
 
 export interface CartItem {
   id: string;
   name: string;
   price: number;
+  // Price from the product catalog; differs from `price` only after a manual
+  // override, which is the only case `unitPrice` is sent to the server.
+  catalogPrice: number;
   qty: number;
   gstRate: number;
+}
+
+// The server re-prices every line from the catalog unless told otherwise.
+export function lineUnitPrice(item: CartItem): number | undefined {
+  return item.price !== item.catalogPrice ? item.price : undefined;
 }
 
 interface CartState {
@@ -22,8 +32,9 @@ interface CartState {
   couponCode: string | null;
   heldBills: ApiHeldBill[];
   heldBillsLoading: boolean;
-  addToCart: (item: Omit<CartItem, 'qty'>) => void;
+  addToCart: (item: Omit<CartItem, 'qty' | 'catalogPrice'>) => void;
   updateQty: (id: string, qty: number) => void;
+  updatePrice: (id: string, price: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
   setCustomer: (customerId: string | null, customerName: string) => void;
@@ -48,13 +59,16 @@ export const useCartStore = create<CartState>((set, get) => ({
       if (existing) {
         return { items: state.items.map((i) => (i.id === item.id ? { ...i, qty: i.qty + 1 } : i)) };
       }
-      return { items: [...state.items, { ...item, qty: 1 }] };
+      return { items: [...state.items, { ...item, catalogPrice: item.price, qty: 1 }] };
     }),
 
   updateQty: (id, qty) =>
     set((state) => ({
       items: qty <= 0 ? state.items.filter((i) => i.id !== id) : state.items.map((i) => (i.id === id ? { ...i, qty } : i)),
     })),
+
+  updatePrice: (id, price) =>
+    set((state) => ({ items: state.items.map((i) => (i.id === id ? { ...i, price } : i)) })),
 
   removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
 
@@ -83,7 +97,7 @@ export const useCartStore = create<CartState>((set, get) => ({
     const state = get();
     await holdBill({
       customerId: state.customerId ?? undefined,
-      items: state.items.map((i) => ({ productId: i.id, quantity: i.qty })),
+      items: state.items.map((i) => ({ productId: i.id, quantity: i.qty, unitPrice: lineUnitPrice(i) })),
       discountPercent,
       label,
     });
@@ -93,8 +107,19 @@ export const useCartStore = create<CartState>((set, get) => ({
 
   recallHeldBill: async (id) => {
     const recalled = await apiRecallHeldBill(id);
+    // A held line's snapshotted price can only be kept by someone allowed to
+    // override prices; anyone else gets today's catalog price, which is what
+    // checkout would charge them anyway.
+    const keepHeldPrice = canOverridePrice();
     set({
-      items: recalled.items.map((i) => ({ id: i.productId, name: i.name, price: i.price, qty: i.quantity, gstRate: i.gstRate })),
+      items: recalled.items.map((i) => ({
+        id: i.productId,
+        name: i.name,
+        price: keepHeldPrice ? i.price : i.catalogPrice,
+        catalogPrice: i.catalogPrice,
+        qty: i.quantity,
+        gstRate: i.gstRate,
+      })),
       customerId: recalled.customerId,
       customerName: recalled.customerName,
     });
@@ -107,10 +132,12 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 }));
 
+// Same pricing as the server (discount first, GST on the discounted value),
+// so the total on screen is exactly what checkout charges.
 export function cartTotals(items: CartItem[], discountPercent = 0) {
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-  const gst = items.reduce((sum, i) => sum + i.price * i.qty * (i.gstRate / 100), 0);
-  const discount = subtotal * (discountPercent / 100);
-  const total = subtotal + gst - discount;
-  return { subtotal, gst, discount, total };
+  const t = computeInvoiceTotals(
+    items.map((i) => ({ price: i.price, quantity: i.qty, gstRate: i.gstRate })),
+    discountPercent,
+  );
+  return { subtotal: t.subtotal, gst: t.taxTotal, discount: t.discountTotal, total: t.total };
 }

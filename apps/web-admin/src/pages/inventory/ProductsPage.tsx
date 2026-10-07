@@ -34,6 +34,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  uploadProductImage,
   stockStatus,
   LiveProduct,
 } from '../../services/api/products';
@@ -106,6 +107,8 @@ export default function ProductsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
+  // Photo picked in the drawer; uploaded to object storage after save.
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [barcodeProduct, setBarcodeProduct] = useState<LiveProduct | null>(null);
 
@@ -158,12 +161,14 @@ export default function ProductsPage() {
 
   function openAddDrawer() {
     setEditingId(null);
+    setImageFile(null);
     setForm({ ...emptyForm, categoryId: categoryOptions[0]?.value ?? '' });
     setDrawerOpen(true);
   }
 
   function openEditDrawer(p: LiveProduct) {
     setEditingId(p.id);
+    setImageFile(null);
     setForm({
       name: p.name,
       sku: p.sku,
@@ -194,17 +199,14 @@ export default function ProductsPage() {
       costPrice: Number(form.costPrice) || 0,
       stockQty: Number(form.stockQty) || 0,
       minThreshold: Number(form.minThreshold) || 0,
-      imageUrl: form.imageUrl.trim() || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=200',
+      imageUrl: form.imageUrl.trim() || undefined,
       trackBatches: form.trackBatches,
       trackSerials: form.trackSerials,
     };
 
     try {
-      if (editingId) {
-        await updateProduct(editingId, input);
-      } else {
-        await createProduct(input);
-      }
+      const saved = editingId ? await updateProduct(editingId, input) : await createProduct(input);
+      if (imageFile) await uploadProductImage(saved.id, imageFile);
       await reload();
       setDrawerOpen(false);
       showToast('Product saved', 'success');
@@ -322,7 +324,7 @@ export default function ProductsPage() {
           <div>
             <span className="font-bold text-slate-800 dark:text-slate-100">{row.original.name}</span>
             <div className="flex items-center gap-1 mt-0.5">
-              {row.original.isBundle && <Badge color="indigo" pill>Bundle</Badge>}
+              {row.original.isBundle && <Badge color="blue" pill>Bundle</Badge>}
               {row.original.trackBatches && <Badge color="cyan" pill>Batches</Badge>}
               {row.original.trackSerials && <Badge color="purple" pill>Serials</Badge>}
             </div>
@@ -656,10 +658,28 @@ export default function ProductsPage() {
               onChange={(e) => setForm((f) => ({ ...f, minThreshold: e.target.value }))}
             />
           </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Product Photo</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                if (file && file.size > 5 * 1024 * 1024) {
+                  showToast('Image must be 5 MB or smaller', 'warning');
+                  e.target.value = '';
+                  return;
+                }
+                setImageFile(file);
+              }}
+              className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold"
+            />
+            <p className="text-[10px] text-slate-400">JPEG, PNG or WebP up to 5 MB. Or paste an image URL below.</p>
+          </div>
           <Input
-            label="Product Image URL"
+            label="Product Image URL (optional)"
             type="url"
-            placeholder="https://images.unsplash.com/..."
+            placeholder="https://..."
             value={form.imageUrl}
             onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
           />

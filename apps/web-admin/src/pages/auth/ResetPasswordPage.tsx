@@ -1,19 +1,35 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { Button, Input, useToast } from '@pospe/ui-library';
+import { apiClient } from '../../services/api/client';
+import { apiErrorMessage } from './session';
 
+interface LocationState {
+  email?: string;
+}
+
+// Redeems a 6-digit code from "Forgot password" — or from a staff invite
+// email, which is the same kind of code — and sets a new password.
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
 
+  const [email, setEmail] = useState((location.state as LocationState | null)?.email ?? '');
+  const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!/^\d{6}$/.test(code)) {
+      setError('Enter the 6-digit code from your email.');
+      return;
+    }
     if (newPassword.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
@@ -24,8 +40,16 @@ export default function ResetPasswordPage() {
     }
 
     setError('');
-    showToast('Password updated successfully. Please sign in.', 'success');
-    navigate('/login');
+    setSubmitting(true);
+    try {
+      await apiClient.post('/api/auth/password/reset', { email: email.trim(), code, newPassword });
+      showToast('Password updated. Please sign in.', 'success');
+      navigate('/login');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not reset your password.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -38,15 +62,26 @@ export default function ResetPasswordPage() {
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">Set New Password</h1>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Choose a strong new password for your ApexPOS account.
+          Enter the code we emailed you and choose a strong new password.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input
+          label="6-digit code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          required
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+        />
         <Input
           label="New Password"
           type="password"
           required
+          autoComplete="new-password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
@@ -54,12 +89,13 @@ export default function ResetPasswordPage() {
           label="Confirm Password"
           type="password"
           required
+          autoComplete="new-password"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           error={error}
         />
-        <Button type="submit" className="w-full !rounded-xl py-3">
-          Update Password
+        <Button type="submit" disabled={submitting} className="w-full !rounded-xl py-3">
+          {submitting ? 'Updating…' : 'Update Password'}
         </Button>
       </form>
 

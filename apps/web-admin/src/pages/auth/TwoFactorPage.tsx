@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '@pospe/ui-library';
-import { useAuthStore } from '../../store/useAuthStore';
 import { apiClient } from '../../services/api/client';
-import type { Role } from '@pospe/permissions';
+import { describeLoginError, landingPathFor, startSession, type SessionResponse } from './session';
 
 interface LocationState {
   pendingToken?: string;
@@ -13,7 +12,6 @@ interface LocationState {
 export default function TwoFactorPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const login = useAuthStore((s) => s.login);
 
   const pendingToken = (location.state as LocationState | null)?.pendingToken;
 
@@ -33,14 +31,12 @@ export default function TwoFactorPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await apiClient.post<{ token: string; user: { name: string; email: string; role: Role } }>(
-        '/api/auth/login/2fa-verify',
-        { pendingToken, token: code },
-      );
-      login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token);
-      navigate('/dashboard');
-    } catch {
-      setError('Invalid or expired code — try again.');
+      const res = await apiClient.post<SessionResponse>('/api/auth/login/2fa-verify', { pendingToken, token: code });
+      startSession(res);
+      navigate(landingPathFor(res.user.role));
+    } catch (err) {
+      const failure = describeLoginError(err);
+      setError(failure.message === 'Invalid email or password.' ? 'Invalid or expired code — try again.' : failure.message);
       setCode('');
     } finally {
       setSubmitting(false);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Scan,
@@ -13,10 +13,16 @@ import {
   QrCode,
   CreditCard,
   SlidersHorizontal,
+  Pencil,
+  RotateCcw,
 } from 'lucide-react';
 import { Button, Input, Select, Drawer, EmptyState, useToast } from '@pospe/ui-library';
-import { useCartStore, cartTotals } from '../store/useCartStore';
+import { useCartStore, cartTotals, lineUnitPrice, type CartItem } from '../store/useCartStore';
 import { usePosSessionStore } from '../store/usePosSessionStore';
+import { useTerminalStore } from '../store/useTerminalStore';
+import { usePrinterStore } from '../printing/printerStore';
+import { printReceipt } from '../printing/transport';
+import type { ReceiptData } from '../printing/escpos';
 import { useSyncStatusStore } from '../store/useSyncStatusStore';
 import { listProducts, type LiveProduct } from '../services/api/products';
 import { listCategories, type LiveCategory } from '../services/api/categories';
@@ -26,6 +32,7 @@ import { cacheCatalog, getCachedCatalog, decrementCachedStock, queueSale } from 
 import { PRODUCTS_UPDATED_EVENT } from '../sync/realtime';
 import BarcodeScannerModal from '../components/BarcodeScannerModal';
 import { formatINR } from '../utils/format';
+import { canOverridePrice } from '../utils/permissions';
 
 type PayMethod = 'cash' | 'upi' | 'card' | 'split';
 
@@ -72,6 +79,34 @@ interface ReceiptSnapshot {
   offline?: boolean;
 }
 
+function toReceiptData(receipt: ReceiptSnapshot, storeName: string, register: string, cashier: string): ReceiptData {
+  const subtotal = receipt.invoice.items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
+  const gst = Number(receipt.invoice.taxTotal);
+  const total = Number(receipt.invoice.total);
+  return {
+    storeName,
+    invoiceNumber: receipt.invoice.invoiceNumber ?? 'RECEIPT',
+    cashier,
+    register,
+    createdAt: receipt.invoice.createdAt,
+    customerName: receipt.invoice.customerName,
+    items: receipt.invoice.items.map((i) => ({
+      name: i.product.name,
+      quantity: i.quantity,
+      unitPrice: Number(i.price),
+      lineTotal: Number(i.price) * i.quantity,
+    })),
+    subtotal,
+    discount: Math.max(0, Math.round((subtotal + gst - total) * 100) / 100) || undefined,
+    gst,
+    total,
+    method: receipt.method,
+    tendered: receipt.tendered,
+    change: receipt.change,
+    offline: receipt.offline,
+  };
+}
+
 export default function PosTouchPage() {
   const {
     items,
@@ -81,6 +116,7 @@ export default function PosTouchPage() {
     heldBills,
     addToCart,
     updateQty,
+    updatePrice,
     removeItem,
     setCustomer,
     applyCoupon,
@@ -90,7 +126,9 @@ export default function PosTouchPage() {
     loadHeldBills,
     clearCart,
   } = useCartStore();
-  const { session } = usePosSessionStore();
+  const { session, token } = usePosSessionStore();
+  const storeName = useTerminalStore((s) => s.storeName) ?? 'PosPe Store';
+  const priceEditable = useMemo(() => canOverridePrice(token), [token]);
   const { refreshCounts } = useSyncStatusStore();
   const { showToast } = useToast();
 
@@ -109,10 +147,34 @@ export default function PosTouchPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [receipt, setReceipt] = useState<ReceiptSnapshot | null>(null);
+
+  async function handlePrintReceipt(snapshot: ReceiptSnapshot | null = receipt) {
+    if (!snapshot) return;
+    try {
+      const printed = await printReceipt(
+        toReceiptData(snapshot, storeName, session?.registerName ?? 'Register', session?.cashierName ?? 'Cashier'),
+        snapshot.tendered !== undefined,
+      );
+      if (!printed) window.print();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Printer error', 'danger');
+    }
+  }
+
+  useEffect(() => {
+    if (!receipt || !usePrinterStore.getState().autoPrint) return;
+    // Let the receipt drawer render first (the browser/system modes print the DOM).
+    const timer = window.setTimeout(() => void handlePrintReceipt(receipt), 300);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipt]);
   const [heldBillsOpen, setHeldBillsOpen] = useState(false);
   const [holdModalOpen, setHoldModalOpen] = useState(false);
   const [holdLabel, setHoldLabel] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [priceDraft, setPriceDraft] = useState('');
+  const priceEditCancelled = useRef(false);
 
   useEffect(() => {
     Promise.all([listProducts(), listCategories(), listCustomers()])
@@ -211,6 +273,25 @@ export default function PosTouchPage() {
     }
   }
 
+  function startPriceEdit(item: CartItem) {
+    setEditingPriceId(item.id);
+    setPriceDraft(String(item.price));
+  }
+
+  function commitPriceEdit(item: CartItem) {
+    setEditingPriceId(null);
+    if (priceEditCancelled.current) {
+      priceEditCancelled.current = false;
+      return;
+    }
+    const value = Math.round(parseFloat(priceDraft) * 100) / 100;
+    if (!Number.isFinite(value) || value < 0) {
+      showToast('Enter a valid price', 'warning');
+      return;
+    }
+    if (value !== item.price) updatePrice(item.id, value);
+  }
+
   function openQuickPay(method: PayMethod) {
     if (items.length === 0) {
       showToast('Cart is empty', 'warning');
@@ -237,7 +318,7 @@ export default function PosTouchPage() {
     const invoiceInput = {
       customerId: customerId ?? undefined,
       paymentMethod: payMethodToApi[payMethod],
-      items: items.map((i) => ({ productId: i.id, quantity: i.qty })),
+      items: items.map((i) => ({ productId: i.id, quantity: i.qty, unitPrice: lineUnitPrice(i) })),
       discountPercent,
     };
     // Generated up front, not just on failure — if this exact request DID
@@ -368,19 +449,19 @@ export default function PosTouchPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products by Name, SKU or Barcode..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               onClick={() => setScannerOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition"
             >
               <Scan className="w-4 h-4" />
               <span className="hidden sm:inline">Scan SKU</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-sm font-semibold">
             <button
               onClick={() => setActiveCategory('all')}
               className={`px-3.5 py-1.5 rounded-xl whitespace-nowrap transition ${
@@ -419,10 +500,10 @@ export default function PosTouchPage() {
                 disabled={p.stockQty <= 0}
                 className="pos-product-card flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center disabled:opacity-40 disabled:pointer-events-none"
               >
-                <span className="text-3xl leading-none">{categoryEmoji(p.categoryName)}</span>
-                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2">{p.name}</span>
-                <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(p.price)}</span>
-                {p.stockQty <= 0 && <span className="text-[9px] font-bold text-red-500 uppercase">Out of stock</span>}
+                <span className="text-4xl leading-none">{categoryEmoji(p.categoryName)}</span>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-100 line-clamp-2">{p.name}</span>
+                <span className="text-sm font-mono font-black text-blue-600 dark:text-blue-400">{formatINR(p.price)}</span>
+                {p.stockQty <= 0 && <span className="text-[11px] font-bold text-red-500 uppercase">Out of stock</span>}
               </button>
             ))}
           </div>
@@ -468,10 +549,65 @@ export default function PosTouchPage() {
                 className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    {formatINR(item.price)} &times; {item.qty} = {formatINR(item.price * item.qty)}
-                  </p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{item.name}</p>
+                  {editingPriceId === item.id ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="text-xs text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        autoFocus
+                        value={priceDraft}
+                        onChange={(e) => setPriceDraft(e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        onBlur={() => commitPriceEdit(item)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur();
+                          if (e.key === 'Escape') {
+                            priceEditCancelled.current = true;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        className="w-24 px-2 py-1 rounded-md bg-white dark:bg-slate-950 border border-blue-500 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                      <span className="text-xs text-slate-400 font-mono">&times; {item.qty}</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 font-mono flex items-center gap-1 flex-wrap">
+                      {priceEditable ? (
+                        <button
+                          onClick={() => startPriceEdit(item)}
+                          title="Change price"
+                          className={`inline-flex items-center gap-0.5 rounded px-0.5 -mx-0.5 hover:bg-blue-500/10 hover:text-blue-600 transition ${
+                            item.price !== item.catalogPrice ? 'text-amber-600 dark:text-amber-400 font-bold' : ''
+                          }`}
+                        >
+                          {formatINR(item.price)}
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <span>{formatINR(item.price)}</span>
+                      )}
+                      <span>
+                        &times; {item.qty} = {formatINR(item.price * item.qty)}
+                      </span>
+                      {item.price !== item.catalogPrice && (
+                        <span className="inline-flex items-center gap-0.5">
+                          <span className="line-through">{formatINR(item.catalogPrice)}</span>
+                          {priceEditable && (
+                            <button
+                              onClick={() => updatePrice(item.id, item.catalogPrice)}
+                              title="Reset to catalog price"
+                              className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-800"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -480,7 +616,7 @@ export default function PosTouchPage() {
                   >
                     <Minus className="w-3 h-3" />
                   </button>
-                  <span className="w-5 text-center text-xs font-bold">{item.qty}</span>
+                  <span className="w-6 text-center text-sm font-bold">{item.qty}</span>
                   <button
                     onClick={() => updateQty(item.id, item.qty + 1)}
                     className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition"
@@ -658,7 +794,7 @@ export default function PosTouchPage() {
         width="sm"
         footer={
           <>
-            <Button variant="primary" className="flex-1" onClick={() => window.print()}>
+            <Button variant="primary" className="flex-1" onClick={() => void handlePrintReceipt()}>
               Print Thermal Receipt
             </Button>
             <Button variant="ghost" onClick={() => setReceipt(null)}>
@@ -675,8 +811,7 @@ export default function PosTouchPage() {
               </div>
             )}
             <div className="text-center space-y-0.5">
-              <p className="text-sm font-black">ApexPOS Enterprise</p>
-              <p>Downtown Flagship Store</p>
+              <p className="text-sm font-black">{storeName}</p>
               <p className="font-bold">{receipt.invoice.invoiceNumber}</p>
               <p>{session?.registerName ?? 'Register 02'} &middot; Cashier: {session?.cashierName ?? 'Cashier'}</p>
               <p>{new Date(receipt.invoice.createdAt).toLocaleString('en-IN')}</p>

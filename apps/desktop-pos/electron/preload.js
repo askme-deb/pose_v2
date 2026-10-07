@@ -17,3 +17,10 @@ contextBridge.exposeInMainWorld('posDB', {
   markSaleFailed: (id, error) => ipcRenderer.invoke('db:markSaleFailed', id, error),
   retrySale: (id) => ipcRenderer.invoke('db:retrySale', id),
 });
+
+contextBridge.exposeInMainWorld('posHardware', {
+  sendRawToPrinter: (host, port, bytes) => ipcRenderer.invoke('printer:sendRaw', host, port, bytes),
+  listPrinters: () => ipcRenderer.invoke('printer:list'),
+  printSystem: (deviceName) => ipcRenderer.invoke('printer:printSystem', deviceName),
+  deviceInfo: () => ipcRenderer.invoke('device:info'),
+});

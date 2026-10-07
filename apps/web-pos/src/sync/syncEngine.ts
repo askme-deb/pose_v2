@@ -4,6 +4,7 @@ import { listCategories } from '../services/api/categories';
 import { listCustomers } from '../services/api/customers';
 import { pushSync, sendHeartbeat } from '../services/api/sync';
 import { getDeviceId } from './deviceId';
+import { collectTelemetry } from './telemetry';
 import { usePosSessionStore } from '../store/usePosSessionStore';
 
 export interface SyncResult {
@@ -84,12 +85,13 @@ export function startHeartbeat(): () => void {
     const { storeId, session, token } = usePosSessionStore.getState();
     if (!storeId || !token || !navigator.onLine) return;
     try {
-      const pending = await listPendingSales();
+      const [pending, telemetry] = await Promise.all([listPendingSales(), collectTelemetry()]);
       await sendHeartbeat(
         getDeviceId(),
         storeId,
         session?.registerName ?? 'POS Terminal',
         pending.filter((s) => s.status === 'pending').length,
+        telemetry,
       );
     } catch {
       // Best-effort — a missed heartbeat just makes this device look briefly offline to admins.

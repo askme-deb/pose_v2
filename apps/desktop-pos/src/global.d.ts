@@ -23,6 +23,13 @@ declare global {
       markSaleFailed(id: string, error: string): Promise<void>;
       retrySale(id: string): Promise<void>;
     };
+    // electron/preload.js: receipt printers and device telemetry.
+    posHardware: {
+      sendRawToPrinter(host: string, port: number, bytes: Uint8Array): Promise<boolean>;
+      listPrinters(): Promise<string[]>;
+      printSystem(deviceName: string): Promise<boolean>;
+      deviceInfo(): Promise<{ platform: string; osVersion: string; appVersion: string }>;
+    };
   }
 }
 

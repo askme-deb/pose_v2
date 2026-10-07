@@ -17,6 +17,7 @@ import logo from '../assets/logo.svg';
 import { useThemeStore } from '../store/useThemeStore';
 import { useTenantStore } from '../store/useTenantStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { signOut } from '../services/api/client';
 import {
   dashboardLinks,
   salesLinks,
@@ -124,7 +125,7 @@ function NavPill({ link, badgeColor }: { link: NavLink; badgeColor: 'blue' | 'pu
 export default function AppShell() {
   const { dark, toggleTheme } = useThemeStore();
   const { tenant, branch, tenants, branches, selectTenant, selectBranch } = useTenantStore();
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -142,7 +143,7 @@ export default function AppShell() {
             </button>
 
             <Link to="/dashboard" className="flex items-center gap-2.5 group">
-              <img src={logo} alt="ApexPOS Logo" className="h-8 md:h-9 group-hover:scale-105 transition-transform" />
+              <img src={logo} alt="Pospe Logo" className="h-8 md:h-9 group-hover:scale-105 transition-transform" />
             </Link>
 
             <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
@@ -253,7 +254,7 @@ export default function AppShell() {
               <DropdownMenuItem onClick={() => navigate('/roles')}>Roles & RBAC</DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  logout();
+                  void signOut();
                   navigate('/login');
                 }}
                 className="text-red-600 dark:text-red-400"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { Sun, Moon, PauseCircle, X, LogOut, WifiOff, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, PauseCircle, X, LogOut, WifiOff, RefreshCw, AlertTriangle, Printer } from 'lucide-react';
 import { Avatar, Badge, Drawer, EmptyState, useToast } from '@pospe/ui-library';
 import logo from '../assets/logo.svg';
 import { useThemeStore } from '../store/useThemeStore';
@@ -9,18 +9,21 @@ import { useCartStore } from '../store/useCartStore';
 import { useSyncStatusStore } from '../store/useSyncStatusStore';
 import { runSync, startAutoSync, startHeartbeat } from '../sync/syncEngine';
 import { startRealtimeSync } from '../sync/realtime';
+import { signOut } from '../services/api/client';
+import PrinterSettingsDrawer from '../components/PrinterSettingsDrawer';
 import { listPendingSales, retrySale, type PendingSale } from '../db/offlineDb';
 import { formatDateTime } from '../utils/format';
 
 export default function PosShell() {
   const { dark, toggleTheme } = useThemeStore();
-  const { session, logout } = usePosSessionStore();
+  const { session } = usePosSessionStore();
   const { clearCart, heldBills, items, loadHeldBills } = useCartStore();
   const { online, pendingCount, failedCount, setOnline, refreshCounts } = useSyncStatusStore();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [syncIssuesOpen, setSyncIssuesOpen] = useState(false);
+  const [printerOpen, setPrinterOpen] = useState(false);
   const [failedSales, setFailedSales] = useState<PendingSale[]>([]);
 
   async function refreshFailedSales() {
@@ -44,7 +47,10 @@ export default function PosShell() {
       }
     });
     const stopHeartbeat = startHeartbeat();
-    const stopRealtime = startRealtimeSync();
+    // The back office can ask this terminal to flush its queue right now.
+    const stopRealtime = startRealtimeSync(() => {
+      runSync().then(() => refreshCounts());
+    });
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -80,7 +86,7 @@ export default function PosShell() {
         <div className="px-4 lg:px-6 py-2.5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link to="/pos" className="flex items-center gap-2 group">
-              <img src={logo} alt="ApexPOS Logo" className="h-7 group-hover:scale-105 transition-transform" />
+              <img src={logo} alt="Pospe Logo" className="h-7 group-hover:scale-105 transition-transform" />
             </Link>
             <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-200 dark:border-slate-800 text-xs">
               <Badge color="blue" pill>Register 02</Badge>
@@ -133,6 +139,13 @@ export default function PosShell() {
               Clear
             </button>
             <button
+              onClick={() => setPrinterOpen(true)}
+              title="Receipt printer"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
+            <button
               onClick={toggleTheme}
               className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
             >
@@ -142,8 +155,8 @@ export default function PosShell() {
               <Avatar name={session?.cashierName ?? 'Cashier'} size="sm" />
             </button>
             <button
-              onClick={() => {
-                logout();
+              onClick={async () => {
+                await signOut();
                 navigate('/login');
               }}
               className="p-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition"
@@ -157,6 +170,8 @@ export default function PosShell() {
       <main className="flex-1 overflow-hidden p-3 lg:p-4">
         <Outlet />
       </main>
+
+      <PrinterSettingsDrawer open={printerOpen} onClose={() => setPrinterOpen(false)} />
 
       <Drawer open={syncIssuesOpen} onClose={() => setSyncIssuesOpen(false)} title="Sync Issues" width="md">
         <div className="space-y-3 max-h-96 overflow-y-auto">
