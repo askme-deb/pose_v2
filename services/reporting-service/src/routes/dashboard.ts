@@ -28,7 +28,14 @@ router.get('/dashboard', async (req, res) => {
   if (!WINDOW_DAYS[timeframe]) return res.status(400).json({ error: 'Invalid timeframe' });
 
   const stores = await prisma.store.findMany({ where: { tenantId }, select: { id: true, name: true } });
-  const storeIds = stores.map((s) => s.id);
+  // Optional single-branch view (?storeId= or x-store-id). Only stores of the
+  // caller's own tenant are accepted. Stock alerts stay tenant-wide: product
+  // stock isn't tracked per store.
+  const requestedStore = (typeof req.query.storeId === 'string' && req.query.storeId) || req.header('x-store-id') || undefined;
+  if (requestedStore && !stores.some((st) => st.id === requestedStore)) {
+    return res.status(403).json({ error: 'Store does not belong to your tenant' });
+  }
+  const storeIds = requestedStore ? [requestedStore] : stores.map((s) => s.id);
   const storeNameById = new Map(stores.map((s) => [s.id, s.name]));
 
   const now = new Date();

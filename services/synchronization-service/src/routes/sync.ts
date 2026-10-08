@@ -47,6 +47,11 @@ const pushItemInput = z.object({
       .array(z.object({ productId: z.string().min(1), quantity: z.number().int().positive(), unitPrice: z.number().nonnegative().optional() }))
       .min(1),
     discountPercent: z.number().min(0).max(100).default(0),
+    // Receipt bill details; forwarded to sales-service as-is (it validates them).
+    customerPhone: z.string().max(20).optional(),
+    location: z.string().max(60).optional(),
+    seatNo: z.string().max(20).optional(),
+    paymentReference: z.string().max(80).optional(),
   }),
 });
 

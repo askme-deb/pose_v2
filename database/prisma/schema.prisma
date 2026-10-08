@@ -637,6 +637,13 @@ model Invoice {
   // discarded, not carried onto the paid invoice.
   label            String?
   heldDiscountPercent Decimal?   @db.Decimal(5, 2)
+  // Bill details printed on the receipt (handheld / on-board sales): the
+  // buyer's mobile for walk-ins, where they are (coach, table, counter), their
+  // seat, and the UPI/card transaction reference the cashier collected.
+  customerPhone    String?
+  location         String?
+  seatNo           String?
+  paymentReference String?
 
   items    InvoiceItem[]
   payments Payment[]

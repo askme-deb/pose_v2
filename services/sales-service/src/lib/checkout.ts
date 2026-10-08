@@ -47,6 +47,11 @@ export interface CheckoutParams {
   idempotencyKey?: string;
   // The signed-in user ringing up the sale (omitted for system callers).
   createdById?: string;
+  // Receipt bill details (handheld / on-board sales); stored as given.
+  customerPhone?: string;
+  location?: string;
+  seatNo?: string;
+  paymentReference?: string;
 }
 
 export const invoiceInclude = { items: { include: { product: { select: { id: true, name: true } } } } } as const;
@@ -58,7 +63,7 @@ export const invoiceInclude = { items: { include: { product: { select: { id: tru
 // so both go through the exact same money-and-stock-moving logic instead of a
 // second, slightly-different copy.
 export async function checkoutInvoice(params: CheckoutParams) {
-  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey, createdById } = params;
+  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey, createdById, customerPhone, location, seatNo, paymentReference } = params;
 
   // idempotencyKey is unique across the whole table, so a replay is only
   // honoured when the existing invoice belongs to this tenant — otherwise a
@@ -219,6 +224,10 @@ export async function checkoutInvoice(params: CheckoutParams) {
           total,
           loyaltyPointsEarned: pointsEarned,
           idempotencyKey,
+          customerPhone,
+          location,
+          seatNo,
+          paymentReference,
           items: { create: lineItems },
         },
         include: invoiceInclude,

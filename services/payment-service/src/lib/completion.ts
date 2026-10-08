@@ -108,6 +108,11 @@ export async function completePayment(paymentId: string, log?: Log): Promise<boo
         // snapshotted line prices (which may include a manual override).
         items: held.items.map((item) => ({ productId: item.productId, quantity: item.quantity, unitPrice: Number(item.price) })),
         discountPercent: held.heldDiscountPercent ? Number(held.heldDiscountPercent) : 0,
+        customerPhone: held.customerPhone ?? undefined,
+        location: held.location ?? undefined,
+        seatNo: held.seatNo ?? undefined,
+        // The gateway's payment id is the transaction reference printed on the bill.
+        paymentReference: payment.gatewayPaymentId ?? undefined,
       }),
     });
     if (!response.ok) {

@@ -1,4 +1,5 @@
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
+import SiteLink from '../components/SiteLink';
 import { Moon, Sun } from 'lucide-react';
 import logo from '../assets/logo.svg';
 import { useThemeStore } from '../store/useThemeStore';
@@ -11,9 +12,9 @@ export default function PublicLayout() {
       <div className="pointer-events-none fixed inset-0 bg-gradient-glow" />
 
       <header className="relative z-10 flex items-center justify-between px-4 lg:px-8 py-4">
-        <Link to="/" className="flex items-center gap-2.5 group">
+        <SiteLink to="/" className="flex items-center gap-2.5 group">
           <img src={logo} alt="Pospe Logo" className="h-8 group-hover:scale-105 transition-transform" />
-        </Link>
+        </SiteLink>
         <div className="flex items-center gap-3">
           <button
             onClick={toggleTheme}
@@ -21,12 +22,12 @@ export default function PublicLayout() {
           >
             {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
-          <Link
+          <SiteLink
             to="/"
             className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
           >
             Back to Website
-          </Link>
+          </SiteLink>
         </div>
       </header>
 

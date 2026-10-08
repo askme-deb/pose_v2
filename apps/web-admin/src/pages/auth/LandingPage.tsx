@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import SiteLink from '../../components/SiteLink';
 import {
   Moon,
   Sun,
@@ -248,9 +248,9 @@ export default function LandingPage() {
 
       {/* Sticky Glass Navigation Header */}
       <header className="sticky top-0 z-50 w-full glass-panel bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/10 px-6 lg:px-12 py-4 flex items-center justify-between shadow-lg shadow-slate-100/80 dark:shadow-2xl">
-        <Link to="/" className="flex items-center gap-3 group">
+        <SiteLink to="/" className="flex items-center gap-3 group">
           <img src={logo} alt="Pospe Logo" className="h-10 group-hover:scale-105 transition-transform" />
-        </Link>
+        </SiteLink>
 
         <nav className="hidden md:flex items-center gap-8 text-xs font-bold text-slate-600 dark:text-slate-300">
           <a href="#features" className="hover:text-blue-600 dark:hover:text-white transition">
@@ -278,20 +278,20 @@ export default function LandingPage() {
             {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
 
-          <Link
+          <SiteLink
             to="/login"
             className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-800 dark:text-white font-bold text-xs border border-slate-200 dark:border-white/10 transition"
           >
             Sign In
-          </Link>
+          </SiteLink>
 
-          <Link
+          <SiteLink
             to="/register"
             className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold shadow-lg shadow-blue-500/25 transition transform hover:scale-[1.02]"
           >
             <span>Start Free Trial</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          </SiteLink>
         </div>
       </header>
 
@@ -316,21 +316,21 @@ export default function LandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <Link
+          <SiteLink
             to="/login"
             className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white font-extrabold text-sm shadow-2xl shadow-blue-500/30 flex items-center justify-center gap-2 transition transform hover:scale-105"
           >
             <Zap className="w-5 h-5" />
             <span>Launch Live POS Demo</span>
-          </Link>
+          </SiteLink>
 
-          <Link
+          <SiteLink
             to="/register"
             className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 text-slate-800 dark:text-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2 transition shadow-md"
           >
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
             <span>Start 14-Day Free Trial</span>
-          </Link>
+          </SiteLink>
         </div>
 
         {/* Live Glass Dashboard Preview Mockup */}
@@ -378,9 +378,9 @@ export default function LandingPage() {
 
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800">
               <span>Supported Hardware: Sunmi, PAX, Thermal ESC/POS, Barcode Scanners</span>
-              <Link to="/dashboard" className="font-bold text-blue-600 dark:text-blue-400 hover:underline">
+              <SiteLink to="/dashboard" className="font-bold text-blue-600 dark:text-blue-400 hover:underline">
                 Explore Full Tenant Dashboard →
-              </Link>
+              </SiteLink>
             </div>
           </div>
         </div>
@@ -521,7 +521,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
               </div>
-              <Link
+              <SiteLink
                 to="/register"
                 className={
                   plan.highlighted
@@ -530,7 +530,7 @@ export default function LandingPage() {
                 }
               >
                 {plan.cta}
-              </Link>
+              </SiteLink>
             </GlassCard>
           ))}
         </div>
@@ -565,24 +565,24 @@ export default function LandingPage() {
             </h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/login" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/login" className="hover:text-blue-600 dark:hover:text-white">
                   Touch POS Billing
-                </Link>
+                </SiteLink>
               </li>
               <li>
-                <Link to="/dashboard" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/dashboard" className="hover:text-blue-600 dark:hover:text-white">
                   Inventory Engine
-                </Link>
+                </SiteLink>
               </li>
               <li>
-                <Link to="/gst/reports" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/gst/reports" className="hover:text-blue-600 dark:hover:text-white">
                   GST Compliance
-                </Link>
+                </SiteLink>
               </li>
               <li>
-                <Link to="/mobile-apps" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/mobile-apps" className="hover:text-blue-600 dark:hover:text-white">
                   Mobile Apps Hub
-                </Link>
+                </SiteLink>
               </li>
             </ul>
           </div>
@@ -592,19 +592,19 @@ export default function LandingPage() {
             </h4>
             <ul className="space-y-2">
               <li>
-                <Link to="/login" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/login" className="hover:text-blue-600 dark:hover:text-white">
                   Tenant Login
-                </Link>
+                </SiteLink>
               </li>
               <li>
-                <Link to="/register" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/register" className="hover:text-blue-600 dark:hover:text-white">
                   Start Free Trial
-                </Link>
+                </SiteLink>
               </li>
               <li>
-                <Link to="/superadmin" className="hover:text-blue-600 dark:hover:text-white">
+                <SiteLink to="/superadmin" className="hover:text-blue-600 dark:hover:text-white">
                   Super Admin Portal
-                </Link>
+                </SiteLink>
               </li>
             </ul>
           </div>

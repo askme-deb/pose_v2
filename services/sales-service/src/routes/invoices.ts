@@ -22,21 +22,58 @@ const invoiceItemInput = z.object({
   unitPrice: z.number().nonnegative().optional(),
 });
 
+// Optional bill details printed on the receipt (handheld / on-board sales).
+// Blank strings are stored as null.
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .transform((v) => (v ? v : undefined));
+
+export const billDetailsShape = {
+  customerPhone: optionalText(20),
+  location: optionalText(60),
+  seatNo: optionalText(20),
+  paymentReference: optionalText(80),
+};
+
 const createInvoiceInput = z.object({
   customerId: z.string().optional(),
   paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']),
   items: z.array(invoiceItemInput).min(1),
   discountPercent: z.number().min(0).max(100).default(0),
+  ...billDetailsShape,
+});
+
+// Optional filters (all backward compatible: no query = every invoice, as before).
+const listQuery = z.object({
+  from: z.string().datetime({ offset: true }).optional(),
+  to: z.string().datetime({ offset: true }).optional(),
+  status: z.enum(['DRAFT', 'HELD', 'PAID', 'PARTIALLY_PAID', 'REFUNDED', 'CANCELLED']).optional(),
+  createdBy: z.enum(['me']).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
 });
 
 router.get('/invoices', async (req, res) => {
+  const parsedQuery = listQuery.safeParse(req.query);
+  if (!parsedQuery.success) return res.status(400).json({ error: parsedQuery.error.flatten() });
+  const { from, to, status, createdBy, limit } = parsedQuery.data;
+
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   const invoices = await prisma.invoice.findMany({
-    where: { storeId },
+    where: {
+      storeId,
+      ...(from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}),
+      ...(status ? { status } : {}),
+      ...(createdBy === 'me' ? { createdById: actingUserId(req) ?? '__none__' } : {}),
+    },
     include: { items: { include: { product: { select: { id: true, name: true } } } } },
     orderBy: { createdAt: 'desc' },
+    ...(limit ? { take: limit } : {}),
   });
   res.json(invoices);
 });

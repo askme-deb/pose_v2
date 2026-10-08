@@ -20,6 +20,10 @@ const holdInvoiceInput = z.object({
   items: z.array(heldItemInput).min(1),
   discountPercent: z.number().min(0).max(100).default(0),
   label: z.string().min(1),
+  // Receipt bill details, carried onto the invoice when the bill is paid.
+  customerPhone: z.string().trim().max(20).optional(),
+  location: z.string().trim().max(60).optional(),
+  seatNo: z.string().trim().max(20).optional(),
 });
 
 const splitInvoiceInput = z.object({
@@ -42,7 +46,7 @@ const heldInclude = { items: { include: { product: { select: { id: true, name: t
 router.post('/invoices/hold', requirePermission('billing:create'), async (req, res) => {
   const parsed = holdInvoiceInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { customerId, items, discountPercent, label } = parsed.data;
+  const { customerId, items, discountPercent, label, customerPhone, location, seatNo } = parsed.data;
 
   if (items.some((i) => i.unitPrice !== undefined) && !userHasPermission(req.authUser, 'billing:price_override')) {
     return res.status(403).json({ error: 'Missing required permission: billing:price_override' });
@@ -52,10 +56,17 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
   let customerName: string | undefined;
+  // Same rule as sales-service checkout: an active membership discount is a
+  // floor. Holding at the effective rate keeps the held total equal to the
+  // invoice the bill becomes (including when it's paid online).
+  let effectiveDiscountPercent = discountPercent;
   if (customerId) {
-    const customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId } });
+    const customer = await prisma.customer.findFirst({ where: { id: customerId, tenantId }, include: { membershipPlan: true } });
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
     customerName = customer.name;
+    if (customer.membershipPlan?.isActive) {
+      effectiveDiscountPercent = Math.max(effectiveDiscountPercent, Number(customer.membershipPlan.discountPercent));
+    }
   }
 
   const productIds = [...new Set(items.map((i) => i.productId))];
@@ -72,7 +83,7 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
       const product = productById.get(productId)!;
       return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate) };
     }),
-    discountPercent,
+    effectiveDiscountPercent,
   );
   const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
   const { subtotal, discountTotal, taxTotal, total } = totals;
@@ -84,7 +95,10 @@ router.post('/invoices/hold', requirePermission('billing:create'), async (req, r
       ...(customerName ? { customerName } : {}),
       status: 'HELD',
       label,
-      heldDiscountPercent: discountPercent,
+      heldDiscountPercent: effectiveDiscountPercent,
+      customerPhone: customerPhone || undefined,
+      location: location || undefined,
+      seatNo: seatNo || undefined,
       subtotal,
       discountTotal,
       taxTotal,
@@ -136,6 +150,9 @@ router.post('/invoices/:id/recall', requirePermission('billing:create'), async (
     customerId: held.customerId,
     customerName: held.customerName,
     discountPercent: held.heldDiscountPercent ? Number(held.heldDiscountPercent) : 0,
+    customerPhone: held.customerPhone,
+    location: held.location,
+    seatNo: held.seatNo,
     items: held.items.map((item) => ({
       productId: item.productId,
       name: item.product.name,

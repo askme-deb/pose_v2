@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastProvider } from '@pospe/ui-library';
+import { APP_URL, isLandingHost, isSplitSite } from './utils/siteUrls';
 
 import AppShell from './layouts/AppShell';
 import PublicLayout from './layouts/PublicLayout';
@@ -36,12 +38,35 @@ import SuperAdminTenantsPage from './pages/superadmin/SuperAdminTenantsPage';
 import SuperAdminSubscriptionsPage from './pages/superadmin/SuperAdminSubscriptionsPage';
 import SuperAdminWhiteLabelPage from './pages/superadmin/SuperAdminWhiteLabelPage';
 
+// On the landing host every non-landing path belongs to the portal host.
+function ToPortal() {
+  const { pathname, search, hash } = useLocation();
+  useEffect(() => {
+    window.location.replace(`${APP_URL}${pathname}${search}${hash}`);
+  }, [pathname, search, hash]);
+  return null;
+}
+
 export default function App() {
+  if (isLandingHost) {
+    return (
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="*" element={<ToPortal />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    );
+  }
+
   return (
     <ToastProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingPage />} />
+          {/* The portal host has no landing page of its own. */}
+          <Route path="/" element={isSplitSite ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
 
           <Route element={<PublicLayout />}>
             <Route path="/login" element={<LoginPage />} />
