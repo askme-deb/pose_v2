@@ -29,5 +29,6 @@ data:
   PAYMENT_SERVICE_URL: "http://payment-service:4006"
   NOTIFICATION_SERVICE_URL: "http://notification-service:4007"
   SUBSCRIPTION_SERVICE_URL: "http://subscription-service:4008"
+  MOBILE_SERVICE_URL: "http://mobile-service:4011"
   REPORTING_SERVICE_URL: "http://reporting-service:4009"
   SYNCHRONIZATION_SERVICE_URL: "http://synchronization-service:4010"

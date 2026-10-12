@@ -122,6 +122,8 @@ model User {
   name           String
   email          String
   passwordHash   String
+  // Mobile (FoodApp) login identifier; digits only.
+  phone          String?
   // Set only for counter staff who use the POS terminal's 4-digit quick-login
   // pad instead of the email/password form — null for everyone else.
   pinHash        String?
@@ -145,6 +147,7 @@ model User {
   otps AuthOtp[]
 
   @@unique([tenantId, email])
+  @@index([phone])
   @@map("users")
 }
 
@@ -211,7 +214,18 @@ model Store {
   gstin     String?
   isActive  Boolean    @default(true)
   createdAt DateTime   @default(now())
+  // Mobile app: stock-in screen on/off, Pine Labs terminal credentials, and
+  // the single-device branch lock (cleared on logout, expires on its own).
+  purchaseEnabled     Boolean   @default(false)
+  posAppKey           String?
+  posMerchantName     String?
+  posNumber           String?
+  posPassword         String?
+  lockedByUserId      String?
+  lockedDeviceSerial  String?
+  lockedAt            DateTime?
 
+  seats            StoreSeat[]
   users            User[]
   invoices         Invoice[]
   stockItems       StockItem[]
@@ -410,6 +424,7 @@ model Product {
 
   stockItems              StockItem[]
   invoiceItems            InvoiceItem[]
+  mobileCartLines         MobileCartLine[]
   stockAdjustments        StockAdjustment[]
   purchaseOrderItems      PurchaseOrderItem[]
   warehouseTransferItems  WarehouseTransferItem[]
@@ -644,6 +659,15 @@ model Invoice {
   location         String?
   seatNo           String?
   paymentReference String?
+  // Mobile checkout: flat bill-level discount, complimentary value (already
+  // included in discountTotal), GST split mode, and Pine Labs terminal data.
+  billDiscountAmount Decimal @default(0) @db.Decimal(12, 2)
+  complimentaryAmount Decimal @default(0) @db.Decimal(12, 2)
+  isGstSame        Boolean  @default(true)
+  posTxnId         String?
+  cardLastFour     String?
+  deviceSerial     String?
+  deviceType       String?
 
   items    InvoiceItem[]
   payments Payment[]
@@ -669,6 +693,8 @@ model InvoiceItem {
   price     Decimal @db.Decimal(12, 2)
   gstRate   Decimal @db.Decimal(5, 2)
   total     Decimal @db.Decimal(12, 2)
+  // Flat per-line discount (mobile); already reflected in total.
+  discountAmount Decimal @default(0) @db.Decimal(12, 2)
 
   @@map("invoice_items")
 }
@@ -1343,4 +1369,48 @@ model ReportSchedule {
 
   @@index([tenantId])
   @@map("report_schedules")
+}
+
+// Mobile (FoodApp) selectable seats, shown grouped by groupName at checkout.
+model StoreSeat {
+  id        String @id @default(cuid())
+  storeId   String
+  store     Store  @relation(fields: [storeId], references: [id])
+  groupName String
+  name      String
+
+  @@unique([storeId, name])
+  @@map("store_seats")
+}
+
+// Server-side cart for the mobile app: one row per product per user per store.
+model MobileCartLine {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String
+  storeId        String
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  quantity       Int
+  discountAmount Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, storeId, productId])
+  @@map("mobile_cart_lines")
+}
+
+// One row per mobile login; logoutAt is set on logout.
+model LoginLog {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String
+  storeId      String?
+  deviceType   String?
+  deviceSerial String?
+  model        String?
+  loginAt      DateTime  @default(now())
+  logoutAt     DateTime?
+
+  @@index([tenantId, userId, loginAt])
+  @@map("login_logs")
 }

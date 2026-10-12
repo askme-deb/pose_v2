@@ -24,6 +24,7 @@ resources:
   - services/reporting-service.yaml
   - services/sales-service.yaml
   - services/subscription-service.yaml
+  - services/mobile-service.yaml
   - services/synchronization-service.yaml
 
 images:
@@ -37,4 +38,5 @@ images:
   - { name: pospe/reporting-service, newTag: "0.1.0" }
   - { name: pospe/sales-service, newTag: "0.1.0" }
   - { name: pospe/subscription-service, newTag: "0.1.0" }
+  - { name: pospe/mobile-service, newTag: "0.1.0" }
   - { name: pospe/synchronization-service, newTag: "0.1.0" }

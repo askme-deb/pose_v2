@@ -20,6 +20,7 @@ const invoiceItemInput = z.object({
   // Manual price override for this line. Only honored for callers holding
   // billing:price_override; otherwise price comes from the Product row.
   unitPrice: z.number().nonnegative().optional(),
+  discountAmount: z.number().nonnegative().optional(),
 });
 
 // Optional bill details printed on the receipt (handheld / on-board sales).
@@ -35,7 +36,7 @@ const optionalText = (max: number) =>
 export const billDetailsShape = {
   customerPhone: optionalText(20),
   location: optionalText(60),
-  seatNo: optionalText(20),
+  seatNo: optionalText(120),
   paymentReference: optionalText(80),
 };
 
@@ -44,6 +45,14 @@ const createInvoiceInput = z.object({
   paymentMethod: z.enum(['CASH', 'UPI', 'CARD', 'SPLIT']),
   items: z.array(invoiceItemInput).min(1),
   discountPercent: z.number().min(0).max(100).default(0),
+  // Mobile checkout (flat rupee discounts + Pine Labs terminal data).
+  billDiscountAmount: z.number().nonnegative().optional(),
+  complimentaryAmount: z.number().nonnegative().optional(),
+  isGstSame: z.boolean().optional(),
+  posTxnId: z.string().max(80).optional(),
+  cardLastFour: z.string().max(8).optional(),
+  deviceSerial: z.string().max(80).optional(),
+  deviceType: z.string().max(40).optional(),
   ...billDetailsShape,
 });
 

@@ -16,5 +16,5 @@ export { metricsMiddleware } from './metrics';
 export { apiDocsMiddleware } from './apiDocs';
 export { installAsyncErrorHandling, errorHandler } from './errors';
 export { initObservability, captureException } from './observability';
-export { computeInvoiceTotals, round2, type PricedLine, type PricedLineInput, type InvoiceTotals } from './pricing';
+export { computeInvoiceTotals, computeFlatDiscountTotals, round2, type PricedLine, type PricedLineInput, type InvoiceTotals, type FlatDiscountLineInput, type FlatDiscountTotals } from './pricing';
 export { createRedisConnection, createQueue, createWorker, enqueue, queueingEnabled } from './queue';

@@ -1,5 +1,5 @@
 import { notifyLowStock, type LowStockAlert } from '@pospe/notifications';
-import { computeInvoiceTotals } from '@pospe/utilities';
+import { computeInvoiceTotals, computeFlatDiscountTotals } from '@pospe/utilities';
 import { prisma } from './prisma';
 import { indexInvoice, indexCustomer } from './elasticsearch';
 
@@ -35,6 +35,8 @@ export interface CheckoutItemInput {
   quantity: number;
   // Already permission-checked by the caller; overrides the Product's price.
   unitPrice?: number;
+  // Flat rupee discount on this line (mobile checkout); see computeFlatDiscountTotals.
+  discountAmount?: number;
 }
 
 export interface CheckoutParams {
@@ -52,6 +54,15 @@ export interface CheckoutParams {
   location?: string;
   seatNo?: string;
   paymentReference?: string;
+  // Mobile checkout: flat discounts instead of discountPercent, GST split mode
+  // and the Pine Labs terminal's transaction data.
+  billDiscountAmount?: number;
+  complimentaryAmount?: number;
+  isGstSame?: boolean;
+  posTxnId?: string;
+  cardLastFour?: string;
+  deviceSerial?: string;
+  deviceType?: string;
 }
 
 export const invoiceInclude = { items: { include: { product: { select: { id: true, name: true } } } } } as const;
@@ -63,7 +74,8 @@ export const invoiceInclude = { items: { include: { product: { select: { id: tru
 // so both go through the exact same money-and-stock-moving logic instead of a
 // second, slightly-different copy.
 export async function checkoutInvoice(params: CheckoutParams) {
-  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey, createdById, customerPhone, location, seatNo, paymentReference } = params;
+  const { tenantId, storeId, customerId, paymentMethod, items, discountPercent, idempotencyKey, createdById, customerPhone, location, seatNo, paymentReference, billDiscountAmount = 0, complimentaryAmount = 0, isGstSame = true, posTxnId, cardLastFour, deviceSerial, deviceType } = params;
+  const flatMode = billDiscountAmount > 0 || complimentaryAmount > 0 || items.some((i) => (i.discountAmount ?? 0) > 0);
 
   // idempotencyKey is unique across the whole table, so a replay is only
   // honoured when the existing invoice belongs to this tenant — otherwise a
@@ -177,14 +189,21 @@ export async function checkoutInvoice(params: CheckoutParams) {
       }
 
       // Discount first, then GST on the discounted value (see computeInvoiceTotals).
-      const totals = computeInvoiceTotals(
-        items.map(({ productId, quantity, unitPrice }) => {
-          const product = productById.get(productId)!;
-          return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate) };
-        }),
-        effectiveDiscountPercent,
-      );
-      const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
+      const pricedInput = items.map(({ productId, quantity, unitPrice, discountAmount }) => {
+        const product = productById.get(productId)!;
+        return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate), discountAmount: discountAmount ?? 0 };
+      });
+      const totals = flatMode
+        ? computeFlatDiscountTotals(pricedInput, billDiscountAmount, complimentaryAmount)
+        : computeInvoiceTotals(pricedInput, effectiveDiscountPercent);
+      const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total, discountAmount }) => ({
+        productId,
+        quantity,
+        price,
+        gstRate,
+        total,
+        discountAmount: flatMode ? discountAmount : 0,
+      }));
       const { subtotal, discountTotal, taxTotal, total } = totals;
       const pointsEarned = customerId ? Math.floor(total / 100) : 0;
 
@@ -228,6 +247,13 @@ export async function checkoutInvoice(params: CheckoutParams) {
           location,
           seatNo,
           paymentReference,
+          billDiscountAmount: flatMode ? billDiscountAmount : 0,
+          complimentaryAmount: flatMode ? complimentaryAmount : 0,
+          isGstSame,
+          posTxnId,
+          cardLastFour,
+          deviceSerial,
+          deviceType,
           items: { create: lineItems },
         },
         include: invoiceInclude,

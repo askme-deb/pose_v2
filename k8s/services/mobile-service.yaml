@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mobile-service
+  namespace: pospe
+  labels:
+    app: mobile-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mobile-service
+  template:
+    metadata:
+      labels:
+        app: mobile-service
+    spec:
+      containers:
+        - name: mobile-service
+          image: pospe/mobile-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4011
+          envFrom:
+            - configMapRef:
+                name: pospe-config
+            - secretRef:
+                name: pospe-secrets
+          env:
+            - name: PORT
+              value: "4011"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4011
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4011
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mobile-service
+  namespace: pospe
+spec:
+  selector:
+    app: mobile-service
+  ports:
+    - port: 4011
+      targetPort: 4011
+  type: ClusterIP
