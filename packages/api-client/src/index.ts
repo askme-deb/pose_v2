@@ -14,6 +14,10 @@ export interface ApiClientOptions {
   // Called when the session can't be recovered (refresh failed or wasn't
   // possible), so the app can drop it instead of toasting 401s forever.
   onUnauthorized?: () => void;
+  // Extra headers added to every request (e.g. the branch a screen is scoped
+  // to). Read per request, so changes apply immediately. A header passed on
+  // an individual call still wins.
+  getHeaders?: () => Record<string, string | undefined>;
 }
 
 /**
@@ -80,6 +84,7 @@ export class ApiClient {
       headers: {
         ...(json ? { 'Content-Type': 'application/json' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...Object.fromEntries(Object.entries(this.opts.getHeaders?.() ?? {}).filter(([, v]) => v)),
         ...init.headers,
       },
     });

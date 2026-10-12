@@ -16,6 +16,10 @@ export interface LiveSupplier {
 
 export interface LivePurchaseOrderItem {
   productId: string;
+  /** Variation option bought (null for a plain product). */
+  optionId: string | null;
+  optionName: string | null;
+  /** Name for display — includes the option, e.g. "Veg Thali (Full)". */
   productName: string;
   qty: number;
   unitPrice: number;
@@ -48,6 +52,8 @@ interface ApiSupplier {
 
 interface ApiPoItem {
   productId: string;
+  optionId: string | null;
+  optionName: string | null;
   qty: number;
   unitPrice: string;
   receivedQty: number;
@@ -66,6 +72,8 @@ interface ApiPurchaseOrder {
   orderStatus: OrderStatus;
   createdAt: string;
 }
+
+const displayName = (name: string, optionName?: string | null) => (optionName ? `${name} (${optionName})` : name);
 
 function toLiveSupplier(s: ApiSupplier): LiveSupplier {
   return {
@@ -86,7 +94,15 @@ function toLivePO(po: ApiPurchaseOrder): LivePurchaseOrder {
     poNumber: po.poNumber,
     supplierId: po.supplierId,
     supplierName: po.supplier.name,
-    items: po.items.map((i) => ({ productId: i.productId, productName: i.product.name, qty: i.qty, unitPrice: Number(i.unitPrice), receivedQty: i.receivedQty })),
+    items: po.items.map((i) => ({
+      productId: i.productId,
+      optionId: i.optionId,
+      optionName: i.optionName,
+      productName: displayName(i.product.name, i.optionName),
+      qty: i.qty,
+      unitPrice: Number(i.unitPrice),
+      receivedQty: i.receivedQty,
+    })),
     totalAmount: Number(po.totalAmount),
     expectedDeliveryDate: po.expectedDeliveryDate,
     paymentStatus: po.paymentStatus,
@@ -120,10 +136,15 @@ export async function listPurchaseOrders(): Promise<LivePurchaseOrder[]> {
 
 export interface PurchaseOrderInput {
   supplierId: string;
-  items: { productId: string; qty: number; unitPrice: number }[];
+  items: { productId: string; optionId?: string | null; qty: number; unitPrice: number }[];
   expectedDeliveryDate: string;
   paymentStatus?: PaymentStatus;
   orderStatus?: OrderStatus;
+}
+
+/** One purchase order (404 if it doesn't exist). */
+export async function getPurchaseOrder(id: string): Promise<LivePurchaseOrder> {
+  return toLivePO(await apiClient.get<ApiPurchaseOrder>(`/api/purchase/purchase-orders/${encodeURIComponent(id)}`));
 }
 
 export async function createPurchaseOrder(input: PurchaseOrderInput): Promise<LivePurchaseOrder> {
@@ -140,6 +161,7 @@ export async function receivePurchaseOrder(id: string): Promise<LivePurchaseOrde
 
 export interface LiveGrnItem {
   productId: string;
+  optionName: string | null;
   productName: string;
   productSku: string;
   receivedQty: number;
@@ -168,7 +190,7 @@ interface ApiGrn {
   receivedBy: string;
   notes: string | null;
   createdAt: string;
-  items: { productId: string; receivedQty: number; product: { id: string; name: string; sku: string } }[];
+  items: { productId: string; optionName: string | null; receivedQty: number; product: { id: string; name: string; sku: string } }[];
 }
 
 function toLiveGrn(g: ApiGrn): LiveGrn {
@@ -182,7 +204,13 @@ function toLiveGrn(g: ApiGrn): LiveGrn {
     receivedBy: g.receivedBy,
     notes: g.notes,
     createdAt: g.createdAt,
-    items: g.items.map((i) => ({ productId: i.productId, productName: i.product.name, productSku: i.product.sku, receivedQty: i.receivedQty })),
+    items: g.items.map((i) => ({
+      productId: i.productId,
+      optionName: i.optionName,
+      productName: displayName(i.product.name, i.optionName),
+      productSku: i.product.sku,
+      receivedQty: i.receivedQty,
+    })),
   };
 }
 
@@ -195,6 +223,7 @@ export interface ReceiveGoodsInput {
   purchaseOrderId: string;
   items: {
     productId: string;
+    optionId?: string | null;
     receivedQty: number;
     batch?: { batchNumber: string; expiryDate?: string };
     serialNumbers?: string[];
@@ -211,6 +240,7 @@ export async function createGrn(input: ReceiveGoodsInput): Promise<LiveGrn> {
 
 export interface LiveReturnItem {
   productId: string;
+  optionName: string | null;
   productName: string;
   productSku: string;
   quantity: number;
@@ -244,7 +274,7 @@ interface ApiPurchaseReturn {
   status: PurchaseReturnStatus;
   totalValue: string;
   createdAt: string;
-  items: { productId: string; quantity: number; unitPrice: string; product: { id: string; name: string; sku: string } }[];
+  items: { productId: string; optionName: string | null; quantity: number; unitPrice: string; product: { id: string; name: string; sku: string } }[];
 }
 
 function toLiveReturn(r: ApiPurchaseReturn): LivePurchaseReturn {
@@ -259,7 +289,14 @@ function toLiveReturn(r: ApiPurchaseReturn): LivePurchaseReturn {
     status: r.status,
     totalValue: Number(r.totalValue),
     createdAt: r.createdAt,
-    items: r.items.map((i) => ({ productId: i.productId, productName: i.product.name, productSku: i.product.sku, quantity: i.quantity, unitPrice: Number(i.unitPrice) })),
+    items: r.items.map((i) => ({
+      productId: i.productId,
+      optionName: i.optionName,
+      productName: displayName(i.product.name, i.optionName),
+      productSku: i.product.sku,
+      quantity: i.quantity,
+      unitPrice: Number(i.unitPrice),
+    })),
   };
 }
 
@@ -270,7 +307,7 @@ export async function listPurchaseReturns(): Promise<LivePurchaseReturn[]> {
 
 export interface CreatePurchaseReturnInput {
   purchaseOrderId: string;
-  items: { productId: string; quantity: number }[];
+  items: { productId: string; optionId?: string | null; quantity: number }[];
   reason: string;
 }
 

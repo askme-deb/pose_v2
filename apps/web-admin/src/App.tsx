@@ -18,9 +18,15 @@ import OtpVerificationPage from './pages/auth/OtpVerificationPage';
 
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProductsPage from './pages/inventory/ProductsPage';
+import ProductFormPage from './pages/inventory/ProductFormPage';
 import CategoriesBrandsPage from './pages/inventory/CategoriesBrandsPage';
 import StockAdjustmentsPage from './pages/inventory/StockAdjustmentsPage';
 import PurchaseOrdersPage from './pages/purchases/PurchaseOrdersPage';
+import PurchaseOrderFormPage from './pages/purchases/PurchaseOrderFormPage';
+import SupplierFormPage from './pages/purchases/SupplierFormPage';
+import ReceiveGoodsPage from './pages/purchases/ReceiveGoodsPage';
+import ReturnGoodsPage from './pages/purchases/ReturnGoodsPage';
+import SupplierLedgerPage from './pages/purchases/SupplierLedgerPage';
 import SalesInvoicesPage from './pages/sales/SalesInvoicesPage';
 import SalesDocumentsPage from './pages/sales/SalesDocumentsPage';
 import WarehouseTransfersPage from './pages/warehouse/WarehouseTransfersPage';
@@ -81,9 +87,16 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/inventory/products" element={<ProductsPage />} />
+              <Route path="/inventory/products/new" element={<ProductFormPage />} />
+              <Route path="/inventory/products/:id/edit" element={<ProductFormPage />} />
               <Route path="/inventory/categories" element={<CategoriesBrandsPage />} />
               <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
               <Route path="/purchases" element={<PurchaseOrdersPage />} />
+              <Route path="/purchases/orders/new" element={<PurchaseOrderFormPage />} />
+              <Route path="/purchases/orders/:id/receive" element={<ReceiveGoodsPage />} />
+              <Route path="/purchases/orders/:id/return" element={<ReturnGoodsPage />} />
+              <Route path="/purchases/suppliers/new" element={<SupplierFormPage />} />
+              <Route path="/purchases/suppliers/:id/ledger" element={<SupplierLedgerPage />} />
               <Route path="/sales/invoices" element={<SalesInvoicesPage />} />
               <Route path="/sales/documents" element={<SalesDocumentsPage />} />
               <Route path="/warehouse/transfers" element={<WarehouseTransfersPage />} />

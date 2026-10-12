@@ -7,6 +7,7 @@ const router = Router();
 
 const returnItemInput = z.object({
   productId: z.string().min(1),
+  optionId: z.string().min(1).nullish(),
   quantity: z.number().int().positive(),
 });
 
@@ -41,18 +42,19 @@ router.post('/purchase-returns', requirePermission('purchase:manage'), async (re
   const order = await prisma.purchaseOrder.findFirst({ where: { id: purchaseOrderId, tenantId }, include: { items: true } });
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });
 
-  const poItemByProduct = new Map(order.items.map((i) => [i.productId, i]));
+  const key = (productId: string, optionId?: string | null) => `${productId}:${optionId ?? ''}`;
+  const poItemByProduct = new Map(order.items.map((i) => [key(i.productId, i.optionId), i]));
   for (const requested of items) {
-    const poItem = poItemByProduct.get(requested.productId);
+    const poItem = poItemByProduct.get(key(requested.productId, requested.optionId));
     if (!poItem) return res.status(400).json({ error: `Product ${requested.productId} is not on this purchase order` });
     if (requested.quantity > poItem.receivedQty) {
       return res.status(400).json({ error: `Cannot return ${requested.quantity} units — only ${poItem.receivedQty} were received on this order` });
     }
   }
 
-  const lineItems = items.map(({ productId, quantity }) => {
-    const poItem = poItemByProduct.get(productId)!;
-    return { productId, quantity, unitPrice: Number(poItem.unitPrice) };
+  const lineItems = items.map(({ productId, optionId, quantity }) => {
+    const poItem = poItemByProduct.get(key(productId, optionId))!;
+    return { productId, optionId: poItem.optionId, optionName: poItem.optionName, quantity, unitPrice: Number(poItem.unitPrice) };
   });
   const totalValue = lineItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 
@@ -61,7 +63,17 @@ router.post('/purchase-returns', requirePermission('purchase:manage'), async (re
 
   try {
     const purchaseReturn = await prisma.$transaction(async (tx) => {
-      for (const item of items) {
+      for (const item of lineItems) {
+        // The option holds the variation's own stock; guard it first so the message is specific.
+        if (item.optionId) {
+          const opt = await tx.productOption.updateMany({
+            where: { id: item.optionId, stockQty: { gte: item.quantity } },
+            data: { stockQty: { decrement: item.quantity } },
+          });
+          if (opt.count !== 1) {
+            throw Object.assign(new Error(`Insufficient stock to return ${item.quantity} unit(s) of ${item.optionName ?? 'this option'}`), { productId: item.productId });
+          }
+        }
         const result = await tx.product.updateMany({
           where: { id: item.productId, stockQty: { gte: item.quantity } },
           data: { stockQty: { decrement: item.quantity } },
@@ -103,6 +115,7 @@ router.post('/purchase-returns/:id/cancel', requirePermission('purchase:manage')
   const updated = await prisma.$transaction(async (tx) => {
     for (const item of existing.items) {
       await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.quantity } } });
+      if (item.optionId) await tx.productOption.updateMany({ where: { id: item.optionId, tenantId }, data: { stockQty: { increment: item.quantity } } });
     }
     return tx.purchaseReturn.update({ where: { id: existing.id }, data: { status: 'CANCELLED' }, include });
   });

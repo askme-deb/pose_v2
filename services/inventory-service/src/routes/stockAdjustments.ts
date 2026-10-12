@@ -39,6 +39,11 @@ router.post('/stock-adjustments', requirePermission('inventory:manage'), async (
 
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId } });
   if (!product) return res.status(404).json({ error: 'Product not found' });
+  // A product with variations keeps its stock per option (the product total is
+  // derived from them), so a product-level adjustment would put the two out of step.
+  if (product.variationName) {
+    return res.status(400).json({ error: `${product.name} has variations — change its stock per option in Edit product → Variation.` });
+  }
 
   const signedQty = action === 'ADD' ? qty : -qty;
   if (action === 'SUBTRACT' && product.stockQty + signedQty < 0) {

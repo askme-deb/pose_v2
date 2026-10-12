@@ -1,5 +1,25 @@
 import { apiClient } from './client';
 
+export interface LiveOption {
+  id: string;
+  name: string;
+  sku: string;
+  barcode: string;
+  price: number;
+  mrp: number;
+  costPrice: number;
+  stockQty: number;
+}
+
+export type AddonKind = 'ADDON' | 'COMPLEMENTARY';
+
+export interface LiveAddon {
+  addonProductId: string;
+  name: string;
+  kind: AddonKind;
+  price: number;
+}
+
 export interface LiveProduct {
   id: string;
   name: string;
@@ -16,6 +36,10 @@ export interface LiveProduct {
   trackBatches: boolean;
   trackSerials: boolean;
   isBundle: boolean;
+  /** Variation axis name ("Size"); empty for a plain product. */
+  variationName: string;
+  options: LiveOption[];
+  addons: LiveAddon[];
 }
 
 interface ApiProduct {
@@ -34,6 +58,18 @@ interface ApiProduct {
   trackBatches: boolean;
   trackSerials: boolean;
   isBundle: boolean;
+  variationName?: string | null;
+  options?: {
+    id: string;
+    name: string;
+    sku: string | null;
+    barcode: string | null;
+    price: string;
+    mrp: string;
+    costPrice: string;
+    stockQty: number;
+  }[];
+  addons?: { addonProductId: string; kind: AddonKind; price: string; addonProduct: { name: string } }[];
 }
 
 function toLiveProduct(p: ApiProduct): LiveProduct {
@@ -53,6 +89,18 @@ function toLiveProduct(p: ApiProduct): LiveProduct {
     trackBatches: p.trackBatches,
     trackSerials: p.trackSerials,
     isBundle: p.isBundle,
+    variationName: p.variationName ?? '',
+    options: (p.options ?? []).map((o) => ({
+      id: o.id,
+      name: o.name,
+      sku: o.sku ?? '',
+      barcode: o.barcode ?? '',
+      price: Number(o.price),
+      mrp: Number(o.mrp),
+      costPrice: Number(o.costPrice),
+      stockQty: o.stockQty,
+    })),
+    addons: (p.addons ?? []).map((a) => ({ addonProductId: a.addonProductId, name: a.addonProduct.name, kind: a.kind, price: Number(a.price) })),
   };
 }
 
@@ -65,6 +113,12 @@ export function stockStatus(p: Pick<LiveProduct, 'stockQty' | 'minThreshold'>): 
 export async function listProducts(): Promise<LiveProduct[]> {
   const products = await apiClient.get<ApiProduct[]>('/api/inventory/products');
   return products.map(toLiveProduct);
+}
+
+/** One product with its options and addons (404 if it doesn't exist). */
+export async function getProduct(id: string): Promise<LiveProduct> {
+  const product = await apiClient.get<ApiProduct>(`/api/inventory/products/${encodeURIComponent(id)}`);
+  return toLiveProduct(product);
 }
 
 export interface ProductInput {
@@ -80,6 +134,20 @@ export interface ProductInput {
   minThreshold?: number;
   trackBatches?: boolean;
   trackSerials?: boolean;
+  /** Omit to leave variations untouched; [] turns the product back into a plain one. */
+  variationName?: string;
+  options?: {
+    id?: string;
+    name: string;
+    sku?: string;
+    barcode?: string;
+    price: number;
+    mrp?: number;
+    costPrice?: number;
+    stockQty?: number;
+  }[];
+  /** Omit to leave addons untouched; [] clears them. */
+  addons?: { addonProductId: string; kind: AddonKind; price?: number }[];
 }
 
 export async function createProduct(input: ProductInput): Promise<LiveProduct> {

@@ -20,6 +20,7 @@ const invoiceItemInput = z.object({
   // Manual price override for this line. Only honored for callers holding
   // billing:price_override; otherwise price comes from the Product row.
   unitPrice: z.number().nonnegative().optional(),
+  optionId: z.string().min(1).optional(),
   discountAmount: z.number().nonnegative().optional(),
 });
 
@@ -155,7 +156,7 @@ router.post('/invoices/:id/refund', requirePermission('billing:refund'), async (
       // Consume credited quantity line by line (a product can appear twice).
       const alreadyCredited = Math.min(item.quantity, creditedQty.get(item.productId) ?? 0);
       creditedQty.set(item.productId, (creditedQty.get(item.productId) ?? 0) - alreadyCredited);
-      return { productId: item.productId, quantity: item.quantity - alreadyCredited };
+      return { productId: item.productId, optionId: item.optionId, quantity: item.quantity - alreadyCredited };
     })
     .filter((l) => l.quantity > 0);
   const refundAmount = round2(Math.max(0, Number(invoice.total) - creditedTotal));

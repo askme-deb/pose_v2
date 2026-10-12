@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import SiteLink from '../components/SiteLink';
 import { Moon, Sun } from 'lucide-react';
-import logo from '../assets/logo.svg';
+import BrandLogo from '../components/layout/BrandLogo';
 import { useThemeStore } from '../store/useThemeStore';
 
 export default function PublicLayout() {
@@ -13,7 +13,7 @@ export default function PublicLayout() {
 
       <header className="relative z-10 flex items-center justify-between px-4 lg:px-8 py-4">
         <SiteLink to="/" className="flex items-center gap-2.5 group">
-          <img src={logo} alt="Pospe Logo" className="h-8 group-hover:scale-105 transition-transform" />
+          <BrandLogo size="lg" className="group-hover:scale-105 transition-transform" />
         </SiteLink>
         <div className="flex items-center gap-3">
           <button

@@ -1,18 +1,29 @@
-import type { Prisma, Product } from '@prisma/client';
+import type { Prisma, Product, ProductAddon, ProductOption } from '@prisma/client';
 import { computeFlatDiscountTotals } from '@pospe/utilities';
 import { prisma } from './prisma';
 import { num, round2 } from './util';
 
-// The catalog has no variations; every product is exposed to the app as one
-// variation with one option, both keyed by the product id, so the app's
-// variation/option plumbing round-trips without a lookup table.
+// Products without variations are exposed to the app as one variation with one
+// option, both keyed by the product id, so the app's variation/option
+// plumbing round-trips without a lookup table. Products *with* variations
+// expose their real options.
 export const OPTION_NAME = 'Regular';
 
-type ProductLike = Pick<Product, 'id' | 'name' | 'imageUrl' | 'price' | 'mrp' | 'stockQty' | 'isBundle'> & { description?: string | null };
+type ProductLike = Pick<Product, 'id' | 'name' | 'imageUrl' | 'price' | 'mrp' | 'stockQty' | 'isBundle' | 'variationName'> & {
+  description?: string | null;
+  options?: ProductOption[];
+  addons?: (ProductAddon & { addonProduct: Pick<Product, 'id' | 'name' | 'imageUrl'> })[];
+};
+
+export const productInclude = {
+  options: { orderBy: { position: 'asc' } },
+  addons: { orderBy: { position: 'asc' }, include: { addonProduct: { select: { id: true, name: true, imageUrl: true } } } },
+} satisfies Prisma.ProductInclude;
 
 export function productJson(p: ProductLike) {
   const selling = num(p.price);
   const mrp = num(p.mrp);
+  const options = p.options ?? [];
   return {
     id: p.id,
     name: p.name,
@@ -21,25 +32,48 @@ export function productJson(p: ProductLike) {
     long_description: p.description ?? '',
     variations: [
       {
-        options: [
-          {
-            id: p.id,
-            variation_id: p.id,
-            name: OPTION_NAME,
-            price: mrp > 0 ? mrp : selling,
-            selling_price: selling,
-            // A bundle holds no stock of its own; checkout guards its components.
-            quantity: p.isBundle ? 9999 : p.stockQty,
-          },
-        ],
+        id: p.id,
+        name: options.length ? p.variationName ?? 'Variation' : OPTION_NAME,
+        options: options.length
+          ? options.map((o) => ({
+              id: o.id,
+              variation_id: p.id,
+              name: o.name,
+              sku: o.sku ?? '',
+              barcode: o.barcode ?? '',
+              price: num(o.mrp) > 0 ? num(o.mrp) : num(o.price),
+              selling_price: num(o.price),
+              quantity: o.stockQty,
+            }))
+          : [
+              {
+                id: p.id,
+                variation_id: p.id,
+                name: OPTION_NAME,
+                price: mrp > 0 ? mrp : selling,
+                selling_price: selling,
+                // A bundle holds no stock of its own; checkout guards its components.
+                quantity: p.isBundle ? 9999 : p.stockQty,
+              },
+            ],
       },
     ],
+    // Extras for the optional Addons & Complementary offering (the app ignores unknown keys).
+    addons: (p.addons ?? []).map((a) => ({
+      id: a.addonProduct.id,
+      name: a.addonProduct.name,
+      image_url: a.addonProduct.imageUrl ?? '',
+      kind: a.kind,
+      price: num(a.price),
+    })),
   };
 }
 
 export interface Line {
   id: string;
   productId: string;
+  optionId: string | null;
+  optionName: string | null;
   name: string;
   imageUrl: string | null;
   price: number;
@@ -64,10 +98,10 @@ export function buildView(lines: Line[], billDiscount = 0, complimentary = 0, is
     data: lines.map((l) => ({
       id: l.id,
       product_name: l.name,
-      product_title: OPTION_NAME,
+      product_title: l.optionName ?? OPTION_NAME,
       product: { id: l.productId, name: l.name, image_url: l.imageUrl ?? '' },
       variation_id: l.productId,
-      option_id: l.productId,
+      option_id: l.optionId ?? l.productId,
       variation_option: { quantity: l.stock, selling_price: l.price },
       price: l.price,
       quantity: l.quantity,
@@ -88,40 +122,61 @@ export function buildView(lines: Line[], billDiscount = 0, complimentary = 0, is
   };
 }
 
+export async function optionMap(ids: (string | null | undefined)[]) {
+  const unique = [...new Set(ids.filter((i): i is string => Boolean(i)))];
+  if (!unique.length) return new Map<string, ProductOption>();
+  return new Map((await prisma.productOption.findMany({ where: { id: { in: unique } } })).map((o) => [o.id, o]));
+}
+
 export async function cartLines(userId: string, storeId: string): Promise<Line[]> {
   const rows = await prisma.mobileCartLine.findMany({
     where: { userId, storeId },
     include: { product: true },
     orderBy: { createdAt: 'asc' },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    productId: r.productId,
-    name: r.product.name,
-    imageUrl: r.product.imageUrl,
-    price: num(r.product.price),
-    quantity: r.quantity,
-    gstRate: num(r.product.gstRate),
-    discount: num(r.discountAmount),
-    stock: r.product.stockQty,
-  }));
+  const options = await optionMap(rows.map((r) => r.optionId));
+  return rows.map((r) => {
+    const option = r.optionId ? options.get(r.optionId) : undefined;
+    return {
+      id: r.id,
+      productId: r.productId,
+      optionId: option?.id ?? null,
+      optionName: option?.name ?? null,
+      name: r.product.name,
+      imageUrl: r.product.imageUrl,
+      price: num((option ?? r.product).price),
+      quantity: r.quantity,
+      gstRate: num(r.product.gstRate),
+      discount: num(r.discountAmount),
+      stock: option ? option.stockQty : r.product.stockQty,
+    };
+  });
 }
 
 export const heldInclude = { items: { include: { product: true }, orderBy: { id: 'asc' } } } satisfies Prisma.InvoiceInclude;
 
-export function orderLines(items: Prisma.InvoiceGetPayload<{ include: typeof heldInclude }>['items']): Line[] {
-  return items.map((i) => ({
-    id: i.id,
-    productId: i.productId,
-    name: i.product.name,
-    imageUrl: i.product.imageUrl,
-    price: num(i.price),
-    quantity: i.quantity,
-    gstRate: num(i.gstRate),
-    discount: num(i.discountAmount),
-    stock: i.product.stockQty,
-  }));
+export async function orderLines(items: Prisma.InvoiceGetPayload<{ include: typeof heldInclude }>['items']): Promise<Line[]> {
+  const options = await optionMap(items.map((i) => i.optionId));
+  return items.map((i) => {
+    const option = i.optionId ? options.get(i.optionId) : undefined;
+    return {
+      id: i.id,
+      productId: i.productId,
+      optionId: i.optionId,
+      optionName: i.optionName,
+      name: i.product.name,
+      imageUrl: i.product.imageUrl,
+      price: num(i.price),
+      quantity: i.quantity,
+      gstRate: num(i.gstRate),
+      discount: num(i.discountAmount),
+      stock: option ? option.stockQty : i.product.stockQty,
+    };
+  });
 }
+
+/** "Veg Thali (Full)" — how a line reads on receipts and history. */
+export const displayName = (name: string, optionName: string | null | undefined) => (optionName ? `${name} (${optionName})` : name);
 
 /**
  * Re-price a held bill after its lines changed, with the same maths checkout

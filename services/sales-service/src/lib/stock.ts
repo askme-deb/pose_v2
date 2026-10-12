@@ -6,6 +6,8 @@ type Tx = Prisma.TransactionClient;
 export interface StockLine {
   productId: string;
   quantity: number;
+  // Variation option the units belong to; its own stock moves along with the product total.
+  optionId?: string | null;
 }
 
 /**
@@ -38,6 +40,9 @@ export async function restock(tx: Tx, tenantId: string, lines: StockLine[]) {
   for (const [productId, quantity] of await expandBundles(tx, tenantId, lines)) {
     await tx.product.update({ where: { id: productId }, data: { stockQty: { increment: quantity } } });
   }
+  for (const line of lines) {
+    if (line.optionId) await tx.productOption.updateMany({ where: { id: line.optionId, tenantId }, data: { stockQty: { increment: line.quantity } } });
+  }
 }
 
 /** Takes stock back out, refusing to go negative (e.g. restocked units already re-sold). */
@@ -46,6 +51,14 @@ export async function unstock(tx: Tx, tenantId: string, lines: StockLine[]) {
     const { count } = await tx.product.updateMany({
       where: { id: productId, tenantId, stockQty: { gte: quantity } },
       data: { stockQty: { decrement: quantity } },
+    });
+    if (count !== 1) throw new HttpError(409, 'Not enough stock left to reverse this — the returned units may already have been sold');
+  }
+  for (const line of lines) {
+    if (!line.optionId) continue;
+    const { count } = await tx.productOption.updateMany({
+      where: { id: line.optionId, tenantId, stockQty: { gte: line.quantity } },
+      data: { stockQty: { decrement: line.quantity } },
     });
     if (count !== 1) throw new HttpError(409, 'Not enough stock left to reverse this — the returned units may already have been sold');
   }

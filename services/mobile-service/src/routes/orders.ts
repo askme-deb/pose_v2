@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { requirePermission, HttpError } from '@pospe/permissions';
 import { prisma, ctxOf, type MobileCtx } from '../lib/prisma';
-import { buildView, cartLines, heldInclude, orderLines, recomputeHeld } from '../lib/orderView';
+import { buildView, cartLines, displayName, heldInclude, orderLines, recomputeHeld } from '../lib/orderView';
 import { dayEnd, dayStart, holdCode, idFromHoldCode, num, round2, titleCaseMethod, toNum } from '../lib/util';
 
 const router = Router();
@@ -111,6 +111,7 @@ const placeInput = z.object({
 
 interface CheckoutLine {
   productId: string;
+  optionId?: string | null;
   quantity: number;
   discountAmount: number;
 }
@@ -129,7 +130,12 @@ async function runCheckout(req: Request, ctx: MobileCtx, lines: CheckoutLine[], 
     },
     body: JSON.stringify({
       paymentMethod: b.payment_method,
-      items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, ...(l.discountAmount > 0 ? { discountAmount: l.discountAmount } : {}) })),
+      items: lines.map((l) => ({
+        productId: l.productId,
+        ...(l.optionId ? { optionId: l.optionId } : {}),
+        quantity: l.quantity,
+        ...(l.discountAmount > 0 ? { discountAmount: l.discountAmount } : {}),
+      })),
       billDiscountAmount: b.discount_amount ?? fallbackDiscount,
       complimentaryAmount: b.complimentary_amount ?? fallbackComp,
       isGstSame: b.is_gst_same ?? true,
@@ -185,7 +191,7 @@ router.post('/place-order', canBill, async (req, res) => {
   await verifyRazorpay(b, view.rounded_grand_total);
 
   const key = `mobile-${ctx.userId}-${crypto.createHash('sha1').update(JSON.stringify([ctx.storeId, b.gateway_transaction_id ?? b.txnId ?? '', cart.map((l) => [l.id, l.quantity, l.discount]), b.discount_amount ?? 0, b.complimentary_amount ?? 0])).digest('hex').slice(0, 24)}`;
-  const invoice = await runCheckout(req, ctx, cart.map((l) => ({ productId: l.productId, quantity: l.quantity, discountAmount: l.discount })), b, 0, 0, key);
+  const invoice = await runCheckout(req, ctx, cart.map((l) => ({ productId: l.productId, optionId: l.optionId, quantity: l.quantity, discountAmount: l.discount })), b, 0, 0, key);
 
   await prisma.mobileCartLine.deleteMany({ where: { userId: ctx.userId, storeId: ctx.storeId } });
   res.status(200).json({ data: receipt(invoice, b, b.discount_amount ?? 0, b.complimentary_amount ?? 0) });
@@ -203,11 +209,11 @@ router.post('/complete-order', canBill, async (req, res) => {
 
   const discount = b.discount_amount ?? num(held.billDiscountAmount);
   const comp = b.complimentary_amount ?? num(held.complimentaryAmount);
-  const lines = orderLines(held.items);
+  const lines = await orderLines(held.items);
   await verifyRazorpay(b, buildView(lines, discount, comp, b.is_gst_same ?? held.isGstSame).rounded_grand_total);
 
   const merged = { ...b, is_gst_same: b.is_gst_same ?? held.isGstSame, contact_number: b.contact_number ?? held.customerPhone, seat_number: b.seat_number ?? (held.seatNo ? held.seatNo.split(',').map((s) => s.trim()) : undefined) };
-  const invoice = await runCheckout(req, ctx, held.items.map((i) => ({ productId: i.productId, quantity: i.quantity, discountAmount: num(i.discountAmount) })), merged, discount, comp, `mobile-held-${held.id}`);
+  const invoice = await runCheckout(req, ctx, held.items.map((i) => ({ productId: i.productId, optionId: i.optionId, quantity: i.quantity, discountAmount: num(i.discountAmount) })), merged, discount, comp, `mobile-held-${held.id}`);
 
   // Same hand-off as billing-service's recall: the placeholder is done once
   // the real invoice exists. CANCELLED, not deleted, because online-payment
@@ -248,7 +254,7 @@ router.post('/place-draft-order', canBill, async (req, res) => {
     return res.json({ status: true, message: 'Order held' });
   }
 
-  const cart = await prisma.mobileCartLine.findMany({ where: { userId: ctx.userId, storeId: ctx.storeId }, include: { product: true } });
+  const cart = await cartLines(ctx.userId, ctx.storeId);
   if (!cart.length) throw new HttpError(400, 'Your cart is empty');
   await prisma.$transaction(async (tx) => {
     const created = await tx.invoice.create({
@@ -263,11 +269,13 @@ router.post('/place-draft-order', canBill, async (req, res) => {
         items: {
           create: cart.map((l) => ({
             productId: l.productId,
+            optionId: l.optionId,
+            optionName: l.optionName,
             quantity: l.quantity,
-            price: l.product.price,
-            gstRate: l.product.gstRate,
+            price: l.price,
+            gstRate: l.gstRate,
             total: 0,
-            discountAmount: l.discountAmount,
+            discountAmount: l.discount,
           })),
         },
       },
@@ -375,7 +383,7 @@ router.get('/order-details/:id', async (req, res) => {
       contact_number: o.customerPhone ?? '',
       payment_method: o.status === 'HELD' ? '' : titleCaseMethod(o.paymentMethod),
       seat_number: o.seatNo ?? '',
-      items: o.items.map((i) => ({ product: { name: i.product.name }, price: num(i.price), quantity: i.quantity, subtotal: round2(num(i.price) * i.quantity) })),
+      items: o.items.map((i) => ({ product: { name: displayName(i.product.name, i.optionName) }, price: num(i.price), quantity: i.quantity, subtotal: round2(num(i.price) * i.quantity) })),
       ...totalsOf(o),
       transactions: { gateway_transaction_id: o.paymentReference ?? o.posTxnId ?? '' },
     },
@@ -397,7 +405,7 @@ router.get('/get-order-by-order-id/:id', async (req, res) => {
   const o = await loadOrder(req);
   res.json({
     order: {
-      items: o.items.map((i) => ({ product_name: i.product.name, image_url: i.product.imageUrl ?? '', price: num(i.price), quantity: i.quantity })),
+      items: o.items.map((i) => ({ product_name: displayName(i.product.name, i.optionName), image_url: i.product.imageUrl ?? '', price: num(i.price), quantity: i.quantity })),
       ...totalsOf(o),
     },
   });

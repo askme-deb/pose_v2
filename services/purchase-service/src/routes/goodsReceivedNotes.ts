@@ -8,6 +8,7 @@ const router = Router();
 
 const grnItemInput = z.object({
   productId: z.string().min(1),
+  optionId: z.string().min(1).nullish(),
   receivedQty: z.number().int().positive(),
   batch: z.object({ batchNumber: z.string().min(1), expiryDate: z.string().optional() }).optional(),
   serialNumbers: z.array(z.string().min(1)).optional(),

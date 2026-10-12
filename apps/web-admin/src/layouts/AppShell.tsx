@@ -13,9 +13,10 @@ import {
   Command,
 } from 'lucide-react';
 import { Avatar, DropdownMenu, DropdownMenuItem, Badge } from '@pospe/ui-library';
-import logo from '../assets/logo.svg';
+import BrandLogo from '../components/layout/BrandLogo';
 import { useThemeStore } from '../store/useThemeStore';
 import { useTenantStore } from '../store/useTenantStore';
+import { useBranchBootstrap } from '../hooks/useBranchBootstrap';
 import { useAuthStore } from '../store/useAuthStore';
 import { signOut } from '../services/api/client';
 import {
@@ -124,8 +125,11 @@ function NavPill({ link, badgeColor }: { link: NavLink; badgeColor: 'blue' | 'pu
 
 export default function AppShell() {
   const { dark, toggleTheme } = useThemeStore();
-  const { tenant, branch, tenants, branches, selectTenant, selectBranch } = useTenantStore();
+  const { branches, branchId, selectBranch } = useTenantStore();
   const { user } = useAuthStore();
+  const branchesReady = useBranchBootstrap();
+  const branch = branches.find((b) => b.id === branchId);
+  const tenantName = user?.tenantName;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
@@ -143,32 +147,21 @@ export default function AppShell() {
             </button>
 
             <Link to="/dashboard" className="flex items-center gap-2.5 group shrink-0">
-              <img src={logo} alt="Pospe Logo" className="h-8 md:h-9 group-hover:scale-105 transition-transform" />
+              <BrandLogo size="md" className="group-hover:scale-105 transition-transform" />
             </Link>
 
             <div className="hidden md:flex items-center gap-2 ml-4 pl-4 border-l border-slate-200 dark:border-slate-800">
-              <DropdownMenu
-                width="w-64"
-                trigger={({ toggle }) => (
-                  <button
-                    onClick={toggle}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 transition"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>{tenant}</span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                  </button>
-                )}
-              >
-                <div className="px-3 py-1.5 font-bold uppercase text-[11px] text-slate-400">Select Business Tenant</div>
-                {tenants.map((t) => (
-                  <DropdownMenuItem key={t} onClick={() => selectTenant(t)}>
-                    <span className="flex-1 text-left">{t}</span>
-                    {t === tenant && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenu>
+              {tenantName && (
+                <div
+                  title="Your business"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>{tenantName}</span>
+                </div>
+              )}
 
+              {user?.role !== 'super_admin' && branches.length > 0 && (
               <DropdownMenu
                 width="w-56"
                 trigger={({ toggle }) => (
@@ -177,19 +170,23 @@ export default function AppShell() {
                     className="flex items-center gap-2 px-3 py-1.5 rounded-xl whitespace-nowrap bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 transition"
                   >
                     <Store className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{branch}</span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                    <span>{branch?.name ?? 'Select branch'}</span>
+                    {branches.length > 1 && <ChevronDown className="w-3.5 h-3.5 opacity-60" />}
                   </button>
                 )}
               >
                 <div className="px-3 py-1.5 font-bold uppercase text-[11px] text-slate-400">Select Branch</div>
                 {branches.map((b) => (
-                  <DropdownMenuItem key={b} onClick={() => selectBranch(b)}>
-                    <span className="flex-1 text-left">{b}</span>
-                    {b === branch && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
+                  <DropdownMenuItem key={b.id} onClick={() => selectBranch(b.id)}>
+                    <span className="flex-1 text-left">
+                      {b.name}
+                      {b.code && <span className="ml-1.5 text-[10px] text-slate-400 font-mono">{b.code}</span>}
+                    </span>
+                    {b.id === branchId && <span className="w-2 h-2 rounded-full bg-emerald-500" />}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenu>
+              )}
             </div>
           </div>
 
@@ -279,7 +276,8 @@ export default function AppShell() {
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 animate-fade-in w-full">
-        <Outlet />
+        {/* Keyed by branch: switching branch remounts the page, so it reloads that branch's data. */}
+        {branchesReady ? <Outlet key={branchId ?? 'default'} /> : <p className="text-center text-xs text-slate-400 py-24">Loading your workspace…</p>}
       </main>
 
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />

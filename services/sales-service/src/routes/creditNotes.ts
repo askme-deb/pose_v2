@@ -51,6 +51,12 @@ router.post('/credit-notes', requirePermission('sales:manage'), async (req, res)
     return res.status(400).json({ error: `Credit notes can only be issued against paid invoices (this one is ${invoice.status})` });
   }
 
+  // Credit notes are priced and restocked per product, which can't tell one
+  // variation option from another — a whole-invoice refund can.
+  if (invoice.items.some((i) => i.optionId && items.some((r) => r.productId === i.productId))) {
+    return res.status(400).json({ error: 'This invoice has variation items — use a full refund instead of a credit note' });
+  }
+
   // Quantities sold minus quantities already credited by earlier notes, so
   // repeated partial returns can never exceed what was actually sold.
   const soldQty = new Map<string, number>();

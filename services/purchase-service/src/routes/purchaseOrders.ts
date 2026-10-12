@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
+import { HttpError } from '@pospe/permissions';
 import { receiveGoods, PurchaseOrderNotFoundError, OverReceiveError } from '../lib/receiving';
 
 const router = Router();
 
 const lineItemInput = z.object({
   productId: z.string().min(1),
+  // Required when the product has variations (Half / Full, …).
+  optionId: z.string().min(1).nullish(),
   qty: z.number().int().positive(),
   unitPrice: z.number().nonnegative(),
 });
@@ -31,6 +34,13 @@ router.get('/purchase-orders', async (req, res) => {
   res.json(orders);
 });
 
+router.get('/purchase-orders/:id', async (req, res) => {
+  const tenantId = await resolveTenantId(req);
+  const order = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId }, include });
+  if (!order) return res.status(404).json({ error: 'Purchase order not found' });
+  res.json(order);
+});
+
 router.post('/purchase-orders', requirePermission('purchase:manage'), async (req, res) => {
   const parsed = poInput.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -40,6 +50,29 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
 
   const supplier = await prisma.supplier.findFirst({ where: { id: supplierId, tenantId } });
   if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
+
+  // Every line is a product, or (for products with variations) one of its options.
+  const products = await prisma.product.findMany({
+    where: { id: { in: [...new Set(items.map((i) => i.productId))] }, tenantId },
+    include: { options: true },
+  });
+  const productById = new Map(products.map((p) => [p.id, p]));
+  const seen = new Set<string>();
+  const lines = items.map((i) => {
+    const product = productById.get(i.productId);
+    if (!product) throw new HttpError(404, 'One or more products not found');
+    let option = null;
+    if (product.options.length) {
+      option = product.options.find((o) => o.id === i.optionId) ?? null;
+      if (!option) throw new HttpError(400, `Choose a ${(product.variationName ?? 'variation').toLowerCase()} for ${product.name}`);
+    } else if (i.optionId) {
+      throw new HttpError(400, `${product.name} has no variations`);
+    }
+    const key = `${i.productId}:${option?.id ?? ''}`;
+    if (seen.has(key)) throw new HttpError(400, `${product.name}${option ? ` (${option.name})` : ''} is listed twice — combine the quantities`);
+    seen.add(key);
+    return { productId: i.productId, optionId: option?.id ?? null, optionName: option?.name ?? null, qty: i.qty, unitPrice: i.unitPrice };
+  });
 
   const totalAmount = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
   const existingCount = await prisma.purchaseOrder.count({ where: { tenantId } });
@@ -54,7 +87,7 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
       expectedDeliveryDate: new Date(expectedDeliveryDate),
       paymentStatus: paymentStatus ?? 'UNPAID',
       orderStatus: 'PENDING',
-      items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })) },
+      items: { create: lines },
     },
     include,
   });
@@ -66,7 +99,7 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
     await receiveGoods({
       tenantId,
       purchaseOrderId: order.id,
-      items: order.items.map((i) => ({ productId: i.productId, receivedQty: i.qty })),
+      items: order.items.map((i) => ({ productId: i.productId, optionId: i.optionId, receivedQty: i.qty })),
       receivedBy: 'Auto (issued as received)',
     });
   }
@@ -84,7 +117,7 @@ router.post('/purchase-orders/:id/receive', requirePermission('purchase:manage')
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });
   if (order.orderStatus === 'RECEIVED') return res.status(400).json({ error: 'Purchase order is already marked received' });
 
-  const remainingItems = order.items.filter((i) => i.receivedQty < i.qty).map((i) => ({ productId: i.productId, receivedQty: i.qty - i.receivedQty }));
+  const remainingItems = order.items.filter((i) => i.receivedQty < i.qty).map((i) => ({ productId: i.productId, optionId: i.optionId, receivedQty: i.qty - i.receivedQty }));
 
   try {
     await receiveGoods({ tenantId, purchaseOrderId: order.id, items: remainingItems, receivedBy: 'Quick Receive' });

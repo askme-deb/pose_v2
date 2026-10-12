@@ -6,6 +6,11 @@ export interface AuthUser {
   name: string;
   email: string;
   role: Role;
+  /** Filled in at sign-in; older stored sessions get them from /api/auth/me. */
+  tenantId?: string;
+  tenantName?: string;
+  /** The user's default branch (assigned store, else the primary one). */
+  storeId?: string | null;
 }
 
 interface AuthState {
@@ -14,6 +19,7 @@ interface AuthState {
   refreshToken: string | null;
   login: (user: AuthUser, token?: string, refreshToken?: string) => void;
   setTokens: (token: string, refreshToken: string) => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
   logout: () => void;
 }
 
@@ -25,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       login: (user, token, refreshToken) => set({ user, token: token ?? null, refreshToken: refreshToken ?? null }),
       setTokens: (token, refreshToken) => set({ token, refreshToken }),
+      updateUser: (patch) => set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
       logout: () => set({ user: null, token: null, refreshToken: null }),
     }),
     {

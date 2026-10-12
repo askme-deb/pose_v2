@@ -20,6 +20,8 @@ export class SerialCountMismatchError extends Error {
 
 export interface ReceiveItemInput {
   productId: string;
+  // Which variation option of the product (when the PO line has one).
+  optionId?: string | null;
   receivedQty: number;
   // Only meaningful when the product opts into batch/serial tracking
   // (Product.trackBatches / trackSerials) — plain products ignore these.
@@ -34,6 +36,9 @@ export interface ReceiveGoodsParams {
   receivedBy: string;
   notes?: string;
 }
+
+/** A PO line is a product, or one option of a product with variations. */
+export const lineKey = (productId: string, optionId?: string | null) => `${productId}:${optionId ?? ''}`;
 
 export const grnInclude = {
   items: { include: { product: { select: { id: true, name: true, sku: true } } } },
@@ -52,16 +57,16 @@ export async function receiveGoods(params: ReceiveGoodsParams) {
 
   const purchaseOrder = await prisma.purchaseOrder.findFirst({
     where: { id: purchaseOrderId, tenantId },
-    include: { items: { include: { product: { select: { id: true, name: true, trackSerials: true } } } } },
+    include: { items: { include: { product: { select: { id: true, name: true, trackSerials: true, variationName: true } } } } },
   });
   if (!purchaseOrder) throw new PurchaseOrderNotFoundError();
 
-  const poItemByProduct = new Map(purchaseOrder.items.map((i) => [i.productId, i]));
+  const poItemByProduct = new Map(purchaseOrder.items.map((i) => [lineKey(i.productId, i.optionId), i]));
   for (const item of items) {
-    const poItem = poItemByProduct.get(item.productId);
+    const poItem = poItemByProduct.get(lineKey(item.productId, item.optionId));
     const remaining = poItem ? poItem.qty - poItem.receivedQty : 0;
     if (!poItem || item.receivedQty > remaining) {
-      throw new OverReceiveError(item.productId, poItem?.product.name ?? item.productId, remaining);
+      throw new OverReceiveError(item.productId, poItem ? `${poItem.product.name}${poItem.optionName ? ` (${poItem.optionName})` : ''}` : item.productId, remaining);
     }
     if (poItem.product.trackSerials && item.serialNumbers && item.serialNumbers.length !== item.receivedQty) {
       throw new SerialCountMismatchError(item.productId, item.receivedQty, item.serialNumbers.length);
@@ -73,9 +78,14 @@ export async function receiveGoods(params: ReceiveGoodsParams) {
 
   const grn = await prisma.$transaction(async (tx) => {
     for (const item of items) {
+      const line = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
       await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.receivedQty } } });
+      // Variation stock lives on the option; the product total above follows it.
+      if (line.optionId) {
+        await tx.productOption.updateMany({ where: { id: line.optionId, tenantId }, data: { stockQty: { increment: item.receivedQty } } });
+      }
       await tx.purchaseOrderItem.update({
-        where: { id: poItemByProduct.get(item.productId)!.id },
+        where: { id: line.id },
         data: { receivedQty: { increment: item.receivedQty } },
       });
     }
@@ -96,14 +106,19 @@ export async function receiveGoods(params: ReceiveGoodsParams) {
         supplierId: purchaseOrder.supplierId,
         receivedBy,
         notes,
-        items: { create: items.map((i) => ({ productId: i.productId, receivedQty: i.receivedQty })) },
+        items: {
+          create: items.map((i) => {
+            const line = poItemByProduct.get(lineKey(i.productId, i.optionId))!;
+            return { productId: i.productId, receivedQty: i.receivedQty, optionId: line.optionId, optionName: line.optionName };
+          }),
+        },
       },
       include: grnInclude,
     });
 
     for (const item of items) {
       if (item.batch) {
-        const poItem = poItemByProduct.get(item.productId)!;
+        const poItem = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
         await tx.productBatch.upsert({
           where: { tenantId_productId_batchNumber: { tenantId, productId: item.productId, batchNumber: item.batch.batchNumber } },
           update: { quantity: { increment: item.receivedQty } },

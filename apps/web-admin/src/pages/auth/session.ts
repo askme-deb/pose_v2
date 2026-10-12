@@ -5,14 +5,15 @@ import { useAuthStore } from '../../store/useAuthStore';
 export interface SessionResponse {
   token: string;
   refreshToken: string;
-  user: { name: string; email: string; role: Role };
+  user: { name: string; email: string; role: Role; tenantId?: string; tenantName?: string; storeId?: string | null };
 }
 
 export type LoginResponse = { requiresTwoFactor: true; pendingToken: string } | SessionResponse;
 
 /** Stores a freshly issued session (login, 2FA, email verification). */
 export function startSession(res: SessionResponse) {
-  useAuthStore.getState().login({ name: res.user.name, email: res.user.email, role: res.user.role }, res.token, res.refreshToken);
+  const { name, email, role, tenantId, tenantName, storeId } = res.user;
+  useAuthStore.getState().login({ name, email, role, tenantId, tenantName, storeId }, res.token, res.refreshToken);
 }
 
 export function landingPathFor(role: Role) {

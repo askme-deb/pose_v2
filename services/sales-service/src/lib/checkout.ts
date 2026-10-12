@@ -24,6 +24,15 @@ export class IdempotencyConflictError extends Error {
   }
 }
 
+// A product with variations can only be sold as one of its options, and an
+// option can only be sold under the product it belongs to.
+export class OptionError extends Error {
+  status = 400;
+  constructor(message: string) {
+    super(message);
+  }
+}
+
 export class InsufficientStockError extends Error {
   constructor(public productId: string, public productName: string) {
     super(`Insufficient stock for ${productName}`);
@@ -35,6 +44,8 @@ export interface CheckoutItemInput {
   quantity: number;
   // Already permission-checked by the caller; overrides the Product's price.
   unitPrice?: number;
+  // The variation option being sold (required when the product has variations).
+  optionId?: string;
   // Flat rupee discount on this line (mobile checkout); see computeFlatDiscountTotals.
   discountAmount?: number;
 }
@@ -113,6 +124,19 @@ export async function checkoutInvoice(params: CheckoutParams) {
   if (products.length !== productIds.length) throw new ProductNotFoundError();
   const productById = new Map(products.map((p) => [p.id, p]));
 
+  const optionIds = [...new Set(items.map((i) => i.optionId).filter((id): id is string => Boolean(id)))];
+  const options = optionIds.length ? await prisma.productOption.findMany({ where: { id: { in: optionIds }, tenantId } }) : [];
+  const optionById = new Map(options.map((o) => [o.id, o]));
+  for (const item of items) {
+    const product = productById.get(item.productId)!;
+    if (item.optionId) {
+      const option = optionById.get(item.optionId);
+      if (!option || option.productId !== item.productId) throw new OptionError(`That variation does not belong to ${product.name}`);
+    } else if (product.variationName) {
+      throw new OptionError(`Choose a ${product.variationName.toLowerCase()} for ${product.name}`);
+    }
+  }
+
   // A bundle is invoiced as one line at its own price (the receipt reads
   // "Family Combo Pack x1", not each component separately), but it carries no
   // stock of its own — what actually decrements is each component, scaled by
@@ -158,6 +182,15 @@ export async function checkoutInvoice(params: CheckoutParams) {
     }
   }
   const stockMoves = [...stockMovesByProduct.values()];
+  // Per-option stock (the product-level move above keeps the product total in step).
+  const optionMoves = new Map<string, { id: string; name: string; productName: string; stockQty: number; quantity: number }>();
+  for (const { productId, optionId, quantity } of items) {
+    if (!optionId) continue;
+    const option = optionById.get(optionId)!;
+    const existing = optionMoves.get(optionId);
+    if (existing) existing.quantity += quantity;
+    else optionMoves.set(optionId, { id: option.id, name: option.name, productName: productById.get(productId)!.name, stockQty: option.stockQty, quantity });
+  }
 
   const lowStockAlerts: LowStockAlert[] = [];
   let updatedCustomer: Awaited<ReturnType<typeof prisma.customer.update>> | undefined;
@@ -189,15 +222,26 @@ export async function checkoutInvoice(params: CheckoutParams) {
       }
 
       // Discount first, then GST on the discounted value (see computeInvoiceTotals).
-      const pricedInput = items.map(({ productId, quantity, unitPrice, discountAmount }) => {
+      const pricedInput = items.map(({ productId, optionId, quantity, unitPrice, discountAmount }) => {
         const product = productById.get(productId)!;
-        return { productId, quantity, price: unitPrice ?? Number(product.price), gstRate: Number(product.gstRate), discountAmount: discountAmount ?? 0 };
+        const option = optionId ? optionById.get(optionId) : undefined;
+        return {
+          productId,
+          optionId: option?.id,
+          optionName: option?.name,
+          quantity,
+          price: unitPrice ?? Number((option ?? product).price),
+          gstRate: Number(product.gstRate),
+          discountAmount: discountAmount ?? 0,
+        };
       });
       const totals = flatMode
         ? computeFlatDiscountTotals(pricedInput, billDiscountAmount, complimentaryAmount)
         : computeInvoiceTotals(pricedInput, effectiveDiscountPercent);
-      const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total, discountAmount }) => ({
+      const lineItems = totals.lines.map(({ productId, optionId, optionName, quantity, price, gstRate, total, discountAmount }) => ({
         productId,
+        optionId,
+        optionName,
         quantity,
         price,
         gstRate,
@@ -206,6 +250,14 @@ export async function checkoutInvoice(params: CheckoutParams) {
       }));
       const { subtotal, discountTotal, taxTotal, total } = totals;
       const pointsEarned = customerId ? Math.floor(total / 100) : 0;
+
+      for (const move of optionMoves.values()) {
+        const result = await tx.productOption.updateMany({
+          where: { id: move.id, stockQty: { gte: move.quantity } },
+          data: { stockQty: { decrement: move.quantity } },
+        });
+        if (result.count !== 1) throw new InsufficientStockError(move.id, `${move.productName} (${move.name})`);
+      }
 
       for (const move of stockMoves) {
         const result = await tx.product.updateMany({

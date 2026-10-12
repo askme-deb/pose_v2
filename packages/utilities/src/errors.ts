@@ -15,9 +15,23 @@ interface LayerProto {
  * once per process so any handler's returned promise is chained into
  * `next(err)`, the same thing express-async-errors does.
  */
+function loadExpressLayer(): { prototype: LayerProto } {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require(require.resolve('express/lib/router/layer', { paths: [process.cwd()] })) as { prototype: LayerProto };
+  } catch {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('express/lib/router/layer') as { prototype: LayerProto };
+  }
+}
+
 export function installAsyncErrorHandling() {
+  // Patch the express the *service* routes with. Resolving from this package's
+  // own location can land on a different copy of express's Layer module (e.g.
+  // a symlinked workspace on Windows), leaving the real one unpatched and
+  // every async handler's rejection to crash the process.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Layer = require('express/lib/router/layer') as { prototype: LayerProto };
+  const Layer = loadExpressLayer();
   if (Layer.prototype.__pospeAsyncPatched) return;
   Layer.prototype.__pospeAsyncPatched = true;
 

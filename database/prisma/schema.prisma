@@ -420,8 +420,15 @@ model Product {
   trackBatches Boolean  @default(false)
   trackSerials Boolean  @default(false)
   isBundle     Boolean  @default(false)
+  // Name of the variation axis (e.g. "Size"); null for a plain product. When
+  // options exist, each carries its own price/stock and stockQty above is
+  // their total.
+  variationName String?
   createdAt  DateTime @default(now())
 
+  options                 ProductOption[]
+  addons                  ProductAddon[]      @relation("ProductAddons")
+  addonOf                 ProductAddon[]      @relation("AddonOf")
   stockItems              StockItem[]
   invoiceItems            InvoiceItem[]
   mobileCartLines         MobileCartLine[]
@@ -589,6 +596,9 @@ model PurchaseOrderItem {
   // status reflect a partial delivery instead of only "pending" or "fully
   // received" like it used to.
   receivedQty     Int           @default(0)
+  // Variation option being bought (null for plain products); the name is a snapshot.
+  optionId        String?
+  optionName      String?
 
   @@map("purchase_order_items")
 }
@@ -693,6 +703,10 @@ model InvoiceItem {
   price     Decimal @db.Decimal(12, 2)
   gstRate   Decimal @db.Decimal(5, 2)
   total     Decimal @db.Decimal(12, 2)
+  // Sold variation option (null for plain products); the name is a snapshot
+  // so receipts survive the option being renamed or removed.
+  optionId   String?
+  optionName String?
   // Flat per-line discount (mobile); already reflected in total.
   discountAmount Decimal @default(0) @db.Decimal(12, 2)
 
@@ -1089,6 +1103,8 @@ model GoodsReceivedNoteItem {
   productId           String
   product             Product           @relation(fields: [productId], references: [id])
   receivedQty         Int
+  optionId            String?
+  optionName          String?
 
   @@map("goods_received_note_items")
 }
@@ -1128,6 +1144,8 @@ model PurchaseReturnItem {
   product          Product        @relation(fields: [productId], references: [id])
   quantity         Int
   unitPrice        Decimal        @db.Decimal(12, 2)
+  optionId         String?
+  optionName       String?
 
   @@map("purchase_return_items")
 }
@@ -1391,11 +1409,15 @@ model MobileCartLine {
   storeId        String
   productId      String
   product        Product  @relation(fields: [productId], references: [id])
+  // Variation option on the line; optionKey is optionId or '' so the unique
+  // key below works for plain products too (NULLs are never equal).
+  optionId       String?
+  optionKey      String   @default("")
   quantity       Int
   discountAmount Decimal  @default(0) @db.Decimal(12, 2)
   createdAt      DateTime @default(now())
 
-  @@unique([userId, storeId, productId])
+  @@unique([userId, storeId, productId, optionKey])
   @@map("mobile_cart_lines")
 }
 
@@ -1413,4 +1435,48 @@ model LoginLog {
 
   @@index([tenantId, userId, loginAt])
   @@map("login_logs")
+}
+
+// One sellable choice of a product's variation (e.g. Size: Half / Full), with
+// its own price, stock, SKU and barcode.
+model ProductOption {
+  id        String   @id @default(cuid())
+  tenantId  String
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  sku       String?
+  barcode   String?
+  price     Decimal  @db.Decimal(12, 2)
+  mrp       Decimal  @default(0) @db.Decimal(12, 2)
+  costPrice Decimal  @default(0) @db.Decimal(12, 2)
+  stockQty  Int      @default(0)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([productId, name])
+  @@index([tenantId, barcode])
+  @@map("product_options")
+}
+
+enum ProductAddonKind {
+  ADDON
+  COMPLEMENTARY
+}
+
+// An extra offered with a product: an ADDON is sold on top at its own price,
+// a COMPLEMENTARY item comes free with it (price 0).
+model ProductAddon {
+  id             String           @id @default(cuid())
+  tenantId       String
+  productId      String
+  product        Product          @relation("ProductAddons", fields: [productId], references: [id], onDelete: Cascade)
+  addonProductId String
+  addonProduct   Product          @relation("AddonOf", fields: [addonProductId], references: [id], onDelete: Cascade)
+  kind           ProductAddonKind @default(ADDON)
+  price          Decimal          @default(0) @db.Decimal(12, 2)
+  position       Int              @default(0)
+
+  @@unique([productId, addonProductId])
+  @@map("product_addons")
 }

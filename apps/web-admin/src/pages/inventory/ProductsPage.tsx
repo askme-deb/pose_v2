@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Search,
@@ -20,7 +21,7 @@ import {
 import {
   Badge,
   Button,
-  Checkbox,
+
   Drawer,
   DataTable,
   GlassCard,
@@ -31,10 +32,7 @@ import {
 } from '@pospe/ui-library';
 import {
   listProducts,
-  createProduct,
-  updateProduct,
   deleteProduct,
-  uploadProductImage,
   stockStatus,
   LiveProduct,
 } from '../../services/api/products';
@@ -59,30 +57,6 @@ const stockFilterOptions = [
   { value: 'out-of-stock', label: 'Out of Stock' },
 ];
 
-const gstOptions = [
-  { value: '18', label: 'GST 18% (Standard)' },
-  { value: '12', label: 'GST 12% (Processed)' },
-  { value: '5', label: 'GST 5% (Essential)' },
-  { value: '0', label: 'GST Exempt (0%)' },
-];
-
-const emptyForm = {
-  name: '',
-  sku: '',
-  barcode: '',
-  categoryId: '',
-  gstRate: '18',
-  sellingPrice: '',
-  costPrice: '',
-  stockQty: '',
-  minThreshold: '',
-  imageUrl: '',
-  trackBatches: false,
-  trackSerials: false,
-};
-
-type FormState = typeof emptyForm;
-
 const barWidths = ['w-0.5', 'w-1', 'w-1.5', 'w-2'] as const;
 
 /** Deterministic pseudo-barcode bar widths derived from the barcode's digits. */
@@ -94,21 +68,15 @@ function barcodeBars(code: string): string[] {
 
 export default function ProductsPage() {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [productList, setProductList] = useState<LiveProduct[]>([]);
   const [categories, setCategories] = useState<LiveCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  // Photo picked in the drawer; uploaded to object storage after save.
-  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const [barcodeProduct, setBarcodeProduct] = useState<LiveProduct | null>(null);
 
@@ -159,62 +127,13 @@ export default function ProductsPage() {
     });
   }, [productList, search, categoryFilter, stockFilter]);
 
+  // Adding / editing a product happens on its own page.
   function openAddDrawer() {
-    setEditingId(null);
-    setImageFile(null);
-    setForm({ ...emptyForm, categoryId: categoryOptions[0]?.value ?? '' });
-    setDrawerOpen(true);
+    navigate('/inventory/products/new');
   }
 
   function openEditDrawer(p: LiveProduct) {
-    setEditingId(p.id);
-    setImageFile(null);
-    setForm({
-      name: p.name,
-      sku: p.sku,
-      barcode: p.barcode,
-      categoryId: p.categoryId,
-      gstRate: String(p.gstRate),
-      sellingPrice: String(p.sellingPrice),
-      costPrice: String(p.costPrice),
-      stockQty: String(p.stockQty),
-      minThreshold: String(p.minThreshold),
-      imageUrl: p.imageUrl,
-      trackBatches: p.trackBatches,
-      trackSerials: p.trackSerials,
-    });
-    setDrawerOpen(true);
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    const input = {
-      name: form.name.trim(),
-      sku: form.sku.trim(),
-      barcode: form.barcode.trim() || undefined,
-      categoryId: form.categoryId || undefined,
-      gstRate: Number(form.gstRate) || 0,
-      price: Number(form.sellingPrice) || 0,
-      costPrice: Number(form.costPrice) || 0,
-      stockQty: Number(form.stockQty) || 0,
-      minThreshold: Number(form.minThreshold) || 0,
-      imageUrl: form.imageUrl.trim() || undefined,
-      trackBatches: form.trackBatches,
-      trackSerials: form.trackSerials,
-    };
-
-    try {
-      const saved = editingId ? await updateProduct(editingId, input) : await createProduct(input);
-      if (imageFile) await uploadProductImage(saved.id, imageFile);
-      await reload();
-      setDrawerOpen(false);
-      showToast('Product saved', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not save product', 'danger');
-    } finally {
-      setSaving(false);
-    }
+    navigate(`/inventory/products/${p.id}/edit`);
   }
 
   async function handleDelete(p: LiveProduct) {
@@ -325,6 +244,11 @@ export default function ProductsPage() {
             <span className="font-bold text-slate-800 dark:text-slate-100">{row.original.name}</span>
             <div className="flex items-center gap-1 mt-0.5">
               {row.original.isBundle && <Badge color="blue" pill>Bundle</Badge>}
+              {row.original.options.length > 0 && (
+                <Badge color="purple" pill>
+                  {row.original.options.length} {row.original.variationName || 'variations'}
+                </Badge>
+              )}
               {row.original.trackBatches && <Badge color="cyan" pill>Batches</Badge>}
               {row.original.trackSerials && <Badge color="purple" pill>Serials</Badge>}
             </div>
@@ -551,152 +475,6 @@ export default function ProductsPage() {
           </div>
         )}
       </GlassCard>
-
-      {/* Add / Edit Product Drawer */}
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={editingId ? 'Edit Product SKU' : 'Add New Product SKU'}
-        subtitle="Fill in product specs, barcode, tax, and pricing information."
-        footer={
-          <>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(false)}
-              className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              form="product-form"
-              type="submit"
-              disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-lg shadow-purple-500/25 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save Product SKU'}
-            </button>
-          </>
-        }
-      >
-        <form id="product-form" onSubmit={handleSave} className="space-y-4">
-          <Input
-            label="Product Name"
-            required
-            placeholder="e.g. Organic Whole Milk 1L"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="SKU Code"
-              required
-              placeholder="e.g. SKU-8829"
-              className="font-mono"
-              value={form.sku}
-              onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-            />
-            <Input
-              label="Barcode (EAN-13)"
-              placeholder="e.g. 8901234567890"
-              className="font-mono"
-              value={form.barcode}
-              onChange={(e) => setForm((f) => ({ ...f, barcode: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Category"
-              required
-              options={categoryOptions}
-              value={form.categoryId}
-              onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-            />
-            <Select
-              label="GST Tax Rate (%)"
-              options={gstOptions}
-              value={form.gstRate}
-              onChange={(e) => setForm((f) => ({ ...f, gstRate: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Selling Price (₹)"
-              required
-              type="number"
-              step="0.01"
-              placeholder="249.00"
-              className="font-mono"
-              value={form.sellingPrice}
-              onChange={(e) => setForm((f) => ({ ...f, sellingPrice: e.target.value }))}
-            />
-            <Input
-              label="Cost Price (₹)"
-              type="number"
-              step="0.01"
-              placeholder="180.00"
-              className="font-mono"
-              value={form.costPrice}
-              onChange={(e) => setForm((f) => ({ ...f, costPrice: e.target.value }))}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Initial Stock Qty"
-              required
-              type="number"
-              placeholder="45"
-              className="font-mono"
-              value={form.stockQty}
-              onChange={(e) => setForm((f) => ({ ...f, stockQty: e.target.value }))}
-            />
-            <Input
-              label="Min Threshold Alert"
-              type="number"
-              placeholder="15"
-              className="font-mono"
-              value={form.minThreshold}
-              onChange={(e) => setForm((f) => ({ ...f, minThreshold: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">Product Photo</label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null;
-                if (file && file.size > 5 * 1024 * 1024) {
-                  showToast('Image must be 5 MB or smaller', 'warning');
-                  e.target.value = '';
-                  return;
-                }
-                setImageFile(file);
-              }}
-              className="block w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white file:font-bold"
-            />
-            <p className="text-[11px] text-slate-400">JPEG, PNG or WebP up to 5 MB. Or paste an image URL below.</p>
-          </div>
-          <Input
-            label="Product Image URL (optional)"
-            type="url"
-            placeholder="https://..."
-            value={form.imageUrl}
-            onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-          />
-          <div className="flex items-center gap-6 pt-1">
-            <Checkbox
-              label="Track batches / expiry"
-              checked={form.trackBatches}
-              onChange={(e) => setForm((f) => ({ ...f, trackBatches: e.target.checked }))}
-            />
-            <Checkbox
-              label="Track serial numbers"
-              checked={form.trackSerials}
-              onChange={(e) => setForm((f) => ({ ...f, trackSerials: e.target.checked }))}
-            />
-          </div>
-        </form>
-      </Drawer>
 
       {/* Barcode Label Generator Offcanvas */}
       <Drawer
