@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Layers, Image as ImageIcon, Gift } from 'lucide-react';
 import { Checkbox, Input, Select, useToast } from '@pospe/ui-library';
+import { Link } from 'react-router-dom';
 import type { AddonKind, LiveProduct } from '../../services/api/products';
+import type { LiveHsnCode } from '../../services/api/hsnCodes';
 
 export type ProductFormTab = 'basic' | 'variation' | 'images' | 'addons';
 
@@ -10,6 +12,8 @@ export interface ProductFormState {
   sku: string;
   barcode: string;
   categoryId: string;
+  /** HSN / SAC code; the GST rate comes from it. */
+  hsnCode: string;
   gstRate: string;
   sellingPrice: string;
   costPrice: string;
@@ -67,7 +71,7 @@ interface Props {
   imageFile: File | null;
   setImageFile: (f: File | null) => void;
   categoryOptions: { value: string; label: string }[];
-  gstOptions: { value: string; label: string }[];
+  hsnCodes: LiveHsnCode[];
   allProducts: LiveProduct[];
   editingId: string | null;
   /** Tabs that currently have a validation problem (shown with a red dot). */
@@ -118,7 +122,12 @@ export default function ProductFormTabs(props: Props) {
   );
 }
 
-function BasicTab({ form, patch, categoryOptions, gstOptions, hasVariations, options }: Props & { patch: (p: Partial<ProductFormState>) => void }) {
+function BasicTab({ form, patch, categoryOptions, hsnCodes, hasVariations, options }: Props & { patch: (p: Partial<ProductFormState>) => void }) {
+  // Active codes, plus the product's current one even if it has since been deactivated.
+  const hsnOptions = hsnCodes
+    .filter((h) => h.isActive || h.code === form.hsnCode)
+    .map((h) => ({ value: h.code, label: `${h.code} · ${h.description} (GST ${h.gstRate}%)` }));
+  const chosenHsn = hsnCodes.find((h) => h.code === form.hsnCode);
   const totalStock = options.reduce((s, o) => s + (Number(o.stockQty) || 0), 0);
   const fromPrice = options.length ? Math.min(...options.map((o) => Number(o.price) || 0)) : 0;
   return (
@@ -130,8 +139,34 @@ function BasicTab({ form, patch, categoryOptions, gstOptions, hasVariations, opt
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Select label="Category" required options={categoryOptions} value={form.categoryId} onChange={(e) => patch({ categoryId: e.target.value })} />
-        <Select label="GST Tax Rate (%)" options={gstOptions} value={form.gstRate} onChange={(e) => patch({ gstRate: e.target.value })} />
+        <Select
+          label="HSN / SAC Code"
+          required
+          placeholder="Search HSN code…"
+          options={hsnOptions}
+          value={form.hsnCode}
+          onChange={(e) => {
+            const hsn = hsnCodes.find((h) => h.code === e.target.value);
+            patch({ hsnCode: e.target.value, gstRate: hsn ? String(hsn.gstRate) : form.gstRate });
+          }}
+        />
       </div>
+
+      <p className="text-[11px] -mt-1 text-slate-500 dark:text-slate-400">
+        {chosenHsn ? (
+          <>
+            GST rate: <b className="text-slate-800 dark:text-slate-100">{chosenHsn.gstRate}%</b> (from HSN {chosenHsn.code}). Change it under{' '}
+          </>
+        ) : form.hsnCode ? null : hsnCodes.length === 0 ? (
+          <>No HSN codes yet. Add them under </>
+        ) : (
+          <>Choose an HSN code: the GST rate is taken from it. Manage codes under </>
+        )}
+        <Link to="/inventory/hsn-codes" className="font-bold text-blue-600 hover:underline">
+          HSN &amp; GST
+        </Link>
+        .
+      </p>
 
       {hasVariations ? (
         <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/60 dark:bg-purple-950/20 p-3 text-xs text-slate-600 dark:text-slate-300">

@@ -1480,3 +1480,20 @@ model ProductAddon {
   @@unique([productId, addonProductId])
   @@map("product_addons")
 }
+
+// The tenant's HSN / SAC master. A product points at one by code and takes its
+// GST rate from it (Product.gstRate is a copy, kept so billing never needs a
+// join and old documents keep the rate they were issued at).
+model HsnCode {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String
+  description String
+  gstRate     Decimal  @db.Decimal(5, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, code])
+  @@map("hsn_codes")
+}

@@ -4,21 +4,16 @@ import { ArrowLeft } from 'lucide-react';
 import { GlassCard, useToast } from '@pospe/ui-library';
 import { createProduct, getProduct, listProducts, updateProduct, uploadProductImage, type LiveProduct } from '../../services/api/products';
 import { listCategories, type LiveCategory } from '../../services/api/taxonomy';
+import { listHsnCodes, type LiveHsnCode } from '../../services/api/hsnCodes';
 import ProductFormTabs, { type AddonRow, type OptionRow, type ProductFormState, type ProductFormTab } from './ProductFormTabs';
-
-const gstOptions = [
-  { value: '18', label: 'GST 18% (Standard)' },
-  { value: '12', label: 'GST 12% (Processed)' },
-  { value: '5', label: 'GST 5% (Essential)' },
-  { value: '0', label: 'GST Exempt (0%)' },
-];
 
 const emptyForm: ProductFormState = {
   name: '',
   sku: '',
   barcode: '',
   categoryId: '',
-  gstRate: '18',
+  hsnCode: '',
+  gstRate: '0',
   sellingPrice: '',
   costPrice: '',
   stockQty: '',
@@ -40,6 +35,7 @@ export default function ProductFormPage() {
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState<LiveProduct[]>([]);
   const [categories, setCategories] = useState<LiveCategory[]>([]);
+  const [hsnCodes, setHsnCodes] = useState<LiveHsnCode[]>([]);
 
   const [tab, setTab] = useState<ProductFormTab>('basic');
   const [invalidTabs, setInvalidTabs] = useState<ProductFormTab[]>([]);
@@ -57,14 +53,16 @@ export default function ProductFormPage() {
     (async () => {
       setLoading(true);
       try {
-        const [list, cats, product] = await Promise.all([
+        const [list, cats, hsn, product] = await Promise.all([
           listProducts(),
           listCategories(),
+          listHsnCodes(),
           editingId ? getProduct(editingId).catch((err: unknown) => (/not found/i.test(String((err as Error)?.message)) ? null : Promise.reject(err))) : Promise.resolve(undefined),
         ]);
         if (cancelled) return;
         setProducts(list);
         setCategories(cats);
+        setHsnCodes(hsn);
         if (editingId) {
           const p = product;
           if (!p) {
@@ -76,6 +74,7 @@ export default function ProductFormPage() {
             sku: p.sku,
             barcode: p.barcode,
             categoryId: p.categoryId,
+            hsnCode: p.hsnCode,
             gstRate: String(p.gstRate),
             sellingPrice: String(p.sellingPrice),
             costPrice: String(p.costPrice),
@@ -126,6 +125,7 @@ export default function ProductFormPage() {
     if (!form.name.trim()) fail('basic', 'Enter a product name');
     if (!form.sku.trim()) fail('basic', 'Enter an SKU code');
     if (!form.categoryId) fail('basic', 'Choose a category');
+    if (!form.hsnCode) fail('basic', 'Choose an HSN code: the GST rate comes from it');
     if (hasVariations) {
       if (optionRows.length === 0) fail('variation', 'Add at least one variation option');
       const seen = new Set<string>();
@@ -161,6 +161,8 @@ export default function ProductFormPage() {
       sku: form.sku.trim(),
       barcode: form.barcode.trim() || undefined,
       categoryId: form.categoryId || undefined,
+      hsnCode: form.hsnCode,
+      // Informational: the server re-reads the rate from the HSN code.
       gstRate: Number(form.gstRate) || 0,
       price: Number(form.sellingPrice) || 0,
       costPrice: Number(form.costPrice) || 0,
@@ -251,7 +253,7 @@ export default function ProductFormPage() {
               imageFile={imageFile}
               setImageFile={setImageFile}
               categoryOptions={categoryOptions}
-              gstOptions={gstOptions}
+              hsnCodes={hsnCodes}
               allProducts={products}
               editingId={editingId}
               invalidTabs={invalidTabs}

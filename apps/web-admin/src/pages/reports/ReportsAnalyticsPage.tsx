@@ -46,6 +46,7 @@ import {
   useToast,
   cn,
   type BadgeColor,
+  DateField,
 } from '@pospe/ui-library';
 import { formatINR, formatDate } from '../../utils/format';
 import { useThemeStore } from '../../store/useThemeStore';
@@ -758,24 +759,26 @@ export default function ReportsAnalyticsPage() {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
               <Calendar className="w-4 h-4 ml-1 text-slate-400" />
-              <input
-                type="date"
+              <DateField
+                bare
+                placeholder="Start date"
                 value={customStart}
+                max={customEnd || undefined}
                 onChange={(e) => {
                   setCustomStart(e.target.value);
                   setDatePreset('custom');
                 }}
-                className="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs"
               />
               <span className="text-slate-400 font-medium">to</span>
-              <input
-                type="date"
+              <DateField
+                bare
+                placeholder="End date"
                 value={customEnd}
+                min={customStart || undefined}
                 onChange={(e) => {
                   setCustomEnd(e.target.value);
                   setDatePreset('custom');
                 }}
-                className="bg-transparent text-slate-700 dark:text-slate-200 font-semibold outline-none text-xs"
               />
             </div>
 
@@ -786,7 +789,7 @@ export default function ReportsAnalyticsPage() {
                 setBranchFilter(e.target.value);
                 notifyFiltersApplied(e.target.value, categoryFilter);
               }}
-              className="!py-2 !rounded-2xl w-auto"
+              compact
             />
             <Select
               options={categoryFilterOptions}
@@ -795,7 +798,7 @@ export default function ReportsAnalyticsPage() {
                 setCategoryFilter(e.target.value);
                 notifyFiltersApplied(branchFilter, e.target.value);
               }}
-              className="!py-2 !rounded-2xl w-auto"
+              compact
             />
             <Select
               options={paymentModeOptions}
@@ -804,7 +807,7 @@ export default function ReportsAnalyticsPage() {
                 setPaymentFilter(e.target.value);
                 notifyFiltersApplied(branchFilter, categoryFilter);
               }}
-              className="!py-2 !rounded-2xl w-auto"
+              compact
             />
           </div>
         </div>

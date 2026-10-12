@@ -14,7 +14,7 @@ import {
   Scissors,
   GitMerge,
 } from 'lucide-react';
-import { Badge, Button, Drawer, GlassCard, KpiCard, PillTabs, Textarea, EmptyState, useToast, type BadgeColor } from '@pospe/ui-library';
+import { Badge, Button, Drawer, GlassCard, KpiCard, PillTabs, Select, Textarea, EmptyState, useToast, type BadgeColor } from '@pospe/ui-library';
 import { useCartStore } from '../store/useCartStore';
 import { splitHeldBill, mergeHeldBills, type ApiHeldBill } from '../services/api/billing';
 import { formatINR, formatDateTime } from '../utils/format';
@@ -436,18 +436,16 @@ export default function PosHoldSuspendPage() {
 
               {mergeCandidates.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <select
+                  <Select
+                    className="flex-1"
+                    placeholder="Merge into another held bill..."
                     value={mergeTargetId}
                     onChange={(e) => setMergeTargetId(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none"
-                  >
-                    <option value="">Merge into another held bill...</option>
-                    {mergeCandidates.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.label ?? 'Held bill'} &middot; {b.customerName} &middot; {formatINR(billTotal(b))}
-                      </option>
-                    ))}
-                  </select>
+                    options={mergeCandidates.map((b) => ({
+                      value: b.id,
+                      label: `${b.label ?? 'Held bill'} · ${b.customerName} · ${formatINR(billTotal(b))}`,
+                    }))}
+                  />
                   <Button variant="secondary" size="sm" disabled={!mergeTargetId || busy} onClick={handleMerge}>
                     <GitMerge className="w-3.5 h-3.5" />
                     Merge

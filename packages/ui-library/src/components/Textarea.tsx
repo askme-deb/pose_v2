@@ -1,6 +1,6 @@
 import { TextareaHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../utils/cn';
-import { FieldError, FieldLabel, FieldLabelProps, fieldControlClass, fieldWrapperClass } from './Input';
+import { FieldError, FieldLabel, type FieldLabelProps, fieldControlClass, fieldWrapperClass } from './fieldStyles';
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement>, FieldLabelProps {}
 

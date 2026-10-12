@@ -28,6 +28,8 @@ export interface LiveProduct {
   categoryId: string;
   categoryName: string;
   gstRate: number;
+  /** HSN / SAC code the GST rate comes from ('' for older products that have none). */
+  hsnCode: string;
   sellingPrice: number;
   costPrice: number;
   stockQty: number;
@@ -52,6 +54,7 @@ interface ApiProduct {
   price: string;
   costPrice: string;
   gstRate: string;
+  hsnCode?: string | null;
   imageUrl: string | null;
   stockQty: number;
   minThreshold: number;
@@ -81,6 +84,7 @@ function toLiveProduct(p: ApiProduct): LiveProduct {
     categoryId: p.categoryId ?? '',
     categoryName: p.category?.name ?? 'Uncategorized',
     gstRate: Number(p.gstRate),
+    hsnCode: p.hsnCode ?? '',
     sellingPrice: Number(p.price),
     costPrice: Number(p.costPrice),
     stockQty: p.stockQty,
@@ -128,6 +132,8 @@ export interface ProductInput {
   categoryId?: string;
   price: number;
   costPrice?: number;
+  /** The GST rate is taken from this HSN code on the server. */
+  hsnCode?: string;
   gstRate?: number;
   imageUrl?: string;
   stockQty?: number;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Search, Receipt, FileCheck, ShoppingCart, BarChart2, Download, Zap, Printer, RotateCcw } from 'lucide-react';
-import { Badge, Button, DataTable, Drawer, GlassCard, KpiCard, useToast } from '@pospe/ui-library';
+import { Badge, Button, DataTable, Drawer, GlassCard, KpiCard, useToast, Select } from '@pospe/ui-library';
 
 import { formatINR, formatDateTime } from '../../utils/format';
 import { listInvoices, refundInvoice, LiveInvoice, PaymentMethod } from '../../services/api/salesInvoices';
@@ -216,16 +216,12 @@ export default function SalesInvoicesPage() {
             />
           </div>
 
-          <select
+          <Select
+            compact
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value as 'all' | PaymentMethod)}
-            className="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="all">All Payment Methods</option>
-            <option value="UPI">UPI / QR Code</option>
-            <option value="CARD">Credit Card</option>
-            <option value="CASH">Cash</option>
-          </select>
+            options={[{ value: 'all', label: 'All Payment Methods' }, { value: 'UPI', label: 'UPI / QR Code' }, { value: 'CARD', label: 'Credit Card' }, { value: 'CASH', label: 'Cash' }]}
+          />
 
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={handleExportCsv}>

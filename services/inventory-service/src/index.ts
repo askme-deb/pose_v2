@@ -8,6 +8,7 @@ import { requireAuth } from '@pospe/permissions';
 import { LOCAL_UPLOAD_DIR } from './lib/storage';
 import healthRouter from './routes/health';
 import productsRouter from './routes/products';
+import hsnCodesRouter from './routes/hsnCodes';
 import categoriesRouter from './routes/categories';
 import brandsRouter from './routes/brands';
 import stockAdjustmentsRouter from './routes/stockAdjustments';
@@ -50,6 +51,7 @@ app.use(
 );
 app.use(requireAuth);
 app.use('/', productsRouter);
+app.use('/', hsnCodesRouter);
 app.use('/', categoriesRouter);
 app.use('/', brandsRouter);
 app.use('/', stockAdjustmentsRouter);

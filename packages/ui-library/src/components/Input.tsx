@@ -1,36 +1,35 @@
 import { InputHTMLAttributes, forwardRef } from 'react';
 import { cn } from '../utils/cn';
+import { FieldError, FieldLabel, type FieldLabelProps, fieldControlClass, fieldWrapperClass } from './fieldStyles';
+import DateField from './DateField';
 
-export interface FieldLabelProps {
-  label?: string;
-  required?: boolean;
-  error?: string;
-  hint?: string;
-}
-
-export const fieldWrapperClass = 'space-y-1.5';
-export const fieldLabelClass = 'block text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400';
-export const fieldControlClass =
-  'w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-slate-400 transition';
-
-export function FieldLabel({ label, required }: FieldLabelProps) {
-  if (!label) return null;
-  return (
-    <label className={fieldLabelClass}>
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
-  );
-}
-
-export function FieldError({ error }: { error?: string }) {
-  if (!error) return null;
-  return <p className="text-[11px] font-semibold text-red-500">{error}</p>;
-}
+// Re-exported so existing `import … from './Input'` keeps working.
+export { FieldError, FieldLabel, fieldControlClass, fieldLabelClass, fieldWrapperClass } from './fieldStyles';
+export type { FieldLabelProps } from './fieldStyles';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement>, FieldLabelProps {}
 
-const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, required, error, hint, className, id, ...props }, ref) => (
+const Input = forwardRef<HTMLInputElement, InputProps>(({ label, required, error, hint, className, id, ...props }, ref) => {
+  // Dates use a calendar picker instead of the browser's native date control.
+  if (props.type === 'date') {
+    return (
+      <DateField
+        label={label}
+        error={error}
+        hint={hint}
+        className={className}
+        id={id}
+        name={props.name}
+        value={props.value == null ? undefined : String(props.value)}
+        onChange={props.onChange}
+        min={props.min == null ? undefined : String(props.min)}
+        max={props.max == null ? undefined : String(props.max)}
+        placeholder={props.placeholder}
+        disabled={props.disabled}
+      />
+    );
+  }
+  return (
     <div className={fieldWrapperClass}>
       <FieldLabel label={label} required={required} />
       <input
@@ -42,8 +41,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       {hint && !error && <p className="text-[11px] text-slate-400">{hint}</p>}
       <FieldError error={error} />
     </div>
-  ),
-);
+  );
+});
 Input.displayName = 'Input';
 
 export default Input;

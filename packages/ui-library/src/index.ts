@@ -49,3 +49,6 @@ export { default as DataTable } from './components/DataTable';
 export type { DataTableProps } from './components/DataTable';
 
 export { cn } from './utils/cn';
+
+export { default as DateField, parseDateValue, formatDateValue } from './components/DateField';
+export type { DateFieldProps } from './components/DateField';

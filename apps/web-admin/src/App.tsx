@@ -19,6 +19,8 @@ import OtpVerificationPage from './pages/auth/OtpVerificationPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import ProductsPage from './pages/inventory/ProductsPage';
 import ProductFormPage from './pages/inventory/ProductFormPage';
+import HsnCodesPage from './pages/inventory/HsnCodesPage';
+import HsnCodeFormPage from './pages/inventory/HsnCodeFormPage';
 import CategoriesBrandsPage from './pages/inventory/CategoriesBrandsPage';
 import StockAdjustmentsPage from './pages/inventory/StockAdjustmentsPage';
 import PurchaseOrdersPage from './pages/purchases/PurchaseOrdersPage';
@@ -89,6 +91,9 @@ export default function App() {
               <Route path="/inventory/products" element={<ProductsPage />} />
               <Route path="/inventory/products/new" element={<ProductFormPage />} />
               <Route path="/inventory/products/:id/edit" element={<ProductFormPage />} />
+              <Route path="/inventory/hsn-codes" element={<HsnCodesPage />} />
+              <Route path="/inventory/hsn-codes/new" element={<HsnCodeFormPage />} />
+              <Route path="/inventory/hsn-codes/:id/edit" element={<HsnCodeFormPage />} />
               <Route path="/inventory/categories" element={<CategoriesBrandsPage />} />
               <Route path="/inventory/stock-adjustments" element={<StockAdjustmentsPage />} />
               <Route path="/purchases" element={<PurchaseOrdersPage />} />

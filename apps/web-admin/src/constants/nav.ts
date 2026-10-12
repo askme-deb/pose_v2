@@ -3,6 +3,7 @@ import {
   ShoppingCart,
   PauseCircle,
   Package,
+  Percent,
   Tags,
   ClipboardList,
   Truck,
@@ -51,6 +52,7 @@ export const masterDataLinks: NavLink[] = [
 
 export const productsLinks: NavLink[] = [
   { label: 'Inventory Catalog', href: '/inventory/products', icon: Package, color: 'text-indigo-600' },
+  { label: 'HSN & GST', href: '/inventory/hsn-codes', icon: Percent, color: 'text-rose-600' },
 ];
 
 export const inventoryLinks: NavLink[] = [

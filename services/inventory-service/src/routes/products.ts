@@ -48,7 +48,8 @@ const productInput = z.object({
   sku: z.string().min(1),
   barcode: z.string().optional(),
   categoryId: z.string().optional(),
-  hsnCode: z.string().optional(),
+  // The product's GST rate comes from this HSN code (see hsn_codes); a rate sent alongside is ignored.
+  hsnCode: z.string().trim().optional(),
   unit: z.string().optional(),
   mrp: z.number().nonnegative().optional(),
   price: z.number().nonnegative(),
@@ -73,6 +74,14 @@ const productInclude = {
   options: { orderBy: { position: 'asc' } },
   addons: { orderBy: { position: 'asc' }, include: { addonProduct: { select: { id: true, name: true, price: true, imageUrl: true } } } },
 } satisfies Prisma.ProductInclude;
+
+/** The tenant's HSN entry for `code`, which must exist and be active to be assigned. */
+async function resolveHsn(tenantId: string, code: string) {
+  const hsn = await prisma.hsnCode.findUnique({ where: { tenantId_code: { tenantId, code } } });
+  if (!hsn) throw new HttpError(400, `HSN code ${code} is not in your HSN list. Add it under Inventory → HSN & GST first.`);
+  if (!hsn.isActive) throw new HttpError(400, `HSN code ${code} is inactive`);
+  return hsn;
+}
 
 type OptionInput = z.infer<typeof optionInput>;
 type AddonInput = z.infer<typeof addonInput>;
@@ -174,6 +183,8 @@ router.post('/products', requirePermission('inventory:manage'), async (req, res)
   const tenantId = await resolveTenantId(req);
   await assertCategoryInTenant(tenantId, parsed.data.categoryId);
   const { options, addons, variationName, ...base } = parsed.data;
+  if (!base.hsnCode) throw new HttpError(400, 'Choose an HSN code: the GST rate comes from it');
+  const hsn = await resolveHsn(tenantId, base.hsnCode);
   if (options?.length) assertOptions(options);
   if (addons?.length) await assertAddons(tenantId, null, addons);
 
@@ -181,6 +192,8 @@ router.post('/products', requirePermission('inventory:manage'), async (req, res)
     const created = await tx.product.create({
       data: {
         ...base,
+        hsnCode: hsn.code,
+        gstRate: hsn.gstRate,
         tenantId,
         ...(options?.length ? { ...optionRollup(options), variationName: variationName || 'Variation' } : {}),
       },
@@ -203,6 +216,14 @@ router.put('/products/:id', requirePermission('inventory:manage'), async (req, r
   const { options, addons, variationName, ...base } = parsed.data;
   if (options?.length) assertOptions(options);
   if (addons?.length) await assertAddons(tenantId, existing.id, addons);
+  if (base.hsnCode) {
+    const hsn = await resolveHsn(tenantId, base.hsnCode);
+    base.hsnCode = hsn.code;
+    base.gstRate = Number(hsn.gstRate);
+  } else {
+    delete base.hsnCode; // an empty value never clears the code
+    if (existing.hsnCode) delete base.gstRate; // the rate follows the HSN, not a hand-typed number
+  }
 
   const product = await prisma.$transaction(async (tx) => {
     await tx.product.update({

@@ -15,7 +15,9 @@
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^6.1.6",
     "@tanstack/react-table": "^8.20.5",
-    "lucide-react": "^1.31.0"
+    "lucide-react": "^1.31.0",
+    "react-select": "^5.10.2",
+    "react-datepicker": "^8.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
