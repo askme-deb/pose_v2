@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
+import { logoUpload } from '../lib/uploads';
 
 const router = Router();
 
@@ -52,6 +53,27 @@ router.put('/business-profile', requirePermission('store:manage'), async (req, r
     create: { tenantId, registeredName: parsed.data.registeredName ?? 'Unnamed Business', ...parsed.data },
   });
   res.json(profile);
+});
+
+// Called manually (not chained as router.post(path, logoUpload.single(...), handler))
+// so a bad upload — wrong type, over the 2MB limit — resolves as a clean 400
+// from this route instead of an unhandled multer error reaching Express's
+// default error page. Nothing else in this codebase relies on a global error
+// middleware, so this stays consistent with that.
+router.post('/business-profile/logo', requirePermission('store:manage'), (req, res) => {
+  logoUpload.single('logo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err instanceof Error ? err.message : 'Upload failed' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded — expected a "logo" field' });
+
+    const tenantId = await resolveTenantId(req);
+    const logoUrl = `/api/sales/uploads/logos/${req.file.filename}`;
+    const profile = await prisma.tenantProfile.upsert({
+      where: { tenantId },
+      update: { logoUrl },
+      create: { tenantId, registeredName: 'Unnamed Business', logoUrl },
+    });
+    res.json(profile);
+  });
 });
 
 export default router;

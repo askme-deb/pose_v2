@@ -1,8 +1,10 @@
 import { ApiClient } from '@pospe/api-client';
 import { useAuthStore } from '../../store/useAuthStore';
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000';
+
 export const apiClient = new ApiClient({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000',
+  baseUrl: API_BASE_URL,
   getToken: () => useAuthStore.getState().token,
   getRefreshToken: () => useAuthStore.getState().refreshToken,
   onTokens: ({ token, refreshToken }) => useAuthStore.getState().setTokens(token, refreshToken),

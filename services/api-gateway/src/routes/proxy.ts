@@ -68,7 +68,8 @@ const PUBLIC_DOCS_PATTERN = /\/docs(\/.*)?$|\/openapi\.json$/;
 
 // Locally stored product images (dev fallback when S3 isn't configured):
 // <img> tags can't send a bearer token, and object keys are random UUIDs.
-const PUBLIC_UPLOADS_PATTERN = /^\/api\/inventory\/uploads\//;
+// Sales-service business logos use the same scheme (unguessable filenames).
+const PUBLIC_UPLOADS_PATTERN = /^\/api\/(inventory|sales)\/uploads\//;
 
 router.use((req, res, next) => {
   if (PUBLIC_PATHS.includes(req.path) || PUBLIC_DOCS_PATTERN.test(req.path) || PUBLIC_UPLOADS_PATTERN.test(req.path)) return next();

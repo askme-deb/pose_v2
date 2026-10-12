@@ -73,9 +73,11 @@ export function apiDocsMiddleware(app: Express, serviceName: string, description
     res.json(buildSpec(app, serviceName, description));
   });
 
+  // swaggerUi.serve is a RequestHandler[]; @types/express@4's app.use overloads
+  // don't resolve a (path, array, handler) call, only (path, ...handlers) — spread it.
   app.use(
     '/docs',
-    swaggerUi.serve,
+    ...swaggerUi.serve,
     swaggerUi.setup(undefined, {
       swaggerOptions: { url: '/openapi.json' },
       customSiteTitle: `${serviceName} API Docs`,

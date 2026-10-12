@@ -133,8 +133,12 @@ router.post('/invoices/:id/recall', requirePermission('billing:create'), async (
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
+  // Express 5's route-param types allow string[] (repeated params on some
+  // patterns); this route never uses one, so a plain string is always what's
+  // actually here.
+  const id = req.params.id as string;
   const held = await prisma.invoice.findFirst({
-    where: { id: req.params.id, storeId, status: 'HELD' },
+    where: { id, storeId, status: 'HELD' },
     include: heldInclude,
   });
   if (!held) return res.status(404).json({ error: 'Held bill not found' });
@@ -168,7 +172,8 @@ router.delete('/invoices/:id', requirePermission('billing:create'), async (req, 
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
-  const held = await prisma.invoice.findFirst({ where: { id: req.params.id, storeId, status: 'HELD' } });
+  const id = req.params.id as string;
+  const held = await prisma.invoice.findFirst({ where: { id, storeId, status: 'HELD' } });
   if (!held) return res.status(404).json({ error: 'Held bill not found' });
 
   // Cancel rather than delete — see the identical note on /recall above.
@@ -185,8 +190,9 @@ router.post('/invoices/:id/split', requirePermission('billing:create'), async (r
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
+  const id = req.params.id as string;
   const held = await prisma.invoice.findFirst({
-    where: { id: req.params.id, storeId, status: 'HELD' },
+    where: { id, storeId, status: 'HELD' },
     include: heldInclude,
   });
   if (!held) return res.status(404).json({ error: 'Held bill not found' });

@@ -1,7 +1,7 @@
 import { HTMLAttributes } from 'react';
 import { cn } from '../utils/cn';
 
-export type BadgeColor = 'blue' | 'emerald' | 'amber' | 'red' | 'purple' | 'cyan' | 'slate' | 'pink' | 'teal';
+export type BadgeColor = 'blue' | 'emerald' | 'amber' | 'red' | 'purple' | 'cyan' | 'slate' | 'pink' | 'teal' | 'indigo';
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   color?: BadgeColor;
@@ -19,6 +19,7 @@ const colorClasses: Record<BadgeColor, string> = {
   slate: 'bg-slate-500/10 text-slate-600 dark:bg-slate-500/20 dark:text-slate-400 border-slate-500/20',
   pink: 'bg-pink-500/10 text-pink-600 dark:bg-pink-500/20 dark:text-pink-400 border-pink-500/20',
   teal: 'bg-teal-500/10 text-teal-600 dark:bg-teal-500/20 dark:text-teal-400 border-teal-500/20',
+  indigo: 'bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 border-indigo-500/20',
 };
 
 const dotColorClasses: Record<BadgeColor, string> = {
@@ -31,6 +32,7 @@ const dotColorClasses: Record<BadgeColor, string> = {
   slate: 'bg-slate-500',
   pink: 'bg-pink-500',
   teal: 'bg-teal-500',
+  indigo: 'bg-indigo-500',
 };
 
 export default function Badge({ color = 'slate', dot, pill, className, children, ...props }: BadgeProps) {

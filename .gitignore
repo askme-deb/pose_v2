@@ -19,3 +19,4 @@ out/
 release/
 *.tsbuildinfo
 uploads/
+services/*/uploads/

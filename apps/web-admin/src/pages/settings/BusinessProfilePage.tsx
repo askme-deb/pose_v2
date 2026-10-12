@@ -5,6 +5,7 @@ import { formatINR } from '../../utils/format';
 import {
   getBusinessProfile,
   updateBusinessProfile,
+  uploadBusinessLogo,
   listBranches,
   createBranch,
   updateBranch,
@@ -124,15 +125,26 @@ export default function BusinessProfilePage() {
     setProfile((p) => (p ? { ...p, [key]: value } : p));
   }
 
-  function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      setLogoPreview(evt.target?.result as string);
-      showToast('Brand Logo updated!', 'success');
-    };
-    reader.readAsDataURL(file);
+
+    // Instant local feedback while the real upload is in flight — replaced
+    // by the server's own URL once it responds, not the source of truth.
+    const objectUrl = URL.createObjectURL(file);
+    setLogoPreview(objectUrl);
+
+    try {
+      const updated = await uploadBusinessLogo(file);
+      setProfile(updated);
+      showToast('Brand logo updated', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to upload logo', 'danger');
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      setLogoPreview(null);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
   }
 
   function openBranchDrawer(branch?: LiveBranch) {
@@ -278,8 +290,8 @@ export default function BusinessProfilePage() {
           <div className="flex flex-col lg:flex-row gap-6 items-start">
             <div className="flex flex-col items-center gap-3 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full lg:w-64">
               <div className="relative w-28 h-28 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 shadow-inner flex items-center justify-center group">
-                {logoPreview ? (
-                  <img src={logoPreview} alt="Brand logo" className="max-h-full max-w-full object-contain" />
+                {logoPreview || profile.logoUrl ? (
+                  <img src={logoPreview || profile.logoUrl} alt="Brand logo" className="max-h-full max-w-full object-contain" />
                 ) : (
                   <Store className="w-10 h-10 text-slate-300 dark:text-slate-700" />
                 )}

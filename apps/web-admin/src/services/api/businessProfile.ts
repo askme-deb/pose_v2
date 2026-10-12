@@ -1,4 +1,5 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export interface LiveBusinessProfile {
   registeredName: string;
@@ -84,11 +85,19 @@ interface ApiBranch {
   printers: number;
 }
 
+// The backend returns a gateway-relative path (/api/sales/uploads/logos/...)
+// so the stored value doesn't bake in one environment's host — resolve it to
+// something an <img src> can actually load.
+function resolveLogoUrl(logoUrl: string | null): string {
+  if (!logoUrl) return '';
+  return logoUrl.startsWith('/') ? `${API_BASE_URL}${logoUrl}` : logoUrl;
+}
+
 function toLiveProfile(p: ApiProfile): LiveBusinessProfile {
   return {
     registeredName: p.registeredName,
     tagline: p.tagline ?? '',
-    logoUrl: p.logoUrl ?? '',
+    logoUrl: resolveLogoUrl(p.logoUrl),
     retailCategory: p.retailCategory,
     cin: p.cin ?? '',
     yearEstablished: p.yearEstablished ?? new Date().getFullYear(),
@@ -137,6 +146,25 @@ export async function getBusinessProfile(): Promise<LiveBusinessProfile> {
 export async function updateBusinessProfile(input: Partial<LiveBusinessProfile>): Promise<LiveBusinessProfile> {
   const profile = await apiClient.put<ApiProfile>('/api/sales/business-profile', input);
   return toLiveProfile(profile);
+}
+
+// Multipart upload — bypasses ApiClient's JSON-only post()/put(), which
+// JSON.stringifies every body and can't carry a File.
+export async function uploadBusinessLogo(file: File): Promise<LiveBusinessProfile> {
+  const formData = new FormData();
+  formData.append('logo', file);
+
+  const token = useAuthStore.getState().token;
+  const res = await fetch(`${API_BASE_URL}/api/sales/business-profile/logo`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(typeof body.error === 'string' ? body.error : `Upload failed (${res.status})`);
+  }
+  return toLiveProfile(await res.json());
 }
 
 export async function listBranches(): Promise<LiveBranch[]> {
