@@ -1,0 +1,128 @@
+# Build and deploy to the production server on every push to main.
+#
+# Nothing is built on the server (it is small): the runner builds the backend
+# image and the two web apps, ships them over SSH, then runs
+# /opt/pospe/deploy.sh, which migrates the database, restarts the stack and
+# rolls back if the new release isn't healthy.
+#
+# Repository secrets needed (Settings -> Secrets and variables -> Actions):
+#   DEPLOY_HOST         server IP / hostname
+#   DEPLOY_USER         SSH user (root today)
+#   DEPLOY_SSH_KEY      private key whose public half is in the server's authorized_keys
+#   DEPLOY_KNOWN_HOSTS  the server's host key line(s) (ssh-keyscan -t ed25519 <host>)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "documents/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DOMAIN: mypospe.com
+  APP_DIR: /opt/pospe
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check deploy secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing. Add them under Settings > Secrets and variables > Actions (see deploy/README.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (shared utilities)
+        run: npm test --workspace=@pospe/utilities
+
+      - name: Build web apps
+        env:
+          VITE_API_BASE_URL: https://api.${{ env.DOMAIN }}
+          VITE_SYNC_WS_URL: https://api.${{ env.DOMAIN }}
+          VITE_LANDING_URL: https://${{ env.DOMAIN }}
+          VITE_APP_URL: https://app.${{ env.DOMAIN }}
+          VITE_POS_URL: https://pos.${{ env.DOMAIN }}
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: |
+          npm run build --workspace=@pospe/web-admin
+          npm run build --workspace=@pospe/web-pos
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.backend
+          tags: pospe-backend:${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host prod
+            HostName ${{ secrets.DEPLOY_HOST }}
+            User ${{ secrets.DEPLOY_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Upload deploy files
+        run: |
+          scp deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh deploy/bootstrap-admin.sh deploy/server-setup.sh prod:${APP_DIR}/
+
+      - name: Upload backend image
+        run: |
+          docker save pospe-backend:${{ github.sha }} | gzip -1 | ssh prod 'gunzip | docker load'
+
+      - name: Upload web apps
+        run: |
+          for site in admin pos; do
+            dist="apps/web-${site}/dist"
+            tar -C "$dist" -czf - . | ssh prod "set -e; d=${APP_DIR}/web/${site}/releases/${{ github.sha }}; rm -rf \$d; mkdir -p \$d; tar -xzf - -C \$d; ln -sfn releases/${{ github.sha }} ${APP_DIR}/web/${site}/current"
+          done
+
+      - name: Deploy
+        run: |
+          ssh prod "chmod +x ${APP_DIR}/*.sh && TAG=${{ github.sha }} bash ${APP_DIR}/deploy.sh"
+
+      - name: Smoke test
+        run: |
+          curl -fsS --retry 12 --retry-delay 10 --retry-all-errors "https://api.${DOMAIN}/health"
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors -o /dev/null "https://app.${DOMAIN}/"
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors -o /dev/null "https://pos.${DOMAIN}/"

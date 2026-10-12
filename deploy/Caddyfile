@@ -1,0 +1,61 @@
+# Caddy terminates TLS (certificates are issued and renewed automatically by
+# Let's Encrypt once DNS points here) and serves the static web apps.
+# {$DOMAIN} comes from the compose environment (e.g. mypospe.com).
+
+# Marketing landing + admin portal: one build, three hosts.
+{$DOMAIN}, www.{$DOMAIN}, app.{$DOMAIN} {
+	root * /srv/web/admin/current
+	encode zstd gzip
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+	# Client-side routes fall back to the SPA shell.
+	try_files {path} /index.html
+	file_server
+}
+
+# Web POS (PWA).
+pos.{$DOMAIN} {
+	root * /srv/web/pos/current
+	encode zstd gzip
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	# The service worker must always be revalidated or updates never arrive.
+	@sw path /sw.js /registerSW.js /manifest.webmanifest
+	header @sw Cache-Control "no-cache"
+	header {
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	try_files {path} /index.html
+	file_server
+}
+
+# API: gateway for everything, the POS realtime channel straight to sync.
+api.{$DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 10MB
+	}
+	@ws path /socket.io/*
+	reverse_proxy @ws synchronization-service:4010
+	reverse_proxy api-gateway:4000
+	header -Server
+}
+
+# Public product images.
+cdn.{$DOMAIN} {
+	root * /srv/uploads
+	encode zstd gzip
+	header {
+		Access-Control-Allow-Origin *
+		Cache-Control "public, max-age=31536000, immutable"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	file_server
+}

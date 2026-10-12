@@ -1,0 +1,196 @@
+# Production stack for a single server. Lives in /opt/pospe on the host next to
+# a `.env` (secrets; created by deploy/server-setup.sh, never committed).
+#
+#   TAG=<git sha> docker compose up -d --wait
+#
+# Only Caddy publishes ports (80/443). Everything else is on the private
+# compose network.
+name: pospe
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-env: &env
+  NODE_ENV: production
+  # Small server: keep each Node heap modest so twelve services fit.
+  NODE_OPTIONS: --max-old-space-size=128
+  DATABASE_URL: postgresql://pospe:${POSTGRES_PASSWORD}@postgres:5432/pospe?schema=public&connection_limit=3
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  JWT_EXPIRES_IN: 15m
+  JWT_REFRESH_EXPIRES_IN: 7d
+  # Caddy is the one trusted proxy in front of the gateway.
+  TRUST_PROXY_HOPS: "1"
+  PUBLIC_API_URL: https://api.${DOMAIN}/api
+  UPLOADS_PUBLIC_URL: https://cdn.${DOMAIN}
+  AUTH_SERVICE_URL: http://authentication:4001
+  BILLING_SERVICE_URL: http://billing-service:4002
+  INVENTORY_SERVICE_URL: http://inventory-service:4003
+  PURCHASE_SERVICE_URL: http://purchase-service:4004
+  SALES_SERVICE_URL: http://sales-service:4005
+  PAYMENT_SERVICE_URL: http://payment-service:4006
+  NOTIFICATION_SERVICE_URL: http://notification-service:4007
+  SUBSCRIPTION_SERVICE_URL: http://subscription-service:4008
+  REPORTING_SERVICE_URL: http://reporting-service:4009
+  SYNCHRONIZATION_SERVICE_URL: http://synchronization-service:4010
+  MOBILE_SERVICE_URL: http://mobile-service:4011
+  # Optional integrations come from .env (blank = off).
+  SMTP_HOST: ${SMTP_HOST:-}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+  RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+  RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+
+x-backend: &backend
+  image: pospe-backend:${TAG:-latest}
+  restart: unless-stopped
+  logging: *logging
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_started }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: pospe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: pospe
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=80", "-c", "effective_cache_size=512MB", "-c", "work_mem=4MB"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pospe -d pospe"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    logging: *logging
+    # Queues (notifications, payment retries) should survive a restart.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+
+  # One-shot: applies pending database migrations. `docker compose run --rm migrate`
+  migrate:
+    <<: *backend
+    profiles: ["tools"]
+    restart: "no"
+    environment: *env
+    command: ["npx", "prisma", "migrate", "deploy", "--schema", "database/prisma/schema.prisma"]
+
+  api-gateway:
+    <<: *backend
+    environment: { <<: *env, PORT: "4000" }
+    command: ["node", "services/api-gateway/dist/index.js"]
+    healthcheck: &hc
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:$$PORT/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+
+  authentication:
+    <<: *backend
+    environment: { <<: *env, PORT: "4001" }
+    command: ["node", "services/authentication/dist/index.js"]
+    healthcheck: *hc
+
+  billing-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4002" }
+    command: ["node", "services/billing-service/dist/index.js"]
+    healthcheck: *hc
+
+  inventory-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4003" }
+    command: ["node", "services/inventory-service/dist/index.js"]
+    volumes: ["uploads:/app/uploads"]
+    healthcheck: *hc
+
+  purchase-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4004" }
+    command: ["node", "services/purchase-service/dist/index.js"]
+    healthcheck: *hc
+
+  sales-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4005" }
+    command: ["node", "services/sales-service/dist/index.js"]
+    volumes: ["uploads:/app/uploads"]
+    healthcheck: *hc
+
+  payment-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4006" }
+    command: ["node", "services/payment-service/dist/index.js"]
+    healthcheck: *hc
+
+  notification-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4007" }
+    command: ["node", "services/notification-service/dist/index.js"]
+    healthcheck: *hc
+
+  subscription-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4008" }
+    command: ["node", "services/subscription-service/dist/index.js"]
+    healthcheck: *hc
+
+  reporting-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4009", REPORT_CRON: "0 8 * * *" }
+    command: ["node", "services/reporting-service/dist/index.js"]
+    healthcheck: *hc
+
+  synchronization-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4010" }
+    command: ["node", "services/synchronization-service/dist/index.js"]
+    healthcheck: *hc
+
+  mobile-service:
+    <<: *backend
+    environment: { <<: *env, PORT: "4011", MOBILE_TOKEN_EXPIRES_IN: 30d }
+    command: ["node", "services/mobile-service/dist/index.js"]
+    healthcheck: *hc
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/web:ro
+      - uploads:/srv/uploads:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api-gateway: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  caddy_data:
+  caddy_config:

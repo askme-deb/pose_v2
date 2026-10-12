@@ -1,0 +1,43 @@
+# One image for every backend service (they share the same workspace
+# packages); docker-compose picks which service to run with `command:`.
+# Build context: repo root  ->  docker build -f deploy/Dockerfile.backend -t pospe-backend .
+#
+# Same recipe as services/*/Dockerfile (turbo prune -> install -> prisma
+# generate -> build -> point workspace packages at dist/), just pruned for all
+# services at once so a small server loads one image instead of twelve.
+FROM node:20-alpine AS base
+RUN npm install -g turbo@2
+WORKDIR /app
+COPY . .
+RUN turbo prune \
+      @pospe/api-gateway @pospe/authentication-service @pospe/billing-service \
+      @pospe/inventory-service @pospe/notification-service @pospe/payment-service \
+      @pospe/purchase-service @pospe/sales-service @pospe/subscription-service \
+      @pospe/reporting-service @pospe/synchronization-service @pospe/mobile-service \
+      --docker
+
+FROM node:20-alpine AS installer
+# Prisma's query engine needs libssl, which alpine doesn't ship.
+RUN apk add --no-cache openssl
+WORKDIR /app
+COPY --from=base /app/out/json/ .
+RUN npm install
+COPY --from=base /app/out/full/ .
+COPY --from=base /app/tsconfig.base.json ./tsconfig.base.json
+COPY --from=base /app/scripts/docker-fix-package-mains.js ./scripts/docker-fix-package-mains.js
+# The Prisma schema + migrations live in the database package, which no
+# service depends on as a workspace package; copied in for `generate` and
+# for `prisma migrate deploy` at release time.
+COPY --from=base /app/database/prisma ./database/prisma
+RUN npx prisma generate --schema database/prisma/schema.prisma
+# Two at a time: twelve parallel tsc runs can exhaust memory on small builders.
+RUN npx turbo run build --concurrency=2
+RUN node scripts/docker-fix-package-mains.js
+
+FROM node:20-alpine AS runner
+RUN apk add --no-cache openssl
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=installer /app .
+# Uploads (product images, logos) are written relative to the working dir.
+RUN mkdir -p /app/uploads
