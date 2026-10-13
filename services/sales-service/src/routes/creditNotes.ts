@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission, HttpError } from '@pospe/permissions';
-import { computeInvoiceTotals, round2 } from '@pospe/utilities';
+import { computeInvoiceTotals, round2, createWithNextNumber } from '@pospe/utilities';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 import { restock, unstock } from '../lib/stock';
 
@@ -84,27 +84,28 @@ router.post('/credit-notes', requirePermission('sales:manage'), async (req, res)
   const subtotal = round2(totals.subtotal - totals.discountTotal);
   const { taxTotal, total } = totals;
 
-  const existingCount = await prisma.creditNote.count({ where: { tenantId } });
-  const creditNoteNumber = `CN-${7000 + existingCount + 1}`;
-
-  const creditNote = await prisma.$transaction(async (tx) => {
-    await restock(tx, tenantId, items);
-    return tx.creditNote.create({
-      data: {
-        tenantId,
-        storeId,
-        creditNoteNumber,
-        invoiceId,
-        customerName: invoice.customerName,
-        reason,
-        subtotal,
-        taxTotal,
-        total,
-        items: { create: lineItems },
-      },
-      include,
-    });
-  });
+  const creditNote = await createWithNextNumber(
+    () => prisma.creditNote.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.$transaction(async (tx) => {
+        await restock(tx, tenantId, items);
+        return tx.creditNote.create({
+          data: {
+            tenantId,
+            storeId,
+            creditNoteNumber: `CN-${7000 + seq}`,
+            invoiceId,
+            customerName: invoice.customerName,
+            reason,
+            subtotal,
+            taxTotal,
+            total,
+            items: { create: lineItems },
+          },
+          include,
+        });
+      }),
+  );
 
   res.status(201).json(creditNote);
 });

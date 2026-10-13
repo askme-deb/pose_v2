@@ -1,6 +1,7 @@
 import { buildBirthdayOfferMessage, buildLowStockMessage, type NotificationJob } from '@pospe/notifications';
 import { prisma } from './prisma';
 import { sendEmail, sendSms, sendWhatsApp } from './channels';
+import { sendPush } from './push';
 
 async function tenantContact(tenantId: string) {
   const [profile, tenant] = await Promise.all([
@@ -35,14 +36,15 @@ export async function deliverNotification(job: NotificationJob): Promise<Deliver
   switch (job.kind) {
     case 'low-stock': {
       const contact = await tenantContact(job.tenantId);
-      if (!contact.email) throw new Error('No notification recipient configured for this tenant');
-      await sendEmail({
-        from: '"PosPe Alerts" <alerts@pospe.local>',
-        to: contact.email,
-        subject: `Low stock: ${job.productName}`,
-        text: `${buildLowStockMessage(job.productName, job.stockQty)} (SKU ${job.sku}, reorder threshold ${job.minThreshold})`,
-      });
-      delivered.push(`email:${contact.email}`);
+      const text = `${buildLowStockMessage(job.productName, job.stockQty)} (SKU ${job.sku}, reorder threshold ${job.minThreshold})`;
+      if (contact.email) {
+        await sendEmail({ from: '"PosPe Alerts" <alerts@pospe.local>', to: contact.email, subject: `Low stock: ${job.productName}`, text });
+        delivered.push(`email:${contact.email}`);
+      }
+      // After the email, so a retried job (failed email) doesn't push twice.
+      const pushed = await sendPush({ tenantId: job.tenantId, appIds: ['owner', 'manager'] }, { title: `Low stock: ${job.productName}`, body: text, data: { type: 'low-stock', sku: job.sku } });
+      if (pushed) delivered.push(`push:${pushed}`);
+      if (!delivered.length) throw new Error('No notification recipient configured for this tenant');
       break;
     }
     case 'birthday-offer': {
@@ -73,6 +75,8 @@ export async function deliverNotification(job: NotificationJob): Promise<Deliver
         delivered.push(`email:${contact.email}`);
       }
       if (contact.phone && (await sendSms(contact.phone, text))) delivered.push(`sms:${contact.phone}`);
+      const pushed = await sendPush({ tenantId: job.tenantId, appIds: ['owner'] }, { title: `Payment ${verb}`, body: text, data: { type: 'payment' } });
+      if (pushed) delivered.push(`push:${pushed}`);
       break;
     }
     case 'report': {

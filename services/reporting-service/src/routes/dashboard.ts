@@ -7,14 +7,17 @@ type Timeframe = 'today' | '7d' | '30d' | '90d';
 const WINDOW_DAYS: Record<Timeframe, number> = { today: 1, '7d': 7, '30d': 30, '90d': 90 };
 const REVENUE_STATUSES = ['PAID', 'PARTIALLY_PAID'] as const;
 
+// Business days and hours are Indian time whatever the server's TZ (cloud
+// hosts run on UTC), matching the analytics report. IST has no DST.
+const IST_OFFSET_MS = 330 * 60_000;
+const DAY_MS = 86_400_000;
+const dayLabelIST = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' });
+const startOfDayIST = (d: Date) => new Date(Math.floor((d.getTime() + IST_OFFSET_MS) / DAY_MS) * DAY_MS - IST_OFFSET_MS);
+const hourIST = (d: Date) => new Date(d.getTime() + IST_OFFSET_MS).getUTCHours();
+
 function windowStart(timeframe: Timeframe, from: Date): Date {
-  const start = new Date(from);
-  if (timeframe === 'today') {
-    start.setHours(0, 0, 0, 0);
-  } else {
-    start.setDate(start.getDate() - WINDOW_DAYS[timeframe]);
-  }
-  return start;
+  if (timeframe === 'today') return startOfDayIST(from);
+  return new Date(from.getTime() - WINDOW_DAYS[timeframe] * DAY_MS);
 }
 
 function pctDelta(current: number, previous: number): number {
@@ -80,7 +83,7 @@ router.get('/dashboard', async (req, res) => {
       trendMap.set(label, { revenue: 0, profit: 0 });
     }
     revenueInvoices.forEach((inv) => {
-      const h = inv.createdAt.getHours();
+      const h = hourIST(inv.createdAt);
       const label = `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? 'PM' : 'AM'}`;
       const bucket = trendMap.get(label);
       if (bucket) {
@@ -91,14 +94,12 @@ router.get('/dashboard', async (req, res) => {
   } else {
     const days = WINDOW_DAYS[timeframe];
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const label = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const label = dayLabelIST.format(new Date(now.getTime() - i * DAY_MS));
       trendLabels.push(label);
       trendMap.set(label, { revenue: 0, profit: 0 });
     }
     revenueInvoices.forEach((inv) => {
-      const label = inv.createdAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const label = dayLabelIST.format(inv.createdAt);
       const bucket = trendMap.get(label);
       if (bucket) {
         bucket.revenue += Number(inv.total);

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { effectivePermissions, type AuthedUser, type Role } from '@pospe/permissions';
 
@@ -29,6 +30,18 @@ export interface RefreshPayload {
   sub: string;
   typ: 'refresh';
   ver: number;
+  /** Session id: kept across rotations, so one device's session can be revoked on its own. */
+  sid?: string;
+  /** The store a POS terminal PIN sign-in acted on; kept across refreshes. */
+  store?: string;
+  exp?: number;
+}
+
+export interface SessionOptions {
+  /** Continue an existing session (refresh) instead of starting a new one. */
+  sid?: string;
+  /** PIN sign-in: the terminal's store, carried in the refresh token. */
+  pinStoreId?: string;
 }
 
 /**
@@ -38,7 +51,7 @@ export interface RefreshPayload {
  * Refresh token: carries the user's tokenVersion, so bumping it on logout or
  * password reset revokes every refresh token issued before.
  */
-export function issueTokens(user: TokenSubject) {
+export function issueTokens(user: TokenSubject, session: SessionOptions = {}) {
   const jwtSecret = process.env.JWT_SECRET;
   const refreshSecret = process.env.JWT_REFRESH_SECRET;
   if (!jwtSecret || !refreshSecret) return null;
@@ -57,7 +70,13 @@ export function issueTokens(user: TokenSubject) {
     expiresIn: process.env.JWT_EXPIRES_IN || '15m',
   } as jwt.SignOptions);
 
-  const refresh: RefreshPayload = { sub: user.id, typ: 'refresh', ver: user.tokenVersion };
+  const refresh: RefreshPayload = {
+    sub: user.id,
+    typ: 'refresh',
+    ver: user.tokenVersion,
+    sid: session.sid ?? crypto.randomUUID(),
+    ...(session.pinStoreId ? { store: session.pinStoreId } : {}),
+  };
   const refreshToken = jwt.sign(refresh, refreshSecret, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   } as jwt.SignOptions);

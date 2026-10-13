@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
@@ -42,22 +43,23 @@ router.post('/purchase-orders', requirePermission('purchase:manage'), async (req
   if (!supplier) return res.status(404).json({ error: 'Supplier not found' });
 
   const totalAmount = items.reduce((sum, i) => sum + i.qty * i.unitPrice, 0);
-  const existingCount = await prisma.purchaseOrder.count({ where: { tenantId } });
-  const poNumber = `PO-${9000 + existingCount + 1}`;
-
-  const order = await prisma.purchaseOrder.create({
-    data: {
-      tenantId,
-      supplierId,
-      poNumber,
-      totalAmount,
-      expectedDeliveryDate: new Date(expectedDeliveryDate),
-      paymentStatus: paymentStatus ?? 'UNPAID',
-      orderStatus: 'PENDING',
-      items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })) },
-    },
-    include,
-  });
+  const order = await createWithNextNumber(
+    () => prisma.purchaseOrder.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.purchaseOrder.create({
+        data: {
+          tenantId,
+          supplierId,
+          poNumber: `PO-${9000 + seq}`,
+          totalAmount,
+          expectedDeliveryDate: new Date(expectedDeliveryDate),
+          paymentStatus: paymentStatus ?? 'UNPAID',
+          orderStatus: 'PENDING',
+          items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty, unitPrice: i.unitPrice })) },
+        },
+        include,
+      }),
+  );
 
   // If issued as already-received (rare, but the create form allows it), that's
   // a real goods receipt — goes through the same GRN transaction as any other

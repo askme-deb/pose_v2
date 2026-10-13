@@ -25,6 +25,13 @@ const refreshInput = z.object({
   refreshToken: z.string().min(1),
 });
 
+// With the device's refresh token, only that session ends; without it (or
+// with all: true) every session for the user ends, as before.
+const logoutInput = z.object({
+  refreshToken: z.string().min(1).optional(),
+  all: z.boolean().optional(),
+});
+
 const twoFaVerifyInput = z.object({
   pendingToken: z.string().min(1),
   token: z.string().length(6),
@@ -218,7 +225,7 @@ router.post('/login/pin', async (req, res) => {
   if (isLocked(matched)) return res.status(423).json({ error: 'This account is temporarily locked.' });
   if (rejectIfBlocked(matched, res)) return;
 
-  const tokens = issueTokens({ ...matched, storeId: store.id });
+  const tokens = issueTokens({ ...matched, storeId: store.id }, { pinStoreId: store.id });
   if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
 
   await prisma.user.update({ where: { id: matched.id }, data: { lastActivityAt: new Date() } });
@@ -244,22 +251,46 @@ router.post('/refresh', async (req, res) => {
 
   const user = await findUserById(payload.sub);
   if (!user || user.tokenVersion !== payload.ver) return invalid();
+  if (payload.sid && (await prisma.revokedSession.findUnique({ where: { id: payload.sid }, select: { id: true } }))) return invalid();
   if (rejectIfBlocked(user, res)) return;
 
-  const tokens = issueTokens(user);
+  // A PIN session keeps acting on its terminal's store (unassigned staff would
+  // otherwise fall back to the primary store), while that store is still
+  // active and the user hasn't been assigned elsewhere.
+  let pinStoreId: string | undefined;
+  if (payload.store && (!user.storeId || user.storeId === payload.store)) {
+    const store = await prisma.store.findFirst({ where: { id: payload.store, tenantId: user.tenantId, isActive: true }, select: { id: true } });
+    pinStoreId = store?.id;
+  }
+
+  const tokens = issueTokens(pinStoreId ? { ...user, storeId: pinStoreId } : user, { sid: payload.sid, pinStoreId });
   if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
 
-  res.json({ ...tokens, user: await serializeUser(user) });
+  const serialized = await serializeUser(user);
+  res.json({ ...tokens, user: pinStoreId ? { ...serialized, storeId: pinStoreId } : serialized });
 });
 
-// Ends every session for this user: bumping tokenVersion invalidates all
-// outstanding refresh tokens. Access tokens expire on their own (≤15 min).
+// Ends this device's session (its refresh token's sid is revoked), or every
+// session for the user (bumping tokenVersion invalidates all outstanding
+// refresh tokens). Access tokens expire on their own (≤15 min).
 router.post('/logout', requireAuth, async (req, res) => {
-  const user = await prisma.user.update({
-    where: { id: req.authUser!.sub },
-    data: { tokenVersion: { increment: 1 } },
-  });
-  await logAudit(user.tenantId, user.name, 'LOGOUT', `${user.name} signed out`, 'LOW', req.ip);
+  const parsed = logoutInput.safeParse(req.body ?? {});
+  const body = parsed.success ? parsed.data : {};
+  const userId = req.authUser!.sub;
+  const session = body.refreshToken && !body.all ? verifyRefreshToken(body.refreshToken) : null;
+  const single = !!session?.sid && session.sub === userId;
+
+  let user;
+  if (single) {
+    const expiresAt = new Date((session!.exp ?? Math.floor(Date.now() / 1000) + 30 * 86_400) * 1000);
+    await prisma.revokedSession.upsert({ where: { id: session!.sid! }, create: { id: session!.sid!, userId, expiresAt }, update: {} });
+    // Revocations only matter until the token would have expired anyway.
+    await prisma.revokedSession.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+    user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  } else {
+    user = await prisma.user.update({ where: { id: userId }, data: { tokenVersion: { increment: 1 } } });
+  }
+  await logAudit(user.tenantId, user.name, 'LOGOUT', `${user.name} signed out${single ? '' : ' of every device'}`, 'LOW', req.ip);
   res.status(204).end();
 });
 

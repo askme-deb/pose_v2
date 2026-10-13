@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
@@ -50,24 +51,25 @@ router.post('/delivery-challans', requirePermission('sales:manage'), async (req,
   const products = await prisma.product.findMany({ where: { id: { in: productIds }, tenantId } });
   if (products.length !== productIds.length) return res.status(404).json({ error: 'One or more products not found' });
 
-  const existingCount = await prisma.deliveryChallan.count({ where: { tenantId } });
-  const challanNumber = `DC-${5000 + existingCount + 1}`;
-
-  const challan = await prisma.deliveryChallan.create({
-    data: {
-      tenantId,
-      storeId,
-      challanNumber,
-      customerId,
-      ...(customerName ? { customerName } : {}),
-      vehicleNumber,
-      transporterName,
-      linkedInvoiceId,
-      notes,
-      items: { create: items.map((i) => ({ productId: i.productId, quantity: i.quantity })) },
-    },
-    include,
-  });
+  const challan = await createWithNextNumber(
+    () => prisma.deliveryChallan.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.deliveryChallan.create({
+        data: {
+          tenantId,
+          storeId,
+          challanNumber: `DC-${5000 + seq}`,
+          customerId,
+          ...(customerName ? { customerName } : {}),
+          vehicleNumber,
+          transporterName,
+          linkedInvoiceId,
+          notes,
+          items: { create: items.map((i) => ({ productId: i.productId, quantity: i.quantity })) },
+        },
+        include,
+      }),
+  );
   res.status(201).json(challan);
 });
 

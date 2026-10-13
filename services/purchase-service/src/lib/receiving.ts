@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { prisma } from './prisma';
 
 export class PurchaseOrderNotFoundError extends Error {
@@ -68,69 +69,69 @@ export async function receiveGoods(params: ReceiveGoodsParams) {
     }
   }
 
-  const existingCount = await prisma.goodsReceivedNote.count({ where: { tenantId } });
-  const grnNumber = `GRN-${4000 + existingCount + 1}`;
+  const grn = await createWithNextNumber(() => prisma.goodsReceivedNote.count({ where: { tenantId } }), (seq) => {
+    const grnNumber = `GRN-${4000 + seq}`;
+    return prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.receivedQty } } });
+        await tx.purchaseOrderItem.update({
+          where: { id: poItemByProduct.get(item.productId)!.id },
+          data: { receivedQty: { increment: item.receivedQty } },
+        });
+      }
 
-  const grn = await prisma.$transaction(async (tx) => {
-    for (const item of items) {
-      await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.receivedQty } } });
-      await tx.purchaseOrderItem.update({
-        where: { id: poItemByProduct.get(item.productId)!.id },
-        data: { receivedQty: { increment: item.receivedQty } },
+      const updatedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } });
+      const fullyReceived = updatedItems.every((i) => i.receivedQty >= i.qty);
+      const anyReceived = updatedItems.some((i) => i.receivedQty > 0);
+      await tx.purchaseOrder.update({
+        where: { id: purchaseOrderId },
+        data: { orderStatus: fullyReceived ? 'RECEIVED' : anyReceived ? 'PARTIALLY_RECEIVED' : 'PENDING' },
       });
-    }
 
-    const updatedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } });
-    const fullyReceived = updatedItems.every((i) => i.receivedQty >= i.qty);
-    const anyReceived = updatedItems.some((i) => i.receivedQty > 0);
-    await tx.purchaseOrder.update({
-      where: { id: purchaseOrderId },
-      data: { orderStatus: fullyReceived ? 'RECEIVED' : anyReceived ? 'PARTIALLY_RECEIVED' : 'PENDING' },
-    });
+      const created = await tx.goodsReceivedNote.create({
+        data: {
+          tenantId,
+          grnNumber,
+          purchaseOrderId,
+          supplierId: purchaseOrder.supplierId,
+          receivedBy,
+          notes,
+          items: { create: items.map((i) => ({ productId: i.productId, receivedQty: i.receivedQty })) },
+        },
+        include: grnInclude,
+      });
 
-    const created = await tx.goodsReceivedNote.create({
-      data: {
-        tenantId,
-        grnNumber,
-        purchaseOrderId,
-        supplierId: purchaseOrder.supplierId,
-        receivedBy,
-        notes,
-        items: { create: items.map((i) => ({ productId: i.productId, receivedQty: i.receivedQty })) },
-      },
-      include: grnInclude,
-    });
-
-    for (const item of items) {
-      if (item.batch) {
-        const poItem = poItemByProduct.get(item.productId)!;
-        await tx.productBatch.upsert({
-          where: { tenantId_productId_batchNumber: { tenantId, productId: item.productId, batchNumber: item.batch.batchNumber } },
-          update: { quantity: { increment: item.receivedQty } },
-          create: {
-            tenantId,
-            productId: item.productId,
-            batchNumber: item.batch.batchNumber,
-            quantity: item.receivedQty,
-            costPrice: poItem.unitPrice,
-            expiryDate: item.batch.expiryDate ? new Date(item.batch.expiryDate) : undefined,
-            goodsReceivedNoteId: created.id,
-          },
-        });
+      for (const item of items) {
+        if (item.batch) {
+          const poItem = poItemByProduct.get(item.productId)!;
+          await tx.productBatch.upsert({
+            where: { tenantId_productId_batchNumber: { tenantId, productId: item.productId, batchNumber: item.batch.batchNumber } },
+            update: { quantity: { increment: item.receivedQty } },
+            create: {
+              tenantId,
+              productId: item.productId,
+              batchNumber: item.batch.batchNumber,
+              quantity: item.receivedQty,
+              costPrice: poItem.unitPrice,
+              expiryDate: item.batch.expiryDate ? new Date(item.batch.expiryDate) : undefined,
+              goodsReceivedNoteId: created.id,
+            },
+          });
+        }
+        if (item.serialNumbers?.length) {
+          await tx.productSerial.createMany({
+            data: item.serialNumbers.map((serialNumber) => ({
+              tenantId,
+              productId: item.productId,
+              serialNumber,
+              goodsReceivedNoteId: created.id,
+            })),
+          });
+        }
       }
-      if (item.serialNumbers?.length) {
-        await tx.productSerial.createMany({
-          data: item.serialNumbers.map((serialNumber) => ({
-            tenantId,
-            productId: item.productId,
-            serialNumber,
-            goodsReceivedNoteId: created.id,
-          })),
-        });
-      }
-    }
 
-    return created;
+      return created;
+    });
   });
 
   return grn;

@@ -18,3 +18,5 @@ export { installAsyncErrorHandling, errorHandler } from './errors';
 export { initObservability, captureException } from './observability';
 export { computeInvoiceTotals, round2, type PricedLine, type PricedLineInput, type InvoiceTotals } from './pricing';
 export { createRedisConnection, createQueue, createWorker, enqueue, queueingEnabled } from './queue';
+
+export { createWithNextNumber } from './numbering';
