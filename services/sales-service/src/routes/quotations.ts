@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
-import { computeInvoiceTotals } from '@pospe/utilities';
+import { computeInvoiceTotals, createWithNextNumber } from '@pospe/utilities';
 import { checkoutInvoice, CustomerNotFoundError, ProductNotFoundError, InsufficientStockError } from '../lib/checkout';
 
 const router = Router();
@@ -72,26 +72,27 @@ router.post('/quotations', requirePermission('sales:manage'), async (req, res) =
   const lineItems = totals.lines.map(({ productId, quantity, price, gstRate, total }) => ({ productId, quantity, price, gstRate, total }));
   const { subtotal, taxTotal, total } = totals;
 
-  const existingCount = await prisma.salesQuote.count({ where: { tenantId, kind } });
-  const quoteNumber = `${numberPrefix[kind]}-${1000 + existingCount + 1}`;
-
-  const quote = await prisma.salesQuote.create({
-    data: {
-      tenantId,
-      storeId,
-      quoteNumber,
-      kind,
-      customerId,
-      ...(customerName ? { customerName } : {}),
-      validUntil: validUntil ? new Date(validUntil) : undefined,
-      notes,
-      subtotal,
-      taxTotal,
-      total,
-      items: { create: lineItems },
-    },
-    include,
-  });
+  const quote = await createWithNextNumber(
+    () => prisma.salesQuote.count({ where: { tenantId, kind } }),
+    (seq) =>
+      prisma.salesQuote.create({
+        data: {
+          tenantId,
+          storeId,
+          quoteNumber: `${numberPrefix[kind]}-${1000 + seq}`,
+          kind,
+          customerId,
+          ...(customerName ? { customerName } : {}),
+          validUntil: validUntil ? new Date(validUntil) : undefined,
+          notes,
+          subtotal,
+          taxTotal,
+          total,
+          items: { create: lineItems },
+        },
+        include,
+      }),
+  );
   res.status(201).json(quote);
 });
 

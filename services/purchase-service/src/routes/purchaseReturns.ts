@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
@@ -58,45 +59,46 @@ router.post('/purchase-returns', requirePermission('purchase:manage'), async (re
   });
   const totalValue = lineItems.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
 
-  const existingCount = await prisma.purchaseReturn.count({ where: { tenantId } });
-  const returnNumber = `PR-${6000 + existingCount + 1}`;
-
   try {
-    const purchaseReturn = await prisma.$transaction(async (tx) => {
-      for (const item of lineItems) {
-        // The option holds the variation's own stock; guard it first so the message is specific.
-        if (item.optionId) {
-          const opt = await tx.productOption.updateMany({
-            where: { id: item.optionId, stockQty: { gte: item.quantity } },
-            data: { stockQty: { decrement: item.quantity } },
-          });
-          if (opt.count !== 1) {
-            throw Object.assign(new Error(`Insufficient stock to return ${item.quantity} unit(s) of ${item.optionName ?? 'this option'}`), { productId: item.productId });
+    const purchaseReturn = await createWithNextNumber(
+      () => prisma.purchaseReturn.count({ where: { tenantId } }),
+      (seq) =>
+        prisma.$transaction(async (tx) => {
+          for (const item of lineItems) {
+            // The option holds the variation's own stock; guard it first so the message is specific.
+            if (item.optionId) {
+              const opt = await tx.productOption.updateMany({
+                where: { id: item.optionId, stockQty: { gte: item.quantity } },
+                data: { stockQty: { decrement: item.quantity } },
+              });
+              if (opt.count !== 1) {
+                throw Object.assign(new Error(`Insufficient stock to return ${item.quantity} unit(s) of ${item.optionName ?? 'this option'}`), { productId: item.productId });
+              }
+            }
+            const result = await tx.product.updateMany({
+              where: { id: item.productId, stockQty: { gte: item.quantity } },
+              data: { stockQty: { decrement: item.quantity } },
+            });
+            if (result.count !== 1) {
+              throw Object.assign(new Error(`Insufficient stock to return ${item.quantity} unit(s) of this product`), {
+                productId: item.productId,
+              });
+            }
           }
-        }
-        const result = await tx.product.updateMany({
-          where: { id: item.productId, stockQty: { gte: item.quantity } },
-          data: { stockQty: { decrement: item.quantity } },
-        });
-        if (result.count !== 1) {
-          throw Object.assign(new Error(`Insufficient stock to return ${item.quantity} unit(s) of this product`), {
-            productId: item.productId,
+          return tx.purchaseReturn.create({
+            data: {
+              tenantId,
+              returnNumber: `PR-${6000 + seq}`,
+              purchaseOrderId,
+              supplierId: order.supplierId,
+              reason,
+              totalValue,
+              items: { create: lineItems },
+            },
+            include,
           });
-        }
-      }
-      return tx.purchaseReturn.create({
-        data: {
-          tenantId,
-          returnNumber,
-          purchaseOrderId,
-          supplierId: order.supplierId,
-          reason,
-          totalValue,
-          items: { create: lineItems },
-        },
-        include,
-      });
-    });
+        }),
+    );
     res.status(201).json(purchaseReturn);
   } catch (err) {
     const productId = (err as { productId?: string }).productId;

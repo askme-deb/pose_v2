@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
@@ -36,13 +37,14 @@ router.post('/debit-notes', requirePermission('sales:manage'), async (req, res) 
   const invoice = await prisma.invoice.findFirst({ where: { id: invoiceId, storeId } });
   if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
 
-  const existingCount = await prisma.debitNote.count({ where: { tenantId } });
-  const debitNoteNumber = `DN-${7000 + existingCount + 1}`;
-
-  const debitNote = await prisma.debitNote.create({
-    data: { tenantId, storeId, debitNoteNumber, invoiceId, customerName: invoice.customerName, reason, amount },
-    include,
-  });
+  const debitNote = await createWithNextNumber(
+    () => prisma.debitNote.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.debitNote.create({
+        data: { tenantId, storeId, debitNoteNumber: `DN-${7000 + seq}`, invoiceId, customerName: invoice.customerName, reason, amount },
+        include,
+      }),
+  );
   res.status(201).json(debitNote);
 });
 

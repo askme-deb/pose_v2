@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { prisma } from './prisma';
 
 export class PurchaseOrderNotFoundError extends Error {
@@ -73,80 +74,81 @@ export async function receiveGoods(params: ReceiveGoodsParams) {
     }
   }
 
-  const existingCount = await prisma.goodsReceivedNote.count({ where: { tenantId } });
-  const grnNumber = `GRN-${4000 + existingCount + 1}`;
+  const grn = await createWithNextNumber(
+    () => prisma.goodsReceivedNote.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.$transaction(async (tx) => {
+        for (const item of items) {
+          const line = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
+          await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.receivedQty } } });
+          // Variation stock lives on the option; the product total above follows it.
+          if (line.optionId) {
+            await tx.productOption.updateMany({ where: { id: line.optionId, tenantId }, data: { stockQty: { increment: item.receivedQty } } });
+          }
+          await tx.purchaseOrderItem.update({
+            where: { id: line.id },
+            data: { receivedQty: { increment: item.receivedQty } },
+          });
+        }
 
-  const grn = await prisma.$transaction(async (tx) => {
-    for (const item of items) {
-      const line = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
-      await tx.product.update({ where: { id: item.productId }, data: { stockQty: { increment: item.receivedQty } } });
-      // Variation stock lives on the option; the product total above follows it.
-      if (line.optionId) {
-        await tx.productOption.updateMany({ where: { id: line.optionId, tenantId }, data: { stockQty: { increment: item.receivedQty } } });
-      }
-      await tx.purchaseOrderItem.update({
-        where: { id: line.id },
-        data: { receivedQty: { increment: item.receivedQty } },
-      });
-    }
+        const updatedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } });
+        const fullyReceived = updatedItems.every((i) => i.receivedQty >= i.qty);
+        const anyReceived = updatedItems.some((i) => i.receivedQty > 0);
+        await tx.purchaseOrder.update({
+          where: { id: purchaseOrderId },
+          data: { orderStatus: fullyReceived ? 'RECEIVED' : anyReceived ? 'PARTIALLY_RECEIVED' : 'PENDING' },
+        });
 
-    const updatedItems = await tx.purchaseOrderItem.findMany({ where: { purchaseOrderId } });
-    const fullyReceived = updatedItems.every((i) => i.receivedQty >= i.qty);
-    const anyReceived = updatedItems.some((i) => i.receivedQty > 0);
-    await tx.purchaseOrder.update({
-      where: { id: purchaseOrderId },
-      data: { orderStatus: fullyReceived ? 'RECEIVED' : anyReceived ? 'PARTIALLY_RECEIVED' : 'PENDING' },
-    });
-
-    const created = await tx.goodsReceivedNote.create({
-      data: {
-        tenantId,
-        grnNumber,
-        purchaseOrderId,
-        supplierId: purchaseOrder.supplierId,
-        receivedBy,
-        notes,
-        items: {
-          create: items.map((i) => {
-            const line = poItemByProduct.get(lineKey(i.productId, i.optionId))!;
-            return { productId: i.productId, receivedQty: i.receivedQty, optionId: line.optionId, optionName: line.optionName };
-          }),
-        },
-      },
-      include: grnInclude,
-    });
-
-    for (const item of items) {
-      if (item.batch) {
-        const poItem = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
-        await tx.productBatch.upsert({
-          where: { tenantId_productId_batchNumber: { tenantId, productId: item.productId, batchNumber: item.batch.batchNumber } },
-          update: { quantity: { increment: item.receivedQty } },
-          create: {
+        const created = await tx.goodsReceivedNote.create({
+          data: {
             tenantId,
-            productId: item.productId,
-            batchNumber: item.batch.batchNumber,
-            quantity: item.receivedQty,
-            costPrice: poItem.unitPrice,
-            expiryDate: item.batch.expiryDate ? new Date(item.batch.expiryDate) : undefined,
-            goodsReceivedNoteId: created.id,
+            grnNumber: `GRN-${4000 + seq}`,
+            purchaseOrderId,
+            supplierId: purchaseOrder.supplierId,
+            receivedBy,
+            notes,
+            items: {
+              create: items.map((i) => {
+                const line = poItemByProduct.get(lineKey(i.productId, i.optionId))!;
+                return { productId: i.productId, receivedQty: i.receivedQty, optionId: line.optionId, optionName: line.optionName };
+              }),
+            },
           },
+          include: grnInclude,
         });
-      }
-      if (item.serialNumbers?.length) {
-        await tx.productSerial.createMany({
-          data: item.serialNumbers.map((serialNumber) => ({
-            tenantId,
-            productId: item.productId,
-            serialNumber,
-            goodsReceivedNoteId: created.id,
-          })),
-        });
-      }
-    }
 
-    return created;
-  });
+        for (const item of items) {
+          if (item.batch) {
+            const poItem = poItemByProduct.get(lineKey(item.productId, item.optionId))!;
+            await tx.productBatch.upsert({
+              where: { tenantId_productId_batchNumber: { tenantId, productId: item.productId, batchNumber: item.batch.batchNumber } },
+              update: { quantity: { increment: item.receivedQty } },
+              create: {
+                tenantId,
+                productId: item.productId,
+                batchNumber: item.batch.batchNumber,
+                quantity: item.receivedQty,
+                costPrice: poItem.unitPrice,
+                expiryDate: item.batch.expiryDate ? new Date(item.batch.expiryDate) : undefined,
+                goodsReceivedNoteId: created.id,
+              },
+            });
+          }
+          if (item.serialNumbers?.length) {
+            await tx.productSerial.createMany({
+              data: item.serialNumbers.map((serialNumber) => ({
+                tenantId,
+                productId: item.productId,
+                serialNumber,
+                goodsReceivedNoteId: created.id,
+              })),
+            });
+          }
+        }
+
+        return created;
+      }),
+  );
 
   return grn;
 }

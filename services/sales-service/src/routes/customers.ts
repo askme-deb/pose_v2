@@ -30,23 +30,26 @@ async function assertMembershipPlan(tenantId: string, membershipPlanId: string |
 // Lifetime spend / order count / last visit are computed live from PAID invoices
 // rather than stored — they'd drift out of sync with the real ledger otherwise,
 // and sales-service already owns Invoice.
+// One grouped query for the whole list, not one aggregate per customer.
 async function withStats<T extends { id: string }>(customers: T[]) {
-  const stats = await Promise.all(
-    customers.map((c) =>
-      prisma.invoice.aggregate({
-        where: { customerId: c.id, status: 'PAID' },
-        _sum: { total: true },
-        _count: true,
-        _max: { createdAt: true },
-      }),
-    ),
-  );
-  return customers.map((c, i) => ({
-    ...c,
-    lifetimeSpend: Number(stats[i]._sum.total ?? 0),
-    ordersCount: stats[i]._count,
-    lastVisit: stats[i]._max.createdAt,
-  }));
+  if (!customers.length) return [];
+  const groups = await prisma.invoice.groupBy({
+    by: ['customerId'],
+    where: { customerId: { in: customers.map((c) => c.id) }, status: 'PAID' },
+    _sum: { total: true },
+    _count: { _all: true },
+    _max: { createdAt: true },
+  });
+  const byCustomer = new Map(groups.map((g) => [g.customerId, g]));
+  return customers.map((c) => {
+    const g = byCustomer.get(c.id);
+    return {
+      ...c,
+      lifetimeSpend: Number(g?._sum.total ?? 0),
+      ordersCount: g?._count._all ?? 0,
+      lastVisit: g?._max.createdAt ?? null,
+    };
+  });
 }
 
 router.get('/customers', async (req, res) => {

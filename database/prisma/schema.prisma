@@ -1497,3 +1497,34 @@ model HsnCode {
   @@unique([tenantId, code])
   @@map("hsn_codes")
 }
+
+// A refresh-token session (its `sid`) ended by signing out on that device.
+// Kept only until the token would have expired anyway.
+model RevokedSession {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("revoked_sessions")
+}
+
+// Expo push token for a signed-in mobile device. One row per device token:
+// signing in as someone else on the same device re-assigns it.
+model PushToken {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  token     String   @unique
+  // owner | manager | cashier: which part of the app registered it
+  appId     String
+  platform  String
+  deviceId  String?
+  storeId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("push_tokens")
+}

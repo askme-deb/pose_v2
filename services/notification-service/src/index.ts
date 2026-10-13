@@ -9,6 +9,7 @@ import { NOTIFICATION_QUEUE, type NotificationJob } from '@pospe/notifications';
 import { deliverNotification } from './lib/deliver';
 import healthRouter from './routes/health';
 import notificationsRouter from './routes/notifications';
+import pushTokensRouter from './routes/pushTokens';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'notification-service';
 installAsyncErrorHandling();
@@ -30,6 +31,7 @@ app.use('/', healthRouter);
 apiDocsMiddleware(app, 'notification-service', 'Low-stock, birthday, auth OTP & payment alerts over email, SMS and WhatsApp');
 app.use(requireAuth);
 app.use('/', notificationsRouter);
+app.use('/', pushTokensRouter);
 
 app.use(errorHandler);
 

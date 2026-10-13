@@ -59,25 +59,33 @@ const PUBLIC_PATHS = [
 // Credential-guessing surface: password/PIN/2FA logins and OTP redemption.
 // Far tighter than the gateway-wide limit; keyed per client IP (index.ts
 // sets trust proxy so this is the real client, not the ingress).
-const credentialLimiter = rateLimit({
+const limiterOptions = {
   windowMs: 15 * 60 * 1000,
-  limit: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
-});
-const CREDENTIAL_PATHS = new Set([
-  '/api/auth/login',
-  '/api/auth/login/pin',
-  '/api/auth/login/2fa-verify',
-  '/api/auth/register',
-  '/api/auth/password/forgot',
-  '/api/auth/password/reset',
-  '/api/auth/verify-email',
-  '/api/auth/verify-email/resend',
+} as const;
+// Every request counts: these send emails or redeem codes even when they succeed.
+const credentialLimiter = rateLimit({ ...limiterOptions, limit: 20 });
+// Logins count failures only: every till in a store shares one public IP, and
+// a busy shift of correct sign-ins must not lock the whole store out.
+const loginLimiter = rateLimit({ ...limiterOptions, limit: 20, skipSuccessfulRequests: true });
+// PIN pads also get a per-store wrong-PIN throttle in the auth service, so
+// the per-IP ceiling can be higher for stores with many terminals.
+const pinLimiter = rateLimit({ ...limiterOptions, limit: 60, skipSuccessfulRequests: true });
+const LIMITER_BY_PATH = new Map([
+  ['/api/auth/login', loginLimiter],
+  ['/api/auth/login/2fa-verify', loginLimiter],
+  ['/api/auth/login/pin', pinLimiter],
+  ['/api/auth/register', credentialLimiter],
+  ['/api/auth/password/forgot', credentialLimiter],
+  ['/api/auth/password/reset', credentialLimiter],
+  ['/api/auth/verify-email', credentialLimiter],
+  ['/api/auth/verify-email/resend', credentialLimiter],
 ]);
 
-CREDENTIAL_PATHS.add('/api/login');
+// The mobile app's own sign-in (mobile-service) counts like any login.
+LIMITER_BY_PATH.set('/api/login', loginLimiter);
 
 // The app toasts body.message on every failure; the gateway's own rejections
 // (rate limit, missing token) say { error }, so mirror it for these routes.
@@ -94,7 +102,10 @@ router.use((req, res, next) => {
   next();
 });
 
-router.use((req, res, next) => (CREDENTIAL_PATHS.has(req.path) ? credentialLimiter(req, res, next) : next()));
+router.use((req, res, next) => {
+  const limiter = LIMITER_BY_PATH.get(req.path);
+  return limiter ? limiter(req, res, next) : next();
+});
 
 // Each downstream service already treats its own /docs (plus the static
 // Swagger UI assets it serves under that same path) and /openapi.json as

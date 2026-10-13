@@ -23,7 +23,7 @@ const userInput = z.object({
 });
 
 // Never return credential columns (passwordHash, pinHash, twoFaSecret,
-// tokenVersion) — this list is readable by every signed-in user.
+// tokenVersion) — even though only user managers can read this list.
 const select = {
   id: true,
   tenantId: true,
@@ -91,7 +91,7 @@ async function assertPinAvailable(tenantId: string, storeId: string | null, pin:
   }
 }
 
-router.get('/users', async (req, res) => {
+router.get('/users', requirePermission('user:manage'), async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const users = await prisma.user.findMany({ where: { tenantId }, select, orderBy: { name: 'asc' } });
   res.json(users.map(toPublic));

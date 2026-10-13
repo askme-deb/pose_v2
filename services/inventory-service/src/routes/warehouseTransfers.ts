@@ -1,3 +1,4 @@
+import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requirePermission } from '@pospe/permissions';
@@ -44,22 +45,23 @@ router.post('/warehouse-transfers', requirePermission('inventory:manage'), async
   const costById = new Map(products.map((p) => [p.id, Number(p.costPrice)]));
   const totalValuation = items.reduce((sum, i) => sum + i.qty * (costById.get(i.productId) ?? 0), 0);
 
-  const existingCount = await prisma.warehouseTransfer.count({ where: { tenantId } });
-  const transferNumber = `TRF-${6010 + existingCount + 1}`;
-
-  const transfer = await prisma.warehouseTransfer.create({
-    data: {
-      tenantId,
-      transferNumber,
-      sourceWarehouseId,
-      destinationWarehouseId,
-      totalValuation,
-      carrier: carrier || 'Apex Express Logistics',
-      status: 'IN_TRANSIT',
-      items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty })) },
-    },
-    include,
-  });
+  const transfer = await createWithNextNumber(
+    () => prisma.warehouseTransfer.count({ where: { tenantId } }),
+    (seq) =>
+      prisma.warehouseTransfer.create({
+        data: {
+          tenantId,
+          transferNumber: `TRF-${6010 + seq}`,
+          sourceWarehouseId,
+          destinationWarehouseId,
+          totalValuation,
+          carrier: carrier || 'Apex Express Logistics',
+          status: 'IN_TRANSIT',
+          items: { create: items.map((i) => ({ productId: i.productId, qty: i.qty })) },
+        },
+        include,
+      }),
+  );
 
   res.status(201).json(transfer);
 });
