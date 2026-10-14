@@ -10,6 +10,7 @@ import { deliverNotification } from './lib/deliver';
 import healthRouter from './routes/health';
 import notificationsRouter from './routes/notifications';
 import pushTokensRouter from './routes/pushTokens';
+import devCodesRouter from './routes/devCodes';
 
 process.env.SERVICE_NAME = process.env.SERVICE_NAME || 'notification-service';
 installAsyncErrorHandling();
@@ -32,6 +33,7 @@ apiDocsMiddleware(app, 'notification-service', 'Low-stock, birthday, auth OTP & 
 app.use(requireAuth);
 app.use('/', notificationsRouter);
 app.use('/', pushTokensRouter);
+app.use('/', devCodesRouter);
 
 app.use(errorHandler);
 

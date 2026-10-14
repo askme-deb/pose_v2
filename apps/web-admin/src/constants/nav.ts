@@ -19,6 +19,7 @@ import {
   Building2,
   CreditCard,
   Palette,
+  KeyRound,
   Globe,
   LogIn,
   RadioTower,
@@ -87,6 +88,7 @@ export const superAdminLinks: NavLink[] = [
   { label: 'Tenant Management', href: '/superadmin/tenants', icon: Building2, color: 'text-purple-600' },
   { label: 'Subscriptions & Plans', href: '/superadmin/subscriptions', icon: CreditCard, color: 'text-purple-600' },
   { label: 'White Label Branding', href: '/superadmin/white-label', icon: Palette, color: 'text-purple-600' },
+  { label: 'Sign-in Codes', href: '/superadmin/codes', icon: KeyRound, color: 'text-purple-600' },
 ];
 
 export const publicLinks: NavLink[] = [

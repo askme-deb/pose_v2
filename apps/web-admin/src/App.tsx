@@ -45,6 +45,7 @@ import SuperAdminDashboardPage from './pages/superadmin/SuperAdminDashboardPage'
 import SuperAdminTenantsPage from './pages/superadmin/SuperAdminTenantsPage';
 import SuperAdminSubscriptionsPage from './pages/superadmin/SuperAdminSubscriptionsPage';
 import SuperAdminWhiteLabelPage from './pages/superadmin/SuperAdminWhiteLabelPage';
+import SuperAdminCodesPage from './pages/superadmin/SuperAdminCodesPage';
 
 // On the landing host every non-landing path belongs to the portal host.
 function ToPortal() {
@@ -119,6 +120,7 @@ export default function App() {
                 <Route path="/superadmin/tenants" element={<SuperAdminTenantsPage />} />
                 <Route path="/superadmin/subscriptions" element={<SuperAdminSubscriptionsPage />} />
                 <Route path="/superadmin/white-label" element={<SuperAdminWhiteLabelPage />} />
+                <Route path="/superadmin/codes" element={<SuperAdminCodesPage />} />
               </Route>
             </Route>
           </Route>

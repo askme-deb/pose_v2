@@ -3,6 +3,7 @@ import { prisma } from './prisma';
 import { sendEmail, sendSms, sendWhatsApp } from './channels';
 import { sendPush } from './push';
 import { smtpConfigured } from './mailer';
+import { recordCode } from './devOutbox';
 
 async function tenantContact(tenantId: string) {
   const [profile, tenant] = await Promise.all([
@@ -64,6 +65,7 @@ export async function deliverNotification(job: NotificationJob): Promise<Deliver
       // Only server access reveals it, and it stops as soon as SMTP_HOST is set.
       if (!smtpConfigured()) {
         console.warn(`[notification-service] SMTP not configured: ${job.purpose} code for ${job.to} is ${job.code}`);
+        recordCode({ to: job.to, name: job.name, purpose: job.purpose, code: job.code });
         // Local dev: MailHog on localhost:1025, if it's running.
         if (process.env.NODE_ENV !== 'production') {
           await sendEmail({ to: job.to, subject: copy.subject, text: `${copy.lead}: ${job.code}` }).catch(() => undefined);
