@@ -52,6 +52,7 @@ import { listBranches, LiveBranch } from '../../services/api/businessProfile';
 import { formatDateTime } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
 import { apiErrorMessage } from '../auth/session';
+import { usePermission } from '../../hooks/usePermission';
 
 type RbacTab = 'roles' | 'matrix' | 'users' | 'audit';
 type RbacColorTheme = 'purple' | 'blue' | 'indigo' | 'emerald' | 'amber' | 'pink' | 'teal';
@@ -200,6 +201,9 @@ function permSummary(role: LiveRole) {
 
 export default function UserRolesPage() {
   const { showToast } = useToast();
+  // Changing staff, roles or the matrix needs user:manage (owners, branch admins);
+  // everyone else gets a read-only view of roles and the audit log.
+  const canManage = usePermission('user:manage');
 
   const [rolesState, setRolesState] = useState<LiveRole[]>([]);
   const [usersState, setUsersState] = useState<LiveRbacUser[]>([]);
@@ -235,13 +239,18 @@ export default function UserRolesPage() {
   async function reload() {
     setLoading(true);
     try {
-      const [roles, users, logs, brs] = await Promise.all([listRoles(), listRbacUsers(), listAuditLogs(), listBranches()]);
-      setRolesState(roles);
-      setUsersState(users);
-      setAuditState(logs);
-      setBranches(brs);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to load RBAC data from the server', 'danger');
+      // Each list loads on its own, so one the user may not read doesn't blank the rest.
+      const [roles, users, logs, brs] = await Promise.allSettled([
+        listRoles(),
+        canManage ? listRbacUsers() : Promise.resolve([]),
+        listAuditLogs(),
+        listBranches(),
+      ]);
+      if (roles.status === 'fulfilled') setRolesState(roles.value);
+      if (users.status === 'fulfilled') setUsersState(users.value);
+      if (logs.status === 'fulfilled') setAuditState(logs.value);
+      if (brs.status === 'fulfilled') setBranches(brs.value);
+      if (roles.status === 'rejected' || users.status === 'rejected') showToast('Failed to load roles or staff from the server', 'danger');
     } finally {
       setLoading(false);
     }
@@ -695,6 +704,7 @@ export default function UserRolesPage() {
               <Download className="w-3.5 h-3.5 text-teal-600" />
               <span>Export RBAC</span>
             </button>
+            {canManage && (
             <button
               onClick={() => openRoleDrawer()}
               className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-xs font-bold shadow-lg shadow-teal-500/25 transition transform hover:scale-[1.02]"
@@ -702,6 +712,7 @@ export default function UserRolesPage() {
               <ShieldPlus className="w-4 h-4" />
               <span>+ Create Custom Role</span>
             </button>
+            )}
           </div>
         </div>
       </GlassCard>
@@ -778,6 +789,7 @@ export default function UserRolesPage() {
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {canManage && (
                         <button
                           onClick={() => openRoleDrawer(role)}
                           title="Edit Permissions"
@@ -785,7 +797,8 @@ export default function UserRolesPage() {
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
-                        {!role.isSystem ? (
+                        )}
+                        {!role.isSystem ? (canManage && (
                           <button
                             onClick={() => handleDeleteRole(role)}
                             title="Delete Role"
@@ -793,7 +806,7 @@ export default function UserRolesPage() {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                        ) : (
+                        )) : (
                           <span className="text-[11px] text-slate-400 font-bold px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">System Role</span>
                         )}
                       </div>
@@ -817,6 +830,7 @@ export default function UserRolesPage() {
                 role.
               </p>
             </div>
+            {canManage && (
             <div className="flex items-center gap-2">
               <button
                 onClick={handleGrantAllRead}
@@ -831,6 +845,7 @@ export default function UserRolesPage() {
                 Reset Matrix
               </button>
             </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -868,7 +883,7 @@ export default function UserRolesPage() {
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                disabled={disabled}
+                                disabled={disabled || !canManage}
                                 onChange={(e) => handleToggleMatrix(role.id, mod.key, action, e.target.checked)}
                                 className="sr-only peer"
                               />
@@ -894,15 +909,25 @@ export default function UserRolesPage() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Active System User Accounts & Role Mapping</h3>
               <p className="text-xs text-slate-400">View personnel assigned to system roles, security status, and branch authorizations.</p>
             </div>
+            {canManage && (
             <button
               onClick={() => openUserModal()}
               className="px-3.5 py-1.5 rounded-xl bg-blue-600 text-white font-bold text-xs shadow-md hover:bg-blue-700 transition"
             >
               + Add User Account
             </button>
+            )}
           </div>
 
-          <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyTitle="No users found" emptyDescription="Try adjusting your search terms." />
+          {canManage ? (
+            <DataTable columns={userColumns} data={filteredUsers} loading={loading} emptyTitle="No users found" emptyDescription="Try adjusting your search terms." />
+          ) : (
+            <EmptyState
+              icon={Lock}
+              title="Only the business owner or a branch admin can manage staff"
+              description="Ask them to add staff, change roles or set POS PINs. Your account can view roles and the audit log."
+            />
+          )}
         </GlassCard>
       )}
 
