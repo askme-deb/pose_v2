@@ -54,9 +54,9 @@ export default function MobileDrawer({ open, onClose }: { open: boolean; onClose
           </div>
           <button
             onClick={() => {
-              void signOut();
+              const back = useAuthStore.getState().impersonator ? '/superadmin/tenants' : '/login';
               onClose();
-              navigate('/login');
+              void signOut().then(() => navigate(back));
             }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold"
           >

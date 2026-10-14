@@ -18,7 +18,7 @@ import { useThemeStore } from '../store/useThemeStore';
 import { useTenantStore } from '../store/useTenantStore';
 import { useBranchBootstrap } from '../hooks/useBranchBootstrap';
 import { useAuthStore } from '../store/useAuthStore';
-import { signOut } from '../services/api/client';
+import { exitImpersonation, signOut } from '../services/api/client';
 import {
   dashboardLinks,
   salesLinks,
@@ -126,7 +126,7 @@ function NavPill({ link, badgeColor }: { link: NavLink; badgeColor: 'blue' | 'pu
 export default function AppShell() {
   const { dark, toggleTheme } = useThemeStore();
   const { branches, branchId, selectBranch } = useTenantStore();
-  const { user } = useAuthStore();
+  const { user, impersonator } = useAuthStore();
   const branchesReady = useBranchBootstrap();
   const branch = branches.find((b) => b.id === branchId);
   const tenantName = user?.tenantName;
@@ -136,6 +136,21 @@ export default function AppShell() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      {impersonator && (
+        <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 bg-amber-500 text-amber-950 text-sm font-semibold">
+          <span>
+            Platform admin view: you are signed in as {user?.name} ({user?.email}) of {tenantName ?? 'this business'}. Everything you do is recorded as them.
+          </span>
+          <button
+            onClick={() => {
+              void exitImpersonation().then(() => navigate('/superadmin/tenants'));
+            }}
+            className="px-3 py-1 rounded-lg bg-amber-950 text-amber-50 text-xs font-bold hover:bg-black transition"
+          >
+            Exit to platform admin
+          </button>
+        </div>
+      )}
       <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80 dark:border-slate-800/80 shadow-md">
         <div className="px-4 lg:px-8 py-3 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
           <div className="flex items-center gap-3 shrink-0">
@@ -251,8 +266,8 @@ export default function AppShell() {
               <DropdownMenuItem onClick={() => navigate('/roles')}>Roles & RBAC</DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  void signOut();
-                  navigate('/login');
+                  const back = impersonator ? '/superadmin/tenants' : '/login';
+                  void signOut().then(() => navigate(back));
                 }}
                 className="text-red-600 dark:text-red-400"
               >

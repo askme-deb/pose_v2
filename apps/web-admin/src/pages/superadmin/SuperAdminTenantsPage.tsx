@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ColumnDef } from '@tanstack/react-table';
 import { Building, Building2, CreditCard, Database, Download, ExternalLink, Power, Search, Store } from 'lucide-react';
 import {
@@ -28,6 +29,8 @@ import {
   tenantDomain,
 } from '../../services/api/tenants';
 import { formatCompactINR, formatDateTime, formatINR } from '../../utils/format';
+import { impersonateTenant } from '../../services/api/client';
+import { apiErrorMessage } from '../auth/session';
 
 type TcTab = 'cards' | 'table' | 'db' | 'logs';
 type DbStrategy = 'dedicated' | 'shared';
@@ -86,6 +89,7 @@ function formatStorage(gb: number): string {
 
 export default function SuperAdminTenantsPage() {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TcTab>('cards');
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState<'all' | TenantPlan>('all');
@@ -240,8 +244,19 @@ export default function SuperAdminTenantsPage() {
     showToast('Multi-Tenant Directory Exported to CSV!', 'success');
   }
 
-  function impersonate() {
-    showToast('Impersonation is disabled in this demo environment.', 'info');
+  const [impersonating, setImpersonating] = useState(false);
+  async function impersonate(tenant: LiveTenant) {
+    setImpersonating(true);
+    try {
+      await impersonateTenant(tenant.id);
+      setDetailsTenant(null);
+      showToast(`You're now viewing ${tenant.organizationName} as its owner. This is recorded in their audit log.`, 'info');
+      navigate('/dashboard');
+    } catch (err) {
+      showToast(apiErrorMessage(err, 'Could not sign in as this tenant'), 'danger');
+    } finally {
+      setImpersonating(false);
+    }
   }
 
   const columns: ColumnDef<LiveTenant, any>[] = [
@@ -625,10 +640,11 @@ export default function SuperAdminTenantsPage() {
           detailsTenant && (
             <>
               <button
-                onClick={impersonate}
-                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2"
+                onClick={() => void impersonate(detailsTenant)}
+                disabled={impersonating}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-md flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                <ExternalLink className="w-4 h-4" /> Impersonate Admin Login
+                <ExternalLink className="w-4 h-4" /> {impersonating ? 'Signing in…' : 'Impersonate Admin Login'}
               </button>
               <button
                 onClick={() => {

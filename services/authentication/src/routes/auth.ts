@@ -5,7 +5,7 @@ import speakeasy from 'speakeasy';
 import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
 import { roleMap, issueTokens, verifyRefreshToken, issuePendingTwoFaToken, verifyPendingTwoFaToken } from '../lib/tokens';
-import { requireAuth } from '@pospe/permissions';
+import { requireAuth, requirePermission } from '@pospe/permissions';
 
 const router = Router();
 
@@ -292,6 +292,32 @@ router.post('/logout', requireAuth, async (req, res) => {
   }
   await logAudit(user.tenantId, user.name, 'LOGOUT', `${user.name} signed out${single ? '' : ' of every device'}`, 'LOW', req.ip);
   res.status(204).end();
+});
+
+// Platform support: the super admin signs in as a tenant's owner to see what
+// they see. It's a separate session (its own sid), so ending it revokes only
+// that session, never the owner's own devices, and it's written to the
+// tenant's audit log as HIGH risk so the owner can see it happened.
+const impersonateInput = z.object({ tenantId: z.string().min(1) });
+
+router.post('/impersonate', requireAuth, requirePermission('platform:manage'), async (req, res) => {
+  const parsed = impersonateInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const admin = await prisma.user.findUnique({ where: { id: req.authUser!.sub }, select: { name: true, email: true } });
+  const owner = await prisma.user.findFirst({
+    where: { tenantId: parsed.data.tenantId, role: 'TENANT_OWNER', isActive: true },
+    orderBy: { createdAt: 'asc' },
+    include: userRelations,
+  });
+  if (!owner) return res.status(404).json({ error: 'This tenant has no active owner account to sign in as' });
+
+  const tokens = issueTokens(owner);
+  if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
+
+  const adminLabel = admin ? `${admin.name} (${admin.email})` : 'Platform admin';
+  await logAudit(owner.tenantId, adminLabel, 'IMPERSONATION_STARTED', `Platform admin signed in as owner ${owner.name} (${owner.email})`, 'HIGH', req.ip);
+  res.json({ ...tokens, user: await serializeUser(owner) });
 });
 
 // "Am I still logged in, and who am I?" — 200 means carry on, 401 means
