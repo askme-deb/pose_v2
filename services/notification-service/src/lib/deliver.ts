@@ -2,6 +2,7 @@ import { buildBirthdayOfferMessage, buildLowStockMessage, type NotificationJob }
 import { prisma } from './prisma';
 import { sendEmail, sendSms, sendWhatsApp } from './channels';
 import { sendPush } from './push';
+import { smtpConfigured } from './mailer';
 
 async function tenantContact(tenantId: string) {
   const [profile, tenant] = await Promise.all([
@@ -58,6 +59,18 @@ export async function deliverNotification(job: NotificationJob): Promise<Deliver
     }
     case 'auth-otp': {
       const copy = OTP_COPY[job.purpose];
+      // No mail server yet: put the code in this service's log so whoever runs
+      // the server can hand it over (docker compose logs notification-service).
+      // Only server access reveals it, and it stops as soon as SMTP_HOST is set.
+      if (!smtpConfigured()) {
+        console.warn(`[notification-service] SMTP not configured: ${job.purpose} code for ${job.to} is ${job.code}`);
+        // Local dev: MailHog on localhost:1025, if it's running.
+        if (process.env.NODE_ENV !== 'production') {
+          await sendEmail({ to: job.to, subject: copy.subject, text: `${copy.lead}: ${job.code}` }).catch(() => undefined);
+        }
+        delivered.push('log');
+        break;
+      }
       await sendEmail({
         to: job.to,
         subject: copy.subject,

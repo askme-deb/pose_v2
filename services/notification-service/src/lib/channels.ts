@@ -9,7 +9,8 @@ export interface EmailMessage {
 }
 
 export async function sendEmail({ to, subject, text, from, attachments }: EmailMessage) {
-  await transporter.sendMail({ from: from ?? process.env.MAIL_FROM ?? '"PosPe" <no-reply@pospe.local>', to, subject, text, attachments });
+  // A configured MAIL_FROM wins: a real mail server only sends as your own domain.
+  await transporter.sendMail({ from: process.env.MAIL_FROM || from || '"PosPe" <no-reply@pospe.local>', to, subject, text, attachments });
 }
 
 // SMS and WhatsApp both go through Twilio's Messages API — WhatsApp is the
