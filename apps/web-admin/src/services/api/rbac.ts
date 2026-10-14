@@ -27,6 +27,8 @@ export interface LiveRbacUser {
   twoFaEnabled: boolean;
   active: boolean;
   lastActivityAt: string | null;
+  /** Has a 4-digit POS PIN for terminal sign-in (the PIN itself is never returned). */
+  hasPin: boolean;
 }
 
 export type AuditRiskRating = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -63,6 +65,7 @@ interface ApiUser {
   twoFaEnabled: boolean;
   isActive: boolean;
   lastActivityAt: string | null;
+  hasPin?: boolean;
 }
 
 interface ApiAuditLog {
@@ -99,6 +102,7 @@ function toLiveUser(u: ApiUser): LiveRbacUser {
     twoFaEnabled: u.twoFaEnabled,
     active: u.isActive,
     lastActivityAt: u.lastActivityAt,
+    hasPin: Boolean(u.hasPin),
   };
 }
 
@@ -168,6 +172,8 @@ export interface RbacUserInput {
   storeId?: string;
   twoFaEnabled?: boolean;
   isActive?: boolean;
+  /** 4-digit POS PIN; null removes it, undefined leaves it unchanged. */
+  pin?: string | null;
 }
 
 export async function createRbacUser(input: RbacUserInput): Promise<LiveRbacUser> {

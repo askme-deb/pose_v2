@@ -51,6 +51,7 @@ import {
 import { listBranches, LiveBranch } from '../../services/api/businessProfile';
 import { formatDateTime } from '../../utils/format';
 import { downloadCSV } from '../../utils/csv';
+import { apiErrorMessage } from '../auth/session';
 
 type RbacTab = 'roles' | 'matrix' | 'users' | 'audit';
 type RbacColorTheme = 'purple' | 'blue' | 'indigo' | 'emerald' | 'amber' | 'pink' | 'teal';
@@ -166,11 +167,17 @@ interface UserFormState {
   branchId: string;
   twoFaEnabled: boolean;
   active: boolean;
+  /** POS terminal PIN typed in this form (4 digits); never read back from the server. */
+  pin: string;
+  /** Editing: whether the user already has a PIN, and what to do with it. */
+  hasPin: boolean;
+  pinAction: 'keep' | 'set' | 'remove';
 }
 
 interface UserFormErrors {
   fullName?: string;
   email?: string;
+  pin?: string;
 }
 
 const emptyRoleForm: RoleFormState = {
@@ -219,6 +226,9 @@ export default function UserRolesPage() {
     branchId: '',
     twoFaEnabled: true,
     active: true,
+    pin: '',
+    hasPin: false,
+    pinAction: 'set',
   });
   const [userFormErrors, setUserFormErrors] = useState<UserFormErrors>({});
 
@@ -421,10 +431,13 @@ export default function UserRolesPage() {
         branchId: user.branchId,
         twoFaEnabled: user.twoFaEnabled,
         active: user.active,
+        pin: '',
+        hasPin: user.hasPin,
+        pinAction: 'keep',
       });
     } else {
       setEditingUserId(null);
-      setUserForm({ fullName: '', email: '', roleId: rolesState[0]?.id ?? '', branchId: branches[0]?.id ?? '', twoFaEnabled: true, active: true });
+      setUserForm({ fullName: '', email: '', roleId: rolesState[0]?.id ?? '', branchId: branches[0]?.id ?? '', twoFaEnabled: true, active: true, pin: '', hasPin: false, pinAction: 'set' });
     }
     setUserFormErrors({});
     setUserModalOpen(true);
@@ -441,6 +454,9 @@ export default function UserRolesPage() {
     const errors: UserFormErrors = {};
     if (!fullName) errors.fullName = 'Full name is required';
     if (!email) errors.email = 'Email address is required';
+    const pin = userForm.pin.trim();
+    if (userForm.pinAction === 'set' && pin && !/^\d{4}$/.test(pin)) errors.pin = 'PIN must be exactly 4 digits';
+    if (editingUserId && userForm.pinAction === 'set' && !pin) errors.pin = 'Enter the new 4-digit PIN';
     if (Object.keys(errors).length) {
       setUserFormErrors(errors);
       return;
@@ -456,6 +472,7 @@ export default function UserRolesPage() {
           storeId: userForm.branchId,
           twoFaEnabled: userForm.twoFaEnabled,
           isActive: userForm.active,
+          ...(userForm.pinAction === 'set' ? { pin } : userForm.pinAction === 'remove' ? { pin: null } : {}),
         });
         showToast(`Updated permissions for ${fullName}`, 'success');
       } else {
@@ -466,13 +483,14 @@ export default function UserRolesPage() {
           storeId: userForm.branchId,
           twoFaEnabled: userForm.twoFaEnabled,
           isActive: userForm.active,
+          ...(pin ? { pin } : {}),
         });
         showToast(`User account created for ${fullName}`, 'success');
       }
       await reload();
       closeUserModal();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not save user', 'danger');
+      showToast(apiErrorMessage(err, 'Could not save user'), 'danger');
     } finally {
       setSaving(false);
     }
@@ -544,6 +562,17 @@ export default function UserRolesPage() {
           <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-amber-500">
             <AlertTriangle className="w-3.5 h-3.5" /> Optional
           </span>
+        ),
+    },
+    {
+      header: 'POS PIN',
+      id: 'pin',
+      accessorFn: (u) => u.hasPin,
+      cell: ({ row }) =>
+        row.original.hasPin ? (
+          <span className="text-[11px] font-extrabold text-blue-600 dark:text-blue-400">Set</span>
+        ) : (
+          <span className="text-[11px] font-semibold text-slate-400">None</span>
         ),
     },
     {
@@ -1059,6 +1088,58 @@ export default function UserRolesPage() {
               onChange={(e) => setUserForm((f) => ({ ...f, branchId: e.target.value }))}
             />
           </div>
+          {editingUserId && userForm.pinAction === 'keep' ? (
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div>
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">POS PIN</p>
+                <p className="text-[12px] text-slate-500">
+                  {userForm.hasPin ? 'Set. This person can sign in on their branch\'s POS terminals with it.' : 'Not set. This person can only sign in with email and password.'}
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setUserForm((f) => ({ ...f, pinAction: 'set', pin: '' }))}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+                >
+                  {userForm.hasPin ? 'Change PIN' : 'Set PIN'}
+                </button>
+                {userForm.hasPin && (
+                  <button
+                    type="button"
+                    onClick={() => setUserForm((f) => ({ ...f, pinAction: 'remove' }))}
+                    className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-500/20"
+                  >
+                    Remove PIN
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : editingUserId && userForm.pinAction === 'remove' ? (
+            <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
+              <p className="text-[12px] text-red-600 dark:text-red-400 font-semibold">The PIN will be removed when you save.</p>
+              <button
+                type="button"
+                onClick={() => setUserForm((f) => ({ ...f, pinAction: 'keep' }))}
+                className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold"
+              >
+                Undo
+              </button>
+            </div>
+          ) : (
+            <Input
+              label={editingUserId ? 'New POS PIN' : 'POS PIN (optional)'}
+              value={userForm.pin}
+              error={userFormErrors.pin}
+              onChange={(e) => setUserForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              placeholder="4 digits, e.g. 4821"
+              hint="For signing in on POS terminals at the selected branch. Must be different from everyone else's PIN at that branch."
+              className="font-mono tracking-[0.4em]"
+            />
+          )}
           <div className="flex items-center justify-between pt-2">
             <Checkbox
               label="Mandatory 2-Factor Auth"
