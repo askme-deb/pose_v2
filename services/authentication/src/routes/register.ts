@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 import { logAudit } from '../lib/audit';
 import { sendAuthOtp } from '@pospe/notifications';
 import { createOtp } from '../lib/otp';
-import { DEFAULT_ROLE_DEFS } from '../lib/roleTemplates';
+import { setUpTenant } from '../lib/provisioning';
 
 const router = Router();
 
@@ -64,33 +64,7 @@ router.post('/register', async (req, res) => {
       data: { name: businessName, slug, ownerName, ownerEmail: email, status: 'TRIAL' },
     });
 
-    const store = await tx.store.create({
-      data: { tenantId: tenant.id, name: 'Main Store', isPrimary: true, phone },
-    });
-
-    await tx.tenantProfile.create({
-      data: { tenantId: tenant.id, registeredName: businessName, supportEmail: email, helplinePhone: phone },
-    });
-
-    const roleIdByCode: Record<string, string> = {};
-    for (const r of DEFAULT_ROLE_DEFS) {
-      const role = await tx.rbacRole.create({ data: { tenantId: tenant.id, ...r } });
-      roleIdByCode[r.code] = role.id;
-    }
-
-    const owner = await tx.user.create({
-      data: {
-        tenantId: tenant.id,
-        storeId: store.id,
-        rbacRoleId: roleIdByCode.ROLE_SUPER_ADMIN,
-        name: ownerName,
-        email,
-        passwordHash,
-        role: 'TENANT_OWNER',
-        isActive: true,
-        lastActivityAt: new Date(),
-      },
-    });
+    const { owner } = await setUpTenant(tx, { tenantId: tenant.id, businessName, ownerName, email, passwordHash, phone });
 
     return { tenant, owner };
   });

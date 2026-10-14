@@ -65,7 +65,23 @@ router.post('/tenants', async (req, res) => {
     include: { _count: { select: { stores: true } } },
   });
   await logAudit(tenant.id, actor, 'TENANT_PROVISIONED', `Provisioned tenant ${tenant.name} (${tenant.slug}.pospe.com)`, 'MEDIUM', req.ip);
-  res.status(201).json(withComputed(tenant));
+
+  // The owner's login account (plus store, profile and starter roles) lives in
+  // authentication-service; create it with the admin's own credentials. If it
+  // fails the tenant still exists, and the admin portal can retry it.
+  let ownerError: string | undefined;
+  try {
+    const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:4001';
+    const response = await fetch(`${authUrl}/tenants/${tenant.id}/owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', authorization: req.header('authorization') ?? '' },
+      body: '{}',
+    });
+    if (!response.ok) ownerError = ((await response.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${response.status}`;
+  } catch (err) {
+    ownerError = (err as Error).message;
+  }
+  res.status(201).json({ ...withComputed(tenant), ...(ownerError ? { ownerError } : {}) });
 });
 
 router.put('/tenants/:id', async (req, res) => {

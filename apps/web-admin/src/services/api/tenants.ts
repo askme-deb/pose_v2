@@ -128,9 +128,15 @@ export interface TenantInput {
   dbStrategy?: 'dedicated' | 'shared';
 }
 
-export async function createTenant(input: TenantInput): Promise<LiveTenant> {
-  const tenant = await apiClient.post<ApiTenant>('/api/subscription/tenants', { ...input, actorName: actorName() });
-  return toLiveTenant(tenant);
+/** Creates the tenant; ownerError is set if its owner account couldn't be created (retry with createTenantOwner). */
+export async function createTenant(input: TenantInput): Promise<{ tenant: LiveTenant; ownerError?: string }> {
+  const tenant = await apiClient.post<ApiTenant & { ownerError?: string }>('/api/subscription/tenants', { ...input, actorName: actorName() });
+  return { tenant: toLiveTenant(tenant), ownerError: tenant.ownerError };
+}
+
+/** Platform admin: creates a tenant's missing owner account and emails them an invite code. */
+export function createTenantOwner(tenantId: string) {
+  return apiClient.post<{ id: string; name: string; email: string; inviteSent: boolean }>(`/api/auth/tenants/${tenantId}/owner`, {});
 }
 
 export async function updateTenant(id: string, input: Partial<TenantInput>): Promise<LiveTenant> {

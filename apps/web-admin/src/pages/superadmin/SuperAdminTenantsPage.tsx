@@ -27,10 +27,12 @@ import {
   toggleTenantStatus,
   listPlatformAuditLogs,
   tenantDomain,
+  createTenantOwner,
 } from '../../services/api/tenants';
 import { formatCompactINR, formatDateTime, formatINR } from '../../utils/format';
 import { impersonateTenant } from '../../services/api/client';
 import { apiErrorMessage } from '../auth/session';
+import { ApiError } from '@pospe/api-client';
 
 type TcTab = 'cards' | 'table' | 'db' | 'logs';
 type DbStrategy = 'dedicated' | 'shared';
@@ -207,8 +209,9 @@ export default function SuperAdminTenantsPage() {
         await updateTenant(editId, input);
         showToast(`Updated tenant record '${input.organizationName}'`, 'success');
       } else {
-        await createTenant(input);
-        showToast(`Provisioned Enterprise Tenant '${input.organizationName}'!`, 'success');
+        const { ownerError } = await createTenant(input);
+        if (ownerError) showToast(`Tenant created, but its owner account wasn't: ${ownerError}. Use Impersonate to retry.`, 'warning');
+        else showToast(`Provisioned '${input.organizationName}'. ${input.ownerEmail} has been emailed an invite to set their password.`, 'success');
       }
       await reload();
       setDrawerOpen(false);
@@ -253,7 +256,24 @@ export default function SuperAdminTenantsPage() {
       showToast(`You're now viewing ${tenant.organizationName} as its owner. This is recorded in their audit log.`, 'info');
       navigate('/dashboard');
     } catch (err) {
-      showToast(apiErrorMessage(err, 'Could not sign in as this tenant'), 'danger');
+      // Tenants provisioned before owner accounts were created automatically have none yet.
+      if (err instanceof ApiError && err.status === 404 && tenant.ownerEmail) {
+        const ok = window.confirm(
+          `${tenant.organizationName} has no owner login yet.\n\nCreate one for ${tenant.ownerName} (${tenant.ownerEmail}) and email them an invite to set their password?`,
+        );
+        if (ok) {
+          try {
+            await createTenantOwner(tenant.id);
+            showToast(`Owner account created and invite sent to ${tenant.ownerEmail}.`, 'success');
+            setImpersonating(false);
+            return impersonate(tenant);
+          } catch (createErr) {
+            showToast(apiErrorMessage(createErr, 'Could not create the owner account'), 'danger');
+          }
+        }
+      } else {
+        showToast(apiErrorMessage(err, 'Could not sign in as this tenant'), 'danger');
+      }
     } finally {
       setImpersonating(false);
     }

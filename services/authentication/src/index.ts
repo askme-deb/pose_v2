@@ -8,6 +8,7 @@ import { requireAuth } from '@pospe/permissions';
 import healthRouter from './routes/health';
 import rolesRouter from './routes/roles';
 import usersRouter from './routes/users';
+import tenantOwnerRouter from './routes/tenantOwner';
 import auditLogsRouter from './routes/auditLogs';
 import authRouter from './routes/auth';
 import registerRouter from './routes/register';
@@ -41,6 +42,7 @@ app.use('/', passwordRouter);
 app.use(requireAuth);
 app.use('/', rolesRouter);
 app.use('/', usersRouter);
+app.use('/', tenantOwnerRouter);
 app.use('/', auditLogsRouter);
 
 app.use(errorHandler);

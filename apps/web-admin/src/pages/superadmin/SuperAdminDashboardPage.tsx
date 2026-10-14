@@ -235,7 +235,7 @@ export default function SuperAdminDashboardPage() {
     }
     setSaving(true);
     try {
-      const tenant = await createTenant({
+      const { tenant, ownerError } = await createTenant({
         organizationName: formOrgName.trim(),
         subdomain: formSubdomain.trim().toLowerCase(),
         ownerName: formOwnerName.trim(),
@@ -245,7 +245,8 @@ export default function SuperAdminDashboardPage() {
       });
       await reload();
       setDrawerOpen(false);
-      showToast(`Provisioned new SaaS Tenant '${tenant.organizationName}'!`, 'success');
+      if (ownerError) showToast(`Tenant created, but its owner account wasn't: ${ownerError}. Use Impersonate on the Tenants page to retry.`, 'warning');
+      else showToast(`Provisioned '${tenant.organizationName}'. ${tenant.ownerEmail} has been emailed an invite to set their password.`, 'success');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Could not provision tenant', 'danger');
     } finally {
