@@ -21,6 +21,11 @@ const pinLoginInput = z.object({
   storeId: z.string().min(1, 'This terminal is not paired with a store'),
 });
 
+const emailPinLoginInput = z.object({
+  email: z.string().email(),
+  pin: z.string().regex(/^\d{4}$/, 'PIN must be 4 digits'),
+});
+
 const refreshInput = z.object({
   refreshToken: z.string().min(1),
 });
@@ -234,6 +239,46 @@ router.post('/login/pin', async (req, res) => {
   res.json({
     ...tokens,
     user: { ...(await serializeUser(matched)), storeId: store.id },
+    store: { id: store.id, name: store.name },
+  });
+});
+
+// Cashier sign-in on any phone: their email names the account, the 4-digit
+// PIN proves it. No store pairing needed — the session acts on the user's
+// own store. Wrong PINs count toward the same per-account lockout as wrong
+// passwords (5 tries, then 15 minutes), so a PIN can't be brute-forced.
+router.post('/login/email-pin', async (req, res) => {
+  const parsed = emailPinLoginInput.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { email, pin } = parsed.data;
+
+  const user = await prisma.user.findFirst({ where: { email }, include: userRelations });
+  if (user && isLocked(user)) {
+    return res.status(423).json({ error: `Too many failed attempts. Try again after ${user.lockedUntil!.toLocaleTimeString('en-IN')}.` });
+  }
+
+  const pinValid = user?.pinHash ? await bcrypt.compare(pin, user.pinHash) : false;
+  if (!user || !pinValid) {
+    if (user) await recordFailedLogin(req, user, `Failed PIN sign-in for ${email}`);
+    return res.status(401).json({ error: 'Invalid email or PIN' });
+  }
+  if (rejectIfBlocked(user, res)) return;
+
+  const storeId = await defaultStoreId(user);
+  if (!storeId) return res.status(409).json({ error: 'Your account is not assigned to a store yet. Ask your manager.' });
+  const store = await prisma.store.findFirst({ where: { id: storeId, tenantId: user.tenantId, isActive: true }, select: { id: true, name: true } });
+  if (!store) return res.status(409).json({ error: 'Your store is inactive or no longer exists. Ask your manager.' });
+
+  // Same token shape as the terminal PIN login, so refresh keeps this store.
+  const tokens = issueTokens({ ...user, storeId: store.id }, { pinStoreId: store.id });
+  if (!tokens) return res.status(500).json({ error: 'Server auth configuration is missing JWT secrets' });
+
+  await prisma.user.update({ where: { id: user.id }, data: { lastActivityAt: new Date(), failedLoginAttempts: 0, lockedUntil: null } });
+  await logAudit(user.tenantId, user.name, 'LOGIN_SUCCESS', `${user.name} authenticated with email + PIN at ${store.name}`, 'LOW', req.ip);
+
+  res.json({
+    ...tokens,
+    user: { ...(await serializeUser(user)), storeId: store.id },
     store: { id: store.id, name: store.name },
   });
 });

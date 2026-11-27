@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { userHasPermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -26,6 +27,10 @@ function pctDelta(current: number, previous: number): number {
 }
 
 router.get('/dashboard', async (req, res) => {
+  // Business-wide sales figures are for back office, not the counter.
+  if (req.authUser?.role === 'cashier' && !userHasPermission(req.authUser, 'report:view')) {
+    return res.status(403).json({ error: 'Missing required permission: report:view' });
+  }
   const tenantId = await resolveTenantId(req);
   const timeframe = ((req.query.timeframe as string) || 'today') as Timeframe;
   if (!WINDOW_DAYS[timeframe]) return res.status(400).json({ error: 'Invalid timeframe' });

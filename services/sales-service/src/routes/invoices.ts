@@ -64,12 +64,16 @@ router.get('/invoices', async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
+  // A cashier sees only the bills they rang up themselves, never the store's
+  // (or a manager's) sales — unless their tenant role grants report:view.
+  const ownOnly = createdBy === 'me' || (req.authUser?.role === 'cashier' && !userHasPermission(req.authUser, 'report:view'));
+
   const invoices = await prisma.invoice.findMany({
     where: {
       storeId,
       ...(from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}),
       ...(status ? { status } : {}),
-      ...(createdBy === 'me' ? { createdById: actingUserId(req) ?? '__none__' } : {}),
+      ...(ownOnly ? { createdById: actingUserId(req) ?? '__none__' } : {}),
     },
     include: { items: { include: { product: { select: { id: true, name: true } } } } },
     orderBy: { createdAt: 'desc' },

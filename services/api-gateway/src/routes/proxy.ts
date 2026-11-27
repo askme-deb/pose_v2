@@ -25,6 +25,7 @@ const services: Record<string, string> = {
 const PUBLIC_PATHS = [
   '/api/auth/login',
   '/api/auth/login/pin',
+  '/api/auth/login/email-pin',
   '/api/auth/login/2fa-verify',
   '/api/auth/refresh',
   '/api/auth/register',
@@ -58,6 +59,8 @@ const LIMITER_BY_PATH = new Map([
   ['/api/auth/login', loginLimiter],
   ['/api/auth/login/2fa-verify', loginLimiter],
   ['/api/auth/login/pin', pinLimiter],
+  // Per-account lockout in the auth service backs this up.
+  ['/api/auth/login/email-pin', loginLimiter],
   ['/api/auth/register', credentialLimiter],
   ['/api/auth/password/forgot', credentialLimiter],
   ['/api/auth/password/reset', credentialLimiter],
