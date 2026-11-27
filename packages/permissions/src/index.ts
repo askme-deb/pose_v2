@@ -6,6 +6,8 @@ export {
   signInternalToken,
   verifyToken,
   userHasPermission,
+  isFrontline,
+  denyFrontline,
   tenantIdOf,
   HttpError,
   type AuthedUser,

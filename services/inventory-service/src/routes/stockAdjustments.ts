@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { notifyLowStock } from '@pospe/notifications';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
@@ -16,7 +16,7 @@ const adjustmentInput = z.object({
   auditor: z.string().min(1),
 });
 
-router.get('/stock-adjustments', async (req, res) => {
+router.get('/stock-adjustments', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const adjustments = await prisma.stockAdjustment.findMany({
     where: { tenantId },

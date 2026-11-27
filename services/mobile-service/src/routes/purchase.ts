@@ -1,13 +1,13 @@
 import { Router, type Request } from 'express';
 import { z } from 'zod';
-import { requirePermission, HttpError, tenantIdOf } from '@pospe/permissions';
+import { requirePermission, HttpError, tenantIdOf, denyFrontline } from '@pospe/permissions';
 import { prisma, ctxOf } from '../lib/prisma';
 import { round2, ymd } from '../lib/util';
 
 const router = Router();
 const PURCHASE_SERVICE_URL = () => process.env.PURCHASE_SERVICE_URL || 'http://localhost:4004';
 
-router.get('/get-sellers', async (req, res) => {
+router.get('/get-sellers', denyFrontline, async (req, res) => {
   const tenantId = tenantIdOf(req);
   const suppliers = await prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: 'asc' } });
   res.json({ sellers: suppliers.map((s) => ({ id: s.id, seller_name: s.name })) });

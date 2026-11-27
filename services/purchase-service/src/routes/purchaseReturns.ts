@@ -1,7 +1,7 @@
 import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -24,7 +24,7 @@ const include = {
   supplier: { select: { id: true, name: true } },
 } as const;
 
-router.get('/purchase-returns', async (req, res) => {
+router.get('/purchase-returns', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const returns = await prisma.purchaseReturn.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(returns);

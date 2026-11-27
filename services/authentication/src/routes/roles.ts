@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { logAudit, actorOf } from '../lib/audit';
 
@@ -73,7 +73,7 @@ const SYSTEM_ROLE_DEFAULTS: Record<string, z.infer<typeof permissionsSchema>> = 
   },
 };
 
-router.get('/roles', async (req, res) => {
+router.get('/roles', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const roles = await prisma.rbacRole.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
   res.json(roles);

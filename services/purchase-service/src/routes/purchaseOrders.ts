@@ -1,7 +1,7 @@
 import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { HttpError } from '@pospe/permissions';
 import { receiveGoods, PurchaseOrderNotFoundError, OverReceiveError } from '../lib/receiving';
@@ -29,13 +29,13 @@ const include = {
   items: { include: { product: { select: { id: true, name: true } } } },
 } as const;
 
-router.get('/purchase-orders', async (req, res) => {
+router.get('/purchase-orders', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const orders = await prisma.purchaseOrder.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(orders);
 });
 
-router.get('/purchase-orders/:id', async (req, res) => {
+router.get('/purchase-orders/:id', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const order = await prisma.purchaseOrder.findFirst({ where: { id: req.params.id, tenantId }, include });
   if (!order) return res.status(404).json({ error: 'Purchase order not found' });

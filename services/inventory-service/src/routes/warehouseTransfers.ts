@@ -1,7 +1,7 @@
 import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -19,7 +19,7 @@ const include = {
   items: { include: { product: { select: { id: true, name: true, costPrice: true } } } },
 } as const;
 
-router.get('/warehouse-transfers', async (req, res) => {
+router.get('/warehouse-transfers', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const transfers = await prisma.warehouseTransfer.findMany({ where: { tenantId }, include, orderBy: { createdAt: 'desc' } });
   res.json(transfers);

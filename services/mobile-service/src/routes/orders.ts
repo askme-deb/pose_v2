@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { requirePermission, HttpError } from '@pospe/permissions';
+import { requirePermission, HttpError, isFrontline } from '@pospe/permissions';
 import { prisma, ctxOf, type MobileCtx } from '../lib/prisma';
 import { buildView, cartLines, displayName, heldInclude, orderLines, recomputeHeld } from '../lib/orderView';
 import { dayEnd, dayStart, holdCode, idFromHoldCode, num, round2, titleCaseMethod, toNum } from '../lib/util';
@@ -324,6 +324,8 @@ router.get('/order-history', async (req, res) => {
       storeId: ctx.storeId,
       status: { in: ['PAID', 'REFUNDED', 'PARTIALLY_PAID'] },
       createdAt: dateFilter(req.query),
+      // Cashiers see the bills they rang up, not the whole store's.
+      ...(isFrontline(req.authUser) ? { createdById: ctx.userId } : {}),
       ...(number ? { invoiceNumber: { contains: number, mode: 'insensitive' } } : {}),
     },
     orderBy: { createdAt: 'desc' },
@@ -352,7 +354,13 @@ router.get('/draft-order-history', async (req, res) => {
 async function loadOrder(req: Request) {
   const ctx = await ctxOf(req);
   const order = await prisma.invoice.findFirst({
-    where: { id: String(req.params.id), storeId: ctx.storeId, store: { tenantId: ctx.tenantId } },
+    where: {
+      id: String(req.params.id),
+      storeId: ctx.storeId,
+      store: { tenantId: ctx.tenantId },
+      // Cashiers: held orders are shared at the counter; paid ones only their own.
+      ...(isFrontline(req.authUser) ? { OR: [{ status: 'HELD' as const }, { createdById: ctx.userId }] } : {}),
+    },
     include: { items: { include: { product: true }, orderBy: { id: 'asc' } }, store: true },
   });
   if (!order) throw new HttpError(404, 'Order not found');

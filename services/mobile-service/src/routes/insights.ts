@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, isFrontline } from '@pospe/permissions';
 import { prisma, ctxOf } from '../lib/prisma';
 import { ddmmyyyy, ddmmyyyyHhmm, dayEnd, dayStart, monthName, num, rangeFor, round2, titleCaseMethod, weekdayName } from '../lib/util';
 
@@ -68,7 +68,13 @@ router.get('/get-date-wise-total-payment', async (req, res) => {
   const end = q(req.query.end_date) ? dayStart(String(req.query.end_date)) : null;
   const from = start ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const invoices = await prisma.invoice.findMany({
-    where: { storeId: ctx.storeId, status: 'PAID', createdAt: { gte: from, ...(end ? { lte: dayEnd(end) } : {}) } },
+    where: {
+      storeId: ctx.storeId,
+      status: 'PAID',
+      createdAt: { gte: from, ...(end ? { lte: dayEnd(end) } : {}) },
+      // Cashiers: their own takings, not the store's.
+      ...(isFrontline(req.authUser) ? { createdById: ctx.userId } : {}),
+    },
     orderBy: { createdAt: 'desc' },
     select: { createdAt: true, total: true, paymentMethod: true },
   });
@@ -95,6 +101,7 @@ router.get('/get-transaction-details', async (req, res) => {
       storeId: ctx.storeId,
       status: 'PAID',
       createdAt: { gte: day, lte: dayEnd(day) },
+      ...(isFrontline(req.authUser) ? { createdById: ctx.userId } : {}),
       ...(method && method !== 'All' ? { paymentMethod: method.toUpperCase() as 'CASH' | 'UPI' | 'CARD' } : {}),
     },
     orderBy: { createdAt: 'desc' },

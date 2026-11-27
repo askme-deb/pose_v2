@@ -71,6 +71,22 @@ export function userHasPermission(user: AuthedUser | undefined, permission: stri
   return hasPermission(user.role, permission);
 }
 
+/**
+ * Counter staff: a cashier whose role doesn't grant reporting (Finance → View
+ * in the tenant's matrix). They work the till, so they see their own bills
+ * and what they need to sell, never the business's figures, purchasing,
+ * stock control or other staff.
+ */
+export function isFrontline(user: AuthedUser | undefined): boolean {
+  return user?.role === 'cashier' && !userHasPermission(user, 'report:view');
+}
+
+/** Chain after requireAuth on back-office reads that counter staff must not see. */
+export function denyFrontline(req: Request, res: Response, next: NextFunction) {
+  if (isFrontline(req.authUser)) return res.status(403).json({ error: 'Not available to cashier accounts' });
+  next();
+}
+
 // Chain after requireAuth. 403s when the caller lacks `permission` — from
 // their tenant RBAC matrix when the token carries one, otherwise from
 // ROLE_PERMISSIONS (packages/permissions/src/roles.ts).

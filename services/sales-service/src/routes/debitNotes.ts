@@ -1,7 +1,7 @@
 import { createWithNextNumber } from '@pospe/utilities';
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 
 const router = Router();
@@ -16,7 +16,7 @@ const include = {
   invoice: { select: { id: true, invoiceNumber: true } },
 } as const;
 
-router.get('/debit-notes', async (req, res) => {
+router.get('/debit-notes', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const notes = await prisma.debitNote.findMany({ where: { storeId }, include, orderBy: { createdAt: 'desc' } });

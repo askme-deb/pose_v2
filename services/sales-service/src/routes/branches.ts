@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, isFrontline, userHasPermission } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -15,10 +15,19 @@ const branchInput = z.object({
   printers: z.number().int().nonnegative().optional(),
 });
 
+// Counter staff only need what a receipt or branch picker shows; the card
+// machine's credentials only go to people who can manage stores.
+const frontlineBranch = { id: true, name: true, code: true, type: true, isPrimary: true, isActive: true, address: true, gstin: true } as const;
+
 router.get('/branches', async (req, res) => {
   const tenantId = await resolveTenantId(req);
-  const branches = await prisma.store.findMany({ where: { tenantId }, orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }] });
-  res.json(branches);
+  const orderBy = [{ isPrimary: 'desc' as const }, { name: 'asc' as const }];
+  if (isFrontline(req.authUser)) {
+    return res.json(await prisma.store.findMany({ where: { tenantId }, orderBy, select: frontlineBranch }));
+  }
+  const branches = await prisma.store.findMany({ where: { tenantId }, orderBy });
+  const canManageStores = userHasPermission(req.authUser, 'store:manage');
+  res.json(canManageStores ? branches : branches.map(({ posPassword: _pw, posAppKey: _key, ...b }) => b));
 });
 
 router.post('/branches', requirePermission('store:manage'), async (req, res) => {

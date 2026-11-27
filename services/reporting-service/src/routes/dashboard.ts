@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -25,7 +26,7 @@ function pctDelta(current: number, previous: number): number {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-router.get('/dashboard', async (req, res) => {
+router.get('/dashboard', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const timeframe = ((req.query.timeframe as string) || 'today') as Timeframe;
   if (!WINDOW_DAYS[timeframe]) return res.status(400).json({ error: 'Invalid timeframe' });

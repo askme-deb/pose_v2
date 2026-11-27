@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 import { computeInvoiceTotals, createWithNextNumber } from '@pospe/utilities';
 import { checkoutInvoice, CustomerNotFoundError, ProductNotFoundError, InsufficientStockError } from '../lib/checkout';
@@ -27,7 +27,7 @@ const include = {
 
 const numberPrefix = { QUOTATION: 'QT', ESTIMATE: 'ES' } as const;
 
-router.get('/quotations', async (req, res) => {
+router.get('/quotations', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const kind = req.query.kind === 'ESTIMATE' ? 'ESTIMATE' : req.query.kind === 'QUOTATION' ? 'QUOTATION' : undefined;

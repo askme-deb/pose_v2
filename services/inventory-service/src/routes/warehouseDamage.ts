@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -11,7 +11,7 @@ const include = {
   product: { select: { id: true, name: true, sku: true } },
 } as const;
 
-router.get('/warehouse-damage-reports', async (req, res) => {
+router.get('/warehouse-damage-reports', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const where = { tenantId, ...(req.query.warehouseId ? { warehouseId: String(req.query.warehouseId) } : {}) };
   const reports = await prisma.warehouseDamageReport.findMany({ where, include, orderBy: { createdAt: 'desc' } });

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -9,7 +9,7 @@ const rackInclude = {
   items: { include: { product: { select: { id: true, name: true, sku: true } } } },
 } as const;
 
-router.get('/warehouses/:id/racks', async (req, res) => {
+router.get('/warehouses/:id/racks', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const racks = await prisma.warehouseRack.findMany({
     where: { warehouseId: req.params.id, tenantId },

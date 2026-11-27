@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth, tenantIdOf } from '@pospe/permissions';
+import { requireAuth, tenantIdOf, isFrontline } from '@pospe/permissions';
 import { esClient, SEARCH_INDICES } from '../lib/elasticsearch';
 
 const router = Router();
@@ -37,12 +37,16 @@ router.get('/api/search', requireAuth, async (req, res) => {
       },
     });
 
+    // Counter staff: no other people's bills, and no cost prices (margins).
+    const frontline = isFrontline(req.authUser);
     const grouped: GroupedResults = { products: [], customers: [], invoices: [] };
     for (const hit of response.hits.hits) {
-      const doc = { ...(hit._source as Record<string, unknown>), _id: hit._id };
-      if (hit._index === SEARCH_INDICES.products) grouped.products.push(doc);
-      else if (hit._index === SEARCH_INDICES.customers) grouped.customers.push(doc);
-      else if (hit._index === SEARCH_INDICES.invoices) grouped.invoices.push(doc);
+      const doc: Record<string, unknown> = { ...(hit._source as Record<string, unknown>), _id: hit._id };
+      if (hit._index === SEARCH_INDICES.products) {
+        if (frontline) delete doc.costPrice;
+        grouped.products.push(doc);
+      } else if (hit._index === SEARCH_INDICES.customers) grouped.customers.push(doc);
+      else if (hit._index === SEARCH_INDICES.invoices && !frontline) grouped.invoices.push(doc);
     }
     res.json(grouped);
   } catch (err) {

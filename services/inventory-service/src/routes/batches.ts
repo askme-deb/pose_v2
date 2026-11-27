@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -9,7 +9,7 @@ const include = {
   product: { select: { id: true, name: true, sku: true } },
 } as const;
 
-router.get('/products/:id/batches', async (req, res) => {
+router.get('/products/:id/batches', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const batches = await prisma.productBatch.findMany({
     where: { productId: req.params.id, tenantId },
@@ -22,7 +22,7 @@ router.get('/products/:id/batches', async (req, res) => {
 // FEFO expiry report — every batch (across every product) expiring within
 // the window, soonest first, so a manager can act on what's about to go bad
 // without having to open each product one at a time.
-router.get('/batches/expiring', async (req, res) => {
+router.get('/batches/expiring', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const days = Math.max(0, Number(req.query.days) || 30);
   const cutoff = new Date();

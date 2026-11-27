@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -32,7 +32,7 @@ async function withStats<T extends { id: string }>(suppliers: T[]) {
   });
 }
 
-router.get('/suppliers', async (req, res) => {
+router.get('/suppliers', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const suppliers = await prisma.supplier.findMany({ where: { tenantId }, orderBy: { name: 'asc' } });
   res.json(await withStats(suppliers));

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { effectivePermissions, requireAuth, requirePermission, HttpError, tenantIdOf, type AuthedUser, type Role } from '@pospe/permissions';
+import { effectivePermissions, requireAuth, requirePermission, HttpError, tenantIdOf, isFrontline, type AuthedUser, type Role } from '@pospe/permissions';
 import { prisma, ctxOf, storeScope, LOCK_TTL_MS } from '../lib/prisma';
 
 export const publicRouter = Router();
@@ -216,9 +216,10 @@ router.post('/add-pos-details', requirePermission('store:manage'), async (req, r
 });
 
 router.get('/get-login-logs', async (req, res) => {
-  const { tenantId, storeId } = await ctxOf(req);
+  const { tenantId, storeId, userId } = await ctxOf(req);
   const logs = await prisma.loginLog.findMany({
-    where: { tenantId, OR: [{ storeId }, { storeId: null }] },
+    // Cashiers see their own sign-ins, not other staff's.
+    where: { tenantId, OR: [{ storeId }, { storeId: null }], ...(isFrontline(req.authUser) ? { userId } : {}) },
     orderBy: { loginAt: 'desc' },
     take: 200,
   });

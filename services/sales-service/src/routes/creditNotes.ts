@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission, HttpError } from '@pospe/permissions';
+import { requirePermission, HttpError, denyFrontline } from '@pospe/permissions';
 import { computeInvoiceTotals, round2, createWithNextNumber } from '@pospe/utilities';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 import { restock, unstock } from '../lib/stock';
@@ -23,7 +23,7 @@ const include = {
   invoice: { select: { id: true, invoiceNumber: true } },
 } as const;
 
-router.get('/credit-notes', async (req, res) => {
+router.get('/credit-notes', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
   const notes = await prisma.creditNote.findMany({ where: { storeId }, include, orderBy: { createdAt: 'desc' } });

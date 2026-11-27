@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { denyFrontline } from '@pospe/permissions';
 import { z } from 'zod';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
@@ -16,7 +17,7 @@ function randomARN(): string {
   return `AA270826${Math.floor(100000 + Math.random() * 900000)}`;
 }
 
-router.get('/gst-returns', async (req, res) => {
+router.get('/gst-returns', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const returns = await prisma.gstReturn.findMany({ where: { tenantId }, orderBy: { periodMonth: 'desc' } });
   res.json(returns);
@@ -62,7 +63,7 @@ router.post('/gst-returns/:id/file', async (req, res) => {
 // reaches into purchase-service's tables directly; services share one Postgres
 // database in this scaffold, so that's a pragmatic read across the domain
 // boundary rather than a real service-to-service call.
-router.get('/gst-summary', async (req, res) => {
+router.get('/gst-summary', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
 
   const invoiceItems = await prisma.invoiceItem.findMany({

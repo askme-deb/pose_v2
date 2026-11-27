@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 
 const router = Router();
@@ -13,7 +13,7 @@ const warehouseInput = z.object({
   manager: z.string().optional(),
 });
 
-router.get('/warehouses', async (req, res) => {
+router.get('/warehouses', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const warehouses = await prisma.warehouse.findMany({ where: { tenantId }, orderBy: { name: 'asc' } });
   res.json(warehouses);

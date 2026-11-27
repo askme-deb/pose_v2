@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission } from '@pospe/permissions';
+import { requirePermission, denyFrontline } from '@pospe/permissions';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { receiveGoods, grnInclude, PurchaseOrderNotFoundError, OverReceiveError, SerialCountMismatchError } from '../lib/receiving';
 
@@ -21,7 +21,7 @@ const createGrnInput = z.object({
   notes: z.string().optional(),
 });
 
-router.get('/grns', async (req, res) => {
+router.get('/grns', denyFrontline, async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const where = { tenantId, ...(req.query.purchaseOrderId ? { purchaseOrderId: String(req.query.purchaseOrderId) } : {}) };
   const grns = await prisma.goodsReceivedNote.findMany({ where, include: grnInclude, orderBy: { createdAt: 'desc' } });

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Prisma } from '@prisma/client';
 import multer from 'multer';
 import { z } from 'zod';
-import { HttpError, requirePermission } from '@pospe/permissions';
+import { HttpError, requirePermission, isFrontline } from '@pospe/permissions';
 import { ALLOWED_IMAGE_TYPES, deleteStoredImage, storeImage } from '../lib/storage';
 import { prisma, resolveTenantId } from '../lib/prisma';
 import { indexProduct, deleteProductFromIndex } from '../lib/elasticsearch';
@@ -158,6 +158,14 @@ function optionRollup(options: OptionInput[]) {
   };
 }
 
+// Counter staff sell at the selling price; what the business paid (cost, and
+// so its margin) is back-office information.
+type WithCost = { costPrice?: unknown; options?: { costPrice?: unknown }[] };
+function withoutCost<T extends WithCost>(product: T): T {
+  const { costPrice: _cost, ...rest } = product;
+  return { ...rest, ...(product.options ? { options: product.options.map(({ costPrice: _c, ...o }) => o) } : {}) } as T;
+}
+
 router.get('/products', async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const products = await prisma.product.findMany({
@@ -165,7 +173,7 @@ router.get('/products', async (req, res) => {
     include: productInclude,
     orderBy: { createdAt: 'desc' },
   });
-  res.json(products);
+  res.json(isFrontline(req.authUser) ? products.map(withoutCost) : products);
 });
 
 // One product with its variation options and addons — what the edit page loads.
@@ -173,7 +181,7 @@ router.get('/products/:id', async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const product = await prisma.product.findFirst({ where: { id: req.params.id, tenantId }, include: productInclude });
   if (!product) return res.status(404).json({ error: 'Product not found' });
-  res.json(product);
+  res.json(isFrontline(req.authUser) ? withoutCost(product) : product);
 });
 
 router.post('/products', requirePermission('inventory:manage'), async (req, res) => {

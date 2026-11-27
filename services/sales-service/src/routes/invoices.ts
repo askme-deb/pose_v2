@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requirePermission, userHasPermission, HttpError } from '@pospe/permissions';
+import { requirePermission, userHasPermission, isFrontline, HttpError } from '@pospe/permissions';
 import { round2 } from '@pospe/utilities';
 import { prisma, resolveTenantId, resolveStoreId } from '../lib/prisma';
 import { indexInvoice } from '../lib/elasticsearch';
@@ -74,12 +74,15 @@ router.get('/invoices', async (req, res) => {
   const tenantId = await resolveTenantId(req);
   const storeId = await resolveStoreId(tenantId, req.header('x-store-id') ?? undefined, req.authUser?.storeId);
 
+  // A cashier sees only the bills they rang up themselves, never the store's.
+  const ownOnly = createdBy === 'me' || isFrontline(req.authUser);
+
   const invoices = await prisma.invoice.findMany({
     where: {
       storeId,
       ...(from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {}),
       ...(status ? { status } : {}),
-      ...(createdBy === 'me' ? { createdById: actingUserId(req) ?? '__none__' } : {}),
+      ...(ownOnly ? { createdById: actingUserId(req) ?? '__none__' } : {}),
     },
     include: { items: { include: { product: { select: { id: true, name: true } } } } },
     orderBy: { createdAt: 'desc' },
